@@ -14,12 +14,14 @@ class AsteroidsGame(arcade.Window):
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
 
+        # Set game variables
         self.player_list = None
         self.asteroid_list = None
         self.bullet_list = None
         self.player = None
         self.score = 0
 
+        # Score object for performance reasons
         self.score_text = None
 
         # Key states
@@ -43,6 +45,7 @@ class AsteroidsGame(arcade.Window):
         # Reset score and other game variables
         self.score = 0
 
+        # Initialise score object here
         self.score_text = arcade.Text(
             text=f"Score: {math.floor(self.score)}",
             x=10,
@@ -72,13 +75,13 @@ class AsteroidsGame(arcade.Window):
         self.last_player_y = self.player.center_y
 
     def setup(self):
+        # Run this only once, this doesn't add much anyway tbh
         arcade.set_background_color(arcade.color.BLACK)
 
         self.reset_game()
 
     def spawn_asteroid(self, delta_time: float):
-        # Let's pick a random number from 0 to 1
-        roll = random.random()  # e.g., 0.0 <= roll < 1.0
+        roll = random.random()
 
         if roll < 0.4:
             # 40% => small
@@ -128,23 +131,17 @@ class AsteroidsGame(arcade.Window):
         # If the movement is bigger than our threshold, give points
         if dist > self.movement_threshold:
             # Award 1 point for each threshold chunk the player traveled, for instance.
-            # E.g., if dist = 6.3 and threshold=2.0, we might give floor(6.3/2) = 3 points
-            # or simply 1 point if you only want 1 "chunk" per frame. Pick your approach:
             reward_chunks = int(dist // self.movement_threshold)  # number of threshold chunks
             self.score += reward_chunks  # 1 point per chunk
 
             # Update the "last position" to start measuring from here
-            # so we don't double-count leftover distance.
-            # One approach is to step the last position forward by threshold * number_of_chunks
-            # in the same direction. Simpler is just to set it to the current position,
-            # meaning big movements give only 1 chunk of reward if done in one frame.
             self.last_player_x = self.player.center_x
             self.last_player_y = self.player.center_y
 
-            print("Player moved")
+            print("Player moved") #for debug ofc
         else:
             # If below threshold, do no reward,
-            # but optionally keep partial distance (i.e., do nothing with last positions).
+            # but optionally keep partial distance (maybe later idk yet, might make it harder for ai).
             self.last_player_x = self.player.center_x
             self.last_player_y = self.player.center_y
             pass
@@ -175,16 +172,13 @@ class AsteroidsGame(arcade.Window):
                 print("Player hit an asteroid! Final Score:", self.score)
                 self.reset_game()
 
-        # Handle continuous input
+        # Handle continuous input because the library is weird and "lightweight" (lowkey bad)
         if self.left_pressed:
             self.player.rotate_left()
         if self.right_pressed:
             self.player.rotate_right()
         if self.up_pressed:
             self.player.thrust_forward()
-
-        # Shooting typically might be a one-shot, but if you really do want
-        # continuous rapid fire while space is held, you can do so here:
         if self.space_pressed:
             bullet = self.player.shoot()
             if bullet:

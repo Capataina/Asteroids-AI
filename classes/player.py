@@ -6,7 +6,7 @@ from classes.bullet import Bullet
 class Player(arcade.Sprite):
     def __init__(self, texture="sprites/Player.png", scale=0.5):
         super().__init__(texture, scale)
-        # Start in the middle of the screen
+        # Start in the middle of the screen (hard coded leave me alone)
         self.center_x = 400
         self.center_y = 300
 
@@ -38,7 +38,6 @@ class Player(arcade.Sprite):
     def rotate_left(self):
         """
         Rotate the ship instantly to the left by a fixed step.
-        This is simpler than setting a rotation_speed and integrating it over time.
         """
         self.angle -= self.rotation_speed
 
@@ -53,7 +52,7 @@ class Player(arcade.Sprite):
         self.change_y += math.cos(angle_rad) * self.acceleration
 
     def shoot(self):
-        """Fire a bullet if the cooldown has expired."""
+        """Fire a bullet if the cooldown is up."""
         if self.shoot_timer <= 0:
             self.shoot_timer = self.shoot_cooldown
             return Bullet(self.center_x, self.center_y, self.angle)
