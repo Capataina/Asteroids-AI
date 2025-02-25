@@ -35,101 +35,106 @@ class AsteroidsGraphEnv:
 
     def step(self, actions):
         """
-        Take an action in the environment.
-
-        Args:
-            actions: Array of 4 values [left, right, thrust, shoot]
-                    Each value is between 0 and 1 (continuous)
-
-        Returns:
-            next_state: Graph representation of new state
-            reward: Reward for this step
-            done: Whether the episode has ended
-            info: Additional information
+        Take an action in the environment with better error handling.
         """
-        # Save current score for reward calculation
-        prev_score = self.game.score
+        try:
+            # Save current score for reward calculation
+            prev_score = self.game.score
 
-        # Save original input state
-        left_pressed = self.game.left_pressed
-        right_pressed = self.game.right_pressed
-        up_pressed = self.game.up_pressed
-        space_pressed = self.game.space_pressed
+            # Save original input state
+            left_pressed = self.game.left_pressed
+            right_pressed = self.game.right_pressed
+            up_pressed = self.game.up_pressed
+            space_pressed = self.game.space_pressed
 
-        # Set the control inputs from the AI action
-        self.game.left_pressed = actions[0] > 0.5
-        self.game.right_pressed = actions[1] > 0.5
-        self.game.up_pressed = actions[2] > 0.5
-        self.game.space_pressed = actions[3] > 0.5
+            # Set the control inputs from the AI action
+            self.game.left_pressed = actions[0] > 0.5
+            self.game.right_pressed = actions[1] > 0.5
+            self.game.up_pressed = actions[2] > 0.5
+            self.game.space_pressed = actions[3] > 0.5
 
-        # Update player, bullets, and asteroids directly
-        self.game.player_list.update()
-        self.game.asteroid_list.update()
-        self.game.bullet_list.update()
-        self.game.score += 0.1  # Small score increment for surviving
+            # Flag to track if player died
+            done = False
 
-        # Wrap all sprites
-        for sprite in self.game.player_list:
-            self._wrap_sprite(sprite)
-        for sprite in self.game.bullet_list:
-            self._wrap_sprite(sprite)
-        for sprite in self.game.asteroid_list:
-            self._wrap_sprite(sprite)
+            # Update player, bullets, and asteroids directly
+            if self.game.player_list:
+                self.game.player_list.update()
+            self.game.asteroid_list.update()
+            self.game.bullet_list.update()
+            self.game.score += 0.1  # Small score increment for surviving
 
-        # Handle bullet-asteroid collisions (copied from game's on_update)
-        for bullet in self.game.bullet_list:
-            hit_list = arcade.check_for_collision_with_list(bullet, self.game.asteroid_list)
-            for asteroid in hit_list:
-                bullet.remove_from_sprite_lists()
-                asteroid.hp -= 1
-                if asteroid.hp <= 0:
-                    self.game.score += 10
-                    new_asteroids = asteroid.break_asteroid()
-                    asteroid.remove_from_sprite_lists()
-                    for child in new_asteroids:
-                        self.game.asteroid_list.append(child)
+            # Wrap all sprites
+            for sprite in list(self.game.player_list):
+                self._wrap_sprite(sprite)
+            for sprite in list(self.game.bullet_list):
+                self._wrap_sprite(sprite)
+            for sprite in list(self.game.asteroid_list):
+                self._wrap_sprite(sprite)
 
-        # Flag to track if player died
-        done = False
+            # Handle bullet-asteroid collisions
+            for bullet in list(self.game.bullet_list):  # Use a copy of the list for safety
+                if bullet in self.game.bullet_list:  # Check if bullet still exists
+                    hit_list = arcade.check_for_collision_with_list(bullet, self.game.asteroid_list)
+                    for asteroid in hit_list:
+                        if bullet in self.game.bullet_list:
+                            bullet.remove_from_sprite_lists()
 
-        # Check for player-asteroid collisions
-        if self.game.player in self.game.player_list:
-            if arcade.check_for_collision_with_list(self.game.player, self.game.asteroid_list):
-                print(f"Player hit an asteroid! Final Score: {self.game.score}")
+                        if asteroid in self.game.asteroid_list:
+                            asteroid.hp -= 1
+                            if asteroid.hp <= 0:
+                                self.game.score += 10
+                                new_asteroids = asteroid.break_asteroid()
+                                asteroid.remove_from_sprite_lists()
+                                for child in new_asteroids:
+                                    self.game.asteroid_list.append(child)
+
+            # Check for player-asteroid collisions
+            if self.game.player in self.game.player_list:
+                if arcade.check_for_collision_with_list(self.game.player, self.game.asteroid_list):
+                    print(f"Player hit an asteroid! Final Score: {self.game.score}")
+                    done = True
+
+            # Handle continuous input for player
+            if self.game.left_pressed and self.game.player in self.game.player_list:
+                self.game.player.rotate_left()
+            if self.game.right_pressed and self.game.player in self.game.player_list:
+                self.game.player.rotate_right()
+            if self.game.up_pressed and self.game.player in self.game.player_list:
+                self.game.player.thrust_forward()
+            if self.game.space_pressed and self.game.player in self.game.player_list:
+                bullet = self.game.player.shoot()
+                if bullet:
+                    self.game.bullet_list.append(bullet)
+
+            # Update score text safely
+            try:
+                if hasattr(self.game, 'score_text'):
+                    self.game.score_text.text = f"Score: {math.floor(self.game.score)}"
+            except Exception as e:
+                print(f"Error updating score: {e}")
+
+            # Restore the original input state
+            self.game.left_pressed = left_pressed
+            self.game.right_pressed = right_pressed
+            self.game.up_pressed = up_pressed
+            self.game.space_pressed = space_pressed
+
+            # Check if game was reset (player died)
+            if self.game.score < prev_score:
                 done = True
 
-        # Handle continuous input for player
-        if self.game.left_pressed:
-            self.game.player.rotate_left()
-        if self.game.right_pressed:
-            self.game.player.rotate_right()
-        if self.game.up_pressed:
-            self.game.player.thrust_forward()
-        if self.game.space_pressed:
-            bullet = self.game.player.shoot()
-            if bullet:
-                self.game.bullet_list.append(bullet)
+            # Calculate reward (basic version)
+            reward = self.game.score - prev_score
 
-        # Update score text
-        self.game.score_text.text = f"Score: {math.floor(self.game.score)}"
+            # Get new state as graph
+            next_state = self._get_graph_state()
 
-        # Restore the original input state
-        self.game.left_pressed = left_pressed
-        self.game.right_pressed = right_pressed
-        self.game.up_pressed = up_pressed
-        self.game.space_pressed = space_pressed
+            return next_state, reward, done, {}
 
-        # Check if game was reset (player died)
-        if self.game.score < prev_score:
-            done = True
-
-        # Calculate reward (basic version)
-        reward = self.game.score - prev_score
-
-        # Get new state as graph
-        next_state = self._get_graph_state()
-
-        return next_state, reward, done, {}
+        except Exception as e:
+            print(f"Error in step method: {e}")
+            # Return a safe state and end the episode
+            return self._get_graph_state(), 0, True, {}
 
     def _get_graph_state(self):
         """
