@@ -85,7 +85,6 @@ class AIDriver:
             print(f"Error in AI update: {e}")
             self.done = True  # Force end of episode if there's an error
 
-
 def main():
     # Create ONLY ONE game window
     window = AsteroidsGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
