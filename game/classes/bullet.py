@@ -2,7 +2,7 @@ import arcade
 import math
 
 class Bullet(arcade.Sprite):
-    def __init__(self, x, y, angle, texture="sprites/Bullet.png", scale=0.8):
+    def __init__(self, x, y, angle, texture="game/sprites/Bullet.png", scale=0.8):
         super().__init__(texture, scale)
         self.center_x = x
         self.center_y = y

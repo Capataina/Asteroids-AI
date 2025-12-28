@@ -1,10 +1,10 @@
 import arcade
 import math
 
-from classes.bullet import Bullet
+from game.classes.bullet import Bullet
 
 class Player(arcade.Sprite):
-    def __init__(self, texture="sprites/Player.png", scale=0.5):
+    def __init__(self, texture="game/sprites/Player.png", scale=0.5):
         super().__init__(texture, scale)
         # Start in the middle of the screen (hard coded leave me alone)
         self.center_x = 400

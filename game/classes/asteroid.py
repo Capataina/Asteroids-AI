@@ -2,10 +2,10 @@ import arcade
 import random
 
 ASTEROID_TEXTURES = [
-    "sprites/Asteroid_Large_1.png",
-    "sprites/Asteroid_Large_2.png",
-    "sprites/Asteroid_Large_3.png",
-    "sprites/Asteroid_Large_4.png"
+    "game/sprites/Asteroid_Large_1.png",
+    "game/sprites/Asteroid_Large_2.png",
+    "game/sprites/Asteroid_Large_3.png",
+    "game/sprites/Asteroid_Large_4.png"
 ]
 
 class Asteroid(arcade.Sprite):

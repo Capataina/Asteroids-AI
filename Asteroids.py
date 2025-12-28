@@ -3,8 +3,10 @@ import math
 import arcade
 import random
 
-from classes.player import Player
-from classes.asteroid import Asteroid
+from game.classes.player import Player
+from game.classes.asteroid import Asteroid
+from interfaces.EnvironmentTracker import EnvironmentTracker
+from interfaces.MetricsTracker import MetricsTracker
 
 SCREEN_WIDTH  = 800
 SCREEN_HEIGHT = 600
@@ -36,6 +38,10 @@ class AsteroidsGame(arcade.Window):
 
         # Distance threshold so extremely small movement doesn't count
         self.movement_threshold = 25
+
+        # Environment tracker
+        self.tracker = EnvironmentTracker(self)
+        self.metrics_tracker = MetricsTracker(self)
 
     def reset_game(self):
         """Reset the entire game state to a 'fresh' start."""
@@ -73,6 +79,8 @@ class AsteroidsGame(arcade.Window):
         # Reset last player position for distance-based reward
         self.last_player_x = self.player.center_x
         self.last_player_y = self.player.center_y
+
+        self.metrics_tracker.reset()
 
     def setup(self):
         # Run this only once, this doesn't add much anyway tbh
@@ -153,6 +161,17 @@ class AsteroidsGame(arcade.Window):
                 # Remove the bullet
                 bullet.remove_from_sprite_lists()
 
+                self.metrics_tracker.total_hits += 1
+                print(self.metrics_tracker.get_total_hits())
+
+                # Debug print the tracker state
+                # For now, this seems to be working perfectly fine, so we'll leave it as is for now.
+                # print("Tracker state:")
+                # print("All asteroids distance to player:", self.tracker.all_asteroids_distance_to_player())
+                # print("Distance to nearest asteroid:", self.tracker.get_distance_to_nearest_asteroid())
+                # print("Nearest asteroid:", self.tracker.get_nearest_asteroid())
+                # print("Asteroids in range:", self.tracker.get_asteroids_in_range(100))
+
                 # Decrement asteroid HP
                 asteroid.hp -= 1
 
@@ -161,6 +180,9 @@ class AsteroidsGame(arcade.Window):
                     self.score += 10  # Or scale score to asteroid size if you like
                     new_asteroids = asteroid.break_asteroid()
                     asteroid.remove_from_sprite_lists()
+
+                    self.metrics_tracker.total_kills += 1
+                    print(self.metrics_tracker.get_total_kills())
 
                     # Add any child asteroids
                     for child in new_asteroids:
@@ -183,8 +205,11 @@ class AsteroidsGame(arcade.Window):
             bullet = self.player.shoot()
             if bullet:
                 self.bullet_list.append(bullet)
+                self.metrics_tracker.total_shots_fired += 1
+                print(self.metrics_tracker.get_total_shots_fired())
 
         self.score_text.text = f"Score: {math.floor(self.score)}"
+        self.tracker.update(self)
 
     def wrap_sprite(self, sprite):
         if sprite.center_x < 0:

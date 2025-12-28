@@ -2,7 +2,7 @@
 import numpy as np
 import arcade
 from Asteroids import AsteroidsGame, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
-from ai.env_wrapper import AsteroidsGraphEnv
+from ai_agents.reinforcement_learning.gnn_and_sac.env_wrapper import AsteroidsGraphEnv
 
 
 class AIDriver:
