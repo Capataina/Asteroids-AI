@@ -19,7 +19,15 @@ Asteroids AI/
 │   ├── policies.py           # Policy implementations
 │   └── sac.py                # Soft Actor-Critic RL algorithm
 ├── interfaces/
-│   └── Environment.py        # EnvironmentTracker (incomplete stub)
+│   ├── EnvironmentTracker.py # Current state snapshot, events, derived metrics
+│   ├── MetricsTracker.py     # Aggregated episode statistics
+│   ├── RewardCalculator.py   # Component-based reward system
+│   └── rewards/              # Individual reward component implementations
+│       ├── survival.py
+│       ├── kill_asteroid.py
+│       ├── accuracy.py
+│       ├── near_miss.py
+│       └── chunk_exploration.py
 └── train_agent.py            # Training loop driver
 ```
 
@@ -37,9 +45,10 @@ Asteroids AI/
 - **Asteroid**: HP-based destruction, fragmentation into smaller asteroids
 
 ### AI Interface Layer (`interfaces/`)
-- **Current**: Stub `EnvironmentTracker` (incomplete)
-- **Planned**: `EnvironmentTracker` (current state snapshot) + `MetricsTracker` (aggregated stats)
-- **Purpose**: Stable API for all AI methods to access game state and metrics
+- **EnvironmentTracker**: Current state snapshot, derived metrics, event detection
+- **MetricsTracker**: Aggregated statistics over episode (accuracy, kills, time alive)
+- **RewardCalculator**: Component-based reward system (`ComposableRewardCalculator` + `RewardComponent` implementations)
+- **Purpose**: Stable API for all AI methods to access game state, metrics, and rewards
 
 ### AI Wrappers (`ai/`)
 - **AsteroidsGraphEnv**: Converts game state to PyTorch Geometric graph format
@@ -52,14 +61,18 @@ Asteroids AI/
 
 ## Data Flow
 
-1. **Game Update**: `AsteroidsGame.on_update()` → updates sprites, collisions, score
-2. **AI Observation**: `AsteroidsGraphEnv._get_graph_state()` → reads `self.game.*` directly
-3. **AI Action**: `AsteroidsGraphEnv.step()` → sets `self.game.left_pressed`, etc.
-4. **Training Loop**: `AIDriver.update()` → calls `env.step()`, collects rewards
+1. **Game Update**: `AsteroidsGame.on_update()` → updates sprites, collisions, calls `tracker.update()`
+2. **Tracker Update**: `EnvironmentTracker.update()` → detects events, `MetricsTracker.update()` → aggregates stats
+3. **AI Observation**: `AsteroidsGraphEnv._get_graph_state()` → reads `self.game.*` directly (future: use trackers)
+4. **AI Action**: `AsteroidsGraphEnv.step()` → sets `self.game.left_pressed`, etc.
+5. **Reward Calculation**: `ComposableRewardCalculator.calculate_step_reward()` → sums enabled component rewards
+6. **Training Loop**: `AIDriver.update()` → calls `env.step()`, receives rewards from RewardCalculator
 
 ## Planned Changes
 
-- **EnvironmentTracker**: Centralised state access, event tracking, derived metrics
-- **MetricsTracker**: Episode-level statistics (accuracy, kills, time alive)
-- **Refactor**: Replace direct `self.game.*` access in `AsteroidsGraphEnv` with tracker calls
+- **EnvironmentTracker**: ✅ Complete (centralised state access, event tracking, derived metrics)
+- **MetricsTracker**: ✅ Complete (episode-level statistics: accuracy, kills, time alive)
+- **RewardCalculator**: Component-based reward system (modular, composable components)
+- **Refactor**: Replace direct `self.game.*` access in `AsteroidsGraphEnv` with tracker calls (deferred until infrastructure complete)
+- **Score Removal**: Remove score calculation from `Asteroids.py`, use RewardCalculator instead
 

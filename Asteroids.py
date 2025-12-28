@@ -162,7 +162,7 @@ class AsteroidsGame(arcade.Window):
                 bullet.remove_from_sprite_lists()
 
                 self.metrics_tracker.total_hits += 1
-                print(self.metrics_tracker.get_total_hits())
+                # print(self.metrics_tracker.get_total_hits())
 
                 # Debug print the tracker state
                 # For now, this seems to be working perfectly fine, so we'll leave it as is for now.
@@ -182,7 +182,7 @@ class AsteroidsGame(arcade.Window):
                     asteroid.remove_from_sprite_lists()
 
                     self.metrics_tracker.total_kills += 1
-                    print(self.metrics_tracker.get_total_kills())
+                    # print(self.metrics_tracker.get_total_kills())
 
                     # Add any child asteroids
                     for child in new_asteroids:
@@ -206,9 +206,11 @@ class AsteroidsGame(arcade.Window):
             if bullet:
                 self.bullet_list.append(bullet)
                 self.metrics_tracker.total_shots_fired += 1
-                print(self.metrics_tracker.get_total_shots_fired())
+                # print(self.metrics_tracker.get_total_shots_fired())
 
         self.score_text.text = f"Score: {math.floor(self.score)}"
+        self.metrics_tracker.time_alive += delta_time
+        # print(self.metrics_tracker.time_alive)
         self.tracker.update(self)
 
     def wrap_sprite(self, sprite):

@@ -150,8 +150,8 @@ class MetricsTracker:
 **Implementation**:
 
 - [x] Create `interfaces/EnvironmentTracker.py`
-- [ ] Implement `__init__()`, `update()`, `get_all_bullets()`, `get_all_asteroids()`, `get_player()`, `get_tick()`
-- [ ] Store reference to game, initialise tick counter
+- [x] Implement `__init__()`, `update()`, `get_all_bullets()`, `get_all_asteroids()`, `get_player()`, `get_tick()`
+- [x] Store reference to game, initialise tick counter
       **Verification**: Can instantiate tracker, call getters, tick increments on update
 
 ### Step 2: Add event detection
@@ -202,7 +202,7 @@ class MetricsTracker:
 **Intent**: Remove old stub, add docstrings, verify integration
 **Implementation**:
 
-- [x] Remove or update `interfaces/Environment.py` stub
+- [x] Remove `interfaces/Environment.py` stub
 - [ ] Add comprehensive docstrings to both tracker classes
 - [ ] Add type hints
 - [ ] Verify tracker functionality independently (without AI wrappers)
