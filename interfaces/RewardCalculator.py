@@ -1,5 +1,5 @@
-from EnvironmentTracker import EnvironmentTracker
-from MetricsTracker import MetricsTracker
+from interfaces.EnvironmentTracker import EnvironmentTracker
+from interfaces.MetricsTracker import MetricsTracker
 
 class RewardComponent:
   def calculate_step_reward(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
@@ -13,44 +13,47 @@ class RewardComponent:
 
 class ComposableRewardCalculator:
   def __init__(self):
+    self.score = 0.0
     self.components = {}
     self.enabled_components = set()
-
-  def add_component(self, name: str, component: RewardComponent):
-    self.components[name] = component
+  
+  def add_component(self, component: RewardComponent):
+    self.components[component.name] = component
+    self.enabled_components.add(component.name)
 
   def enable_component(self, name: str):
     self.enabled_components.add(name)
 
   def disable_component(self, name: str):
-    self.enabled_components.remove(name)
+    self.enabled_components.discard(name)
 
   def is_enabled(self, name: str) -> bool:
-    return self.components[name].enabled
+    return name in self.enabled_components
 
   def calculate_step_reward(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
     reward = 0.0
 
-    current_metrics = metrics_tracker.get_episode_stats()
-
     for name in self.enabled_components:
-      reward += self.components[name].calculate_step_reward(env_tracker, current_metrics)
+      reward += self.components[name].calculate_step_reward(env_tracker, metrics_tracker)
+
+    self.score += reward
 
     return reward
 
   def calculate_episode_reward(self, metrics_tracker: MetricsTracker) -> float:
     reward = 0.0
 
-    current_metrics = metrics_tracker.get_episode_stats()
-
     for name in self.enabled_components:
-      reward += self.components[name].calculate_episode_reward(current_metrics)
+      reward += self.components[name].calculate_episode_reward(metrics_tracker)
+
+    self.score += reward
 
     return reward
 
   def current_score(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
-    return self.calculate_step_reward(env_tracker, metrics_tracker) + self.calculate_episode_reward(metrics_tracker)
+    return self.score
 
   def reset(self) -> None:
     for name in self.enabled_components:
       self.components[name].reset()
+    self.score = 0.0

@@ -7,6 +7,11 @@ from game.classes.player import Player
 from game.classes.asteroid import Asteroid
 from interfaces.EnvironmentTracker import EnvironmentTracker
 from interfaces.MetricsTracker import MetricsTracker
+from interfaces.RewardCalculator import ComposableRewardCalculator
+
+from interfaces.rewards.SurvivalBonus import SurvivalBonus
+from interfaces.rewards.KillAsteroid import KillAsteroid
+from interfaces.rewards.ChunkBonus import ChunkBonus
 
 SCREEN_WIDTH  = 800
 SCREEN_HEIGHT = 600
@@ -21,7 +26,6 @@ class AsteroidsGame(arcade.Window):
         self.asteroid_list = None
         self.bullet_list = None
         self.player = None
-        self.score = 0
 
         # Score object for performance reasons
         self.score_text = None
@@ -39,21 +43,24 @@ class AsteroidsGame(arcade.Window):
         # Distance threshold so extremely small movement doesn't count
         self.movement_threshold = 25
 
-        # Environment tracker
+        # Trackers
         self.tracker = EnvironmentTracker(self)
         self.metrics_tracker = MetricsTracker(self)
+        self.reward_calculator = ComposableRewardCalculator()
+
+        # Reward components
+        self.reward_calculator.add_component(SurvivalBonus())
+        self.reward_calculator.add_component(KillAsteroid())
+        self.reward_calculator.add_component(ChunkBonus())
 
     def reset_game(self):
         """Reset the entire game state to a 'fresh' start."""
         # Unschedule the asteroid spawner so we don't stack multiple timers
         arcade.unschedule(self.spawn_asteroid)
 
-        # Reset score and other game variables
-        self.score = 0
-
         # Initialise score object here
         self.score_text = arcade.Text(
-            text=f"Score: {math.floor(self.score)}",
+            text=f"Score: {math.floor(self.reward_calculator.score)}",
             x=10,
             y=self.height - 30,
             color=arcade.color.WHITE,
@@ -81,6 +88,7 @@ class AsteroidsGame(arcade.Window):
         self.last_player_y = self.player.center_y
 
         self.metrics_tracker.reset()
+        self.reward_calculator.reset()
 
     def setup(self):
         # Run this only once, this doesn't add much anyway tbh
@@ -122,7 +130,6 @@ class AsteroidsGame(arcade.Window):
         self.player_list.update()
         self.asteroid_list.update()
         self.bullet_list.update()
-        self.score += math.ceil(delta_time) / 10
 
         # Wrap all sprites
         self.wrap_sprite(self.player)
@@ -130,29 +137,6 @@ class AsteroidsGame(arcade.Window):
             self.wrap_sprite(bullet)
         for asteroid in self.asteroid_list:
             self.wrap_sprite(asteroid)
-
-        # Compute how far the player traveled each frame
-        dx = self.player.center_x - self.last_player_x
-        dy = self.player.center_y - self.last_player_y
-        dist = math.sqrt(dx * dx + dy * dy)
-
-        # If the movement is bigger than our threshold, give points
-        if dist > self.movement_threshold:
-            # Award 1 point for each threshold chunk the player traveled, for instance.
-            reward_chunks = int(dist // self.movement_threshold)  # number of threshold chunks
-            self.score += reward_chunks  # 1 point per chunk
-
-            # Update the "last position" to start measuring from here
-            self.last_player_x = self.player.center_x
-            self.last_player_y = self.player.center_y
-
-            print("Player moved") #for debug ofc
-        else:
-            # If below threshold, do no reward,
-            # but optionally keep partial distance (maybe later idk yet, might make it harder for ai).
-            self.last_player_x = self.player.center_x
-            self.last_player_y = self.player.center_y
-            pass
 
         # Bullet-asteroid collisions
         for bullet in self.bullet_list:
@@ -177,7 +161,6 @@ class AsteroidsGame(arcade.Window):
 
                 # If the asteroid is now destroyed, break it
                 if asteroid.hp <= 0:
-                    self.score += 10  # Or scale score to asteroid size if you like
                     new_asteroids = asteroid.break_asteroid()
                     asteroid.remove_from_sprite_lists()
 
@@ -191,7 +174,7 @@ class AsteroidsGame(arcade.Window):
         # Player-asteroid collisions
         if self.player in self.player_list:
             if arcade.check_for_collision_with_list(self.player, self.asteroid_list):
-                print("Player hit an asteroid! Final Score:", self.score)
+                print("Player hit an asteroid! Final Score:", self.reward_calculator.current_score(self.tracker, self.metrics_tracker))
                 self.reset_game()
 
         # Handle continuous input because the library is weird and "lightweight" (lowkey bad)
@@ -208,10 +191,11 @@ class AsteroidsGame(arcade.Window):
                 self.metrics_tracker.total_shots_fired += 1
                 # print(self.metrics_tracker.get_total_shots_fired())
 
-        self.score_text.text = f"Score: {math.floor(self.score)}"
+        self.score_text.text = f"Score: {math.floor(self.reward_calculator.score)}"
         self.metrics_tracker.time_alive += delta_time
         # print(self.metrics_tracker.time_alive)
         self.tracker.update(self)
+        self.reward_calculator.calculate_step_reward(self.tracker, self.metrics_tracker)
 
     def wrap_sprite(self, sprite):
         if sprite.center_x < 0:

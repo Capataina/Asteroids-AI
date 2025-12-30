@@ -287,14 +287,14 @@ def reset(self) -> None:
 
 **Implementation**:
 
-- [ ] Create `interfaces/rewards/chunk_exploration.py`
-- [ ] Implement `ChunkExplorationBonus(RewardComponent)` class
+- [x] Create `interfaces/rewards/chunk_exploration.py`
+- [x] Implement `ChunkExplorationBonus(RewardComponent)` class
   - `__init__(chunk_size: float = 50.0, bonus_per_chunk: float = 1.0)` - configurable chunk size and bonus
   - Store `last_player_x`, `last_player_y` (internal state)
   - `calculate_step_reward()` - gets player position from `env_tracker.get_player()`, calculates distance moved, awards bonus per chunk if exceeds threshold
   - `calculate_episode_reward()` - returns 0.0 (step-level only)
   - `reset()` - resets `last_player_x`, `last_player_y` to None
-- [ ] Test component independently (mock player position changes)
+- [x] Test component independently (mock player position changes)
 
 **Verification**: Component tracks position correctly, awards bonus only when threshold exceeded, resets properly
 
@@ -354,11 +354,11 @@ def reset(self) -> None:
 
 **Implementation**:
 
-- [ ] Remove `self.score += math.ceil(delta_time) / 10` from `Asteroids.py.on_update()` (line 125)
-- [ ] Remove movement chunk score logic (lines 134-155) from `Asteroids.py.on_update()`
+- [x] Remove `self.score += math.ceil(delta_time) / 10` from `Asteroids.py.on_update()` (line 125)
+- [x] Remove movement chunk score logic (lines 134-155) from `Asteroids.py.on_update()`
   - Keep movement tracking if needed, but remove score calculation
-- [ ] Remove `self.score += 10` for asteroid kills (line 180) from `Asteroids.py.on_update()`
-- [ ] Decide: keep `self.score` attribute for display, or remove entirely?
+- [x] Remove `self.score += 10` for asteroid kills (line 180) from `Asteroids.py.on_update()`
+- [x] Decide: keep `self.score` attribute for display, or remove entirely?
   - If keeping: can set to 0 or calculate from RewardCalculator for display
   - If removing: update score display code (lines 55, 119, 211)
 

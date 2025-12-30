@@ -35,6 +35,8 @@ class MetricsTracker:
     return self.total_hits / self.total_shots_fired if self.total_shots_fired > 0 else 0.0
 
   def kills_per_minute(self) -> float:
+    if self.time_alive == 0:
+      return 0.0
     return self.total_kills / self.time_alive * 60
   
   def get_episode_stats(self) -> Dict[str, Any]:

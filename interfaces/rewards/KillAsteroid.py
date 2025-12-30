@@ -4,6 +4,7 @@ from interfaces.MetricsTracker import MetricsTracker
 
 class KillAsteroid(RewardComponent):
   def __init__(self, reward_per_asteroid: float = 10.0):
+    self.name = "KillAsteroid"
     self.reward_per_asteroid = reward_per_asteroid
     self.prev_kills = 0
 
