@@ -12,6 +12,8 @@ from interfaces.RewardCalculator import ComposableRewardCalculator
 from interfaces.rewards.SurvivalBonus import SurvivalBonus
 from interfaces.rewards.KillAsteroid import KillAsteroid
 from interfaces.rewards.ChunkBonus import ChunkBonus
+from interfaces.rewards.NearMiss import NearMiss
+from interfaces.rewards.AccuracyBonus import AccuracyBonus
 
 SCREEN_WIDTH  = 800
 SCREEN_HEIGHT = 600
@@ -49,9 +51,11 @@ class AsteroidsGame(arcade.Window):
         self.reward_calculator = ComposableRewardCalculator()
 
         # Reward components
-        self.reward_calculator.add_component(SurvivalBonus())
-        self.reward_calculator.add_component(KillAsteroid())
-        self.reward_calculator.add_component(ChunkBonus())
+        # self.reward_calculator.add_component(SurvivalBonus())
+        #self.reward_calculator.add_component(KillAsteroid())
+        #self.reward_calculator.add_component(ChunkBonus())
+        #self.reward_calculator.add_component(NearMiss())
+        self.reward_calculator.add_component(AccuracyBonus())
 
     def reset_game(self):
         """Reset the entire game state to a 'fresh' start."""

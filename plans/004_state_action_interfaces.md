@@ -98,8 +98,8 @@
 
 **Files to Modify:**
 
-- `ai_agents/reinforcement_learning/gnn_and_sac/env_wrapper.py` - Use GraphEncoder
-- `train_agent.py` - Use StateEncoder and ActionInterface
+- `ai_agents/reinforcement_learning/gnn_and_sac/env_wrapper.py` - Use GraphEncoder (deferred: wrapper refactoring happens after infrastructure complete)
+- **Note**: `train_agent.py` integration is deferred to plan 005 (BaseAgent/EpisodeRunner infrastructure). StateEncoder and ActionInterface will be integrated via EpisodeRunner, not directly into current `train_agent.py`.
 - All future AI methods will use these interfaces
 
 **Dependencies:**

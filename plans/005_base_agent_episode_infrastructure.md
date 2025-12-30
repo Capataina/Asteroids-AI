@@ -89,8 +89,17 @@
 
 **Files to Modify:**
 
-- `train_agent.py` - Refactor to use EpisodeRunner
+- `train_agent.py` - Refactor to use EpisodeRunner (this is where all infrastructure from plans 001-004 gets integrated: MetricsTracker, RewardCalculator, StateEncoder, ActionInterface)
 - All future AI trainers will use BaseAgent and EpisodeRunner
+
+**Integration Responsibility:**
+
+- Plan 005 is responsible for integrating all previous infrastructure into the training loop:
+  - EnvironmentTracker and MetricsTracker (plans 001-002)
+  - RewardCalculator (plan 003)
+  - StateEncoder and ActionInterface (plan 004)
+- Plans 002-004 create the infrastructure but do NOT modify `train_agent.py` directly
+- EpisodeRunner will orchestrate the full episode lifecycle using all these components
 
 **Dependencies:**
 

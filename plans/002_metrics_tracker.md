@@ -73,7 +73,7 @@
 **Files to Modify:**
 
 - `Asteroids.py` - Initialize MetricsTracker, call reset on episode start
-- `train_agent.py` - Create MetricsTracker instance, integrate with training loop
+- **Note**: `train_agent.py` integration is deferred to plan 005 (BaseAgent/EpisodeRunner infrastructure). MetricsTracker will be integrated via EpisodeRunner, not directly into current `train_agent.py`.
 
 **Dependencies:**
 

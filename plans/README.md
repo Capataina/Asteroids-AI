@@ -25,8 +25,10 @@ These plans represent the preliminary infrastructure needed before implementing 
 2. **002_metrics_tracker** - Complete MetricsTracker implementation (if not fully covered in 001)
 3. **003_reward_system** - Component-based RewardCalculator system (modular, composable components) and score removal from game
 4. **004_state_action_interfaces** - State encoders and action standardization
-5. **005_base_agent_episode_infrastructure** - BaseAgent and EpisodeRunner
+5. **005_base_agent_episode_infrastructure** - BaseAgent and EpisodeRunner (integrates all previous infrastructure into training loop)
 6. **006_configuration_utilities** - Configuration and utilities
+
+**Important**: Plans 002-004 create infrastructure components but do NOT modify `train_agent.py`. Plan 005 (BaseAgent/EpisodeRunner) is responsible for integrating all infrastructure (MetricsTracker, RewardCalculator, StateEncoder, ActionInterface) into the training loop. The current `train_agent.py` is temporary/legacy code that will be refactored in plan 005.
 
 After these plans are complete, we can begin implementing the 5 AI methods:
 
