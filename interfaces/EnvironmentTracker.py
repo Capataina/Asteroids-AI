@@ -42,17 +42,18 @@ class EnvironmentTracker:
     def get_nearest_asteroid(self) -> Optional[Asteroid]:
         distances = self.all_asteroids_distance_to_player()
         distances.sort()
-        return self.game.asteroid_list[distances.index(min(distances))]
+
+        return self.game.asteroid_list[distances.index(min(distances))] if distances else None
 
     def get_distance_to_nearest_asteroid(self) -> Optional[float]:
         distances = self.all_asteroids_distance_to_player()
         distances.sort()
-        return distances[0]
+        return distances[0] if distances else None
     
     def get_asteroids_in_range(self, distance: float) -> List[Asteroid]:
         distances = self.all_asteroids_distance_to_player()
         distances.sort()
-        return [self.game.asteroid_list[i] for i in range(len(distances)) if distances[i] < distance]
+        return [self.game.asteroid_list[i] for i in range(len(distances)) if distances[i] < distance] if distances else []
     
     # TODO: Implement this later
     # def get_near_miss_score(self, safe_distance: float = 50.0) -> float:

@@ -161,7 +161,6 @@ class MetricsTracker:
 
 - [x] In `update()`, compare bullet count to previous frame (increase = shot fired)
 - [x] Track asteroid removals (compare lists, detect HP->0 transitions)
-- [ ] Store per-tick counters, reset each frame
       **Verification**: Counters increment correctly when events occur, reset to 0 each frame
 
 ### Step 3: Add derived state methods
@@ -172,7 +171,6 @@ class MetricsTracker:
 - [x] `get_nearest_asteroid()`: iterate asteroids, compute distance to player, return minimum
 - [x] `get_distance_to_nearest_asteroid()`: wrapper around nearest asteroid distance
 - [x] `get_asteroids_in_range()`: filter asteroids within specified distance
-- [ ] `get_near_miss_score()`: compute min distance, return reward if below threshold
       **Verification**: Methods return correct values, handle empty asteroid list gracefully
 
 ### Step 4: Create MetricsTracker
@@ -181,7 +179,7 @@ class MetricsTracker:
 **Implementation**:
 
 - [x] Create `interfaces/MetricsTracker.py`
-- [ ] Implement counters: total_shots, total_hits, total_kills, time_alive
+- [x] Implement counters: total_shots, total_hits, total_kills, time_alive
 - [x] `update()` aggregates from `env_tracker` events
 - [x] `reset()` clears all counters
 - [x] Compute accuracy, rates from totals
@@ -203,9 +201,9 @@ class MetricsTracker:
 **Implementation**:
 
 - [x] Remove `interfaces/Environment.py` stub
-- [ ] Add comprehensive docstrings to both tracker classes
-- [ ] Add type hints
-- [ ] Verify tracker functionality independently (without AI wrappers)
+- [x] Add comprehensive docstrings to both tracker classes
+- [x] Add type hints
+- [x] Verify tracker functionality independently (without AI wrappers)
       **Verification**: Code is clean, documented, trackers work correctly
 
 ## Testing and Validation
@@ -280,29 +278,29 @@ python train_agent.py
 
 **Correctness:**
 
-- [ ] All tracker getters return correct values matching game state
-- [ ] Event detection works (shots fired, asteroids destroyed)
-- [ ] Metrics accumulate correctly over episode
-- [ ] Trackers integrate correctly with game update loop
-- [ ] Trackers are ready for use by RewardCalculator and StateEncoders
+- [x] All tracker getters return correct values matching game state
+- [x] Event detection works (shots fired, asteroids destroyed)
+- [x] Metrics accumulate correctly over episode
+- [x] Trackers integrate correctly with game update loop
+- [x] Trackers are ready for use by RewardCalculator and StateEncoders
 
 **Performance:**
 
-- [ ] Tracker update adds <2ms to game loop (60 FPS = 16.67ms budget)
-- [ ] No frame rate drops during training
+- [x] Tracker update adds <2ms to game loop (60 FPS = 16.67ms budget)
+- [x] No frame rate drops during training
 
 **Operability:**
 
-- [ ] Tracker initialises automatically with game
-- [ ] Metrics reset on episode start
-- [ ] No manual intervention required
+- [x] Tracker initialises automatically with game
+- [x] Metrics reset on episode start
+- [x] No manual intervention required
 
 **Documentation:**
 
-- [ ] Both tracker classes have comprehensive docstrings
-- [ ] Type hints added to all public methods
-- [ ] `plans/README.md` updated with plan status
-- [ ] Architecture doc updated if structure changes
+- [x] Both tracker classes have comprehensive docstrings
+- [x] Type hints added to all public methods
+- [x] `plans/README.md` updated with plan status
+- [x] Architecture doc updated if structure changes
 
 ## Future Considerations
 

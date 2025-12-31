@@ -14,6 +14,7 @@ from interfaces.rewards.KillAsteroid import KillAsteroid
 from interfaces.rewards.ChunkBonus import ChunkBonus
 from interfaces.rewards.NearMiss import NearMiss
 from interfaces.rewards.AccuracyBonus import AccuracyBonus
+from interfaces.rewards.KPMBonus import KPMBonus
 
 SCREEN_WIDTH  = 800
 SCREEN_HEIGHT = 600
@@ -51,11 +52,12 @@ class AsteroidsGame(arcade.Window):
         self.reward_calculator = ComposableRewardCalculator()
 
         # Reward components
-        # self.reward_calculator.add_component(SurvivalBonus())
-        #self.reward_calculator.add_component(KillAsteroid())
-        #self.reward_calculator.add_component(ChunkBonus())
-        #self.reward_calculator.add_component(NearMiss())
+        self.reward_calculator.add_component(SurvivalBonus())
+        self.reward_calculator.add_component(KillAsteroid())
+        self.reward_calculator.add_component(ChunkBonus())
+        self.reward_calculator.add_component(NearMiss())
         self.reward_calculator.add_component(AccuracyBonus())
+        self.reward_calculator.add_component(KPMBonus())
 
     def reset_game(self):
         """Reset the entire game state to a 'fresh' start."""
@@ -150,15 +152,6 @@ class AsteroidsGame(arcade.Window):
                 bullet.remove_from_sprite_lists()
 
                 self.metrics_tracker.total_hits += 1
-                # print(self.metrics_tracker.get_total_hits())
-
-                # Debug print the tracker state
-                # For now, this seems to be working perfectly fine, so we'll leave it as is for now.
-                # print("Tracker state:")
-                # print("All asteroids distance to player:", self.tracker.all_asteroids_distance_to_player())
-                # print("Distance to nearest asteroid:", self.tracker.get_distance_to_nearest_asteroid())
-                # print("Nearest asteroid:", self.tracker.get_nearest_asteroid())
-                # print("Asteroids in range:", self.tracker.get_asteroids_in_range(100))
 
                 # Decrement asteroid HP
                 asteroid.hp -= 1
@@ -169,7 +162,6 @@ class AsteroidsGame(arcade.Window):
                     asteroid.remove_from_sprite_lists()
 
                     self.metrics_tracker.total_kills += 1
-                    # print(self.metrics_tracker.get_total_kills())
 
                     # Add any child asteroids
                     for child in new_asteroids:
@@ -193,11 +185,9 @@ class AsteroidsGame(arcade.Window):
             if bullet:
                 self.bullet_list.append(bullet)
                 self.metrics_tracker.total_shots_fired += 1
-                # print(self.metrics_tracker.get_total_shots_fired())
 
         self.score_text.text = f"Score: {math.floor(self.reward_calculator.score)}"
         self.metrics_tracker.time_alive += delta_time
-        # print(self.metrics_tracker.time_alive)
         self.tracker.update(self)
         self.reward_calculator.calculate_step_reward(self.tracker, self.metrics_tracker)
 
