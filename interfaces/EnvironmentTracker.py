@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from Asteroids import AsteroidsGame
@@ -40,21 +40,82 @@ class EnvironmentTracker:
     
     # Derived state
     def get_nearest_asteroid(self) -> Optional[Asteroid]:
-        distances = self.all_asteroids_distance_to_player()
-        distances.sort()
-
-        return self.game.asteroid_list[distances.index(min(distances))] if distances else None
+        """
+        Get the nearest asteroid to the player.
+        
+        Returns:
+            The nearest Asteroid, or None if no asteroids exist or no player exists.
+        """
+        if not self.game.player or not self.game.asteroid_list:
+            return None
+        
+        asteroid_distances = self._get_asteroid_distances()
+        if not asteroid_distances:
+            return None
+        
+        # Sort by distance (first element of tuple)
+        asteroid_distances.sort(key=lambda x: x[1])
+        return asteroid_distances[0][0]  # Return the asteroid (first element of first tuple)
 
     def get_distance_to_nearest_asteroid(self) -> Optional[float]:
-        distances = self.all_asteroids_distance_to_player()
-        distances.sort()
-        return distances[0] if distances else None
+        """
+        Get the distance to the nearest asteroid.
+        
+        Returns:
+            Distance to nearest asteroid, or None if no asteroids exist or no player exists.
+        """
+        if not self.game.player or not self.game.asteroid_list:
+            return None
+        
+        asteroid_distances = self._get_asteroid_distances()
+        if not asteroid_distances:
+            return None
+        
+        # Sort by distance
+        asteroid_distances.sort(key=lambda x: x[1])
+        return asteroid_distances[0][1]  # Return the distance (second element of first tuple)
     
     def get_asteroids_in_range(self, distance: float) -> List[Asteroid]:
-        distances = self.all_asteroids_distance_to_player()
-        distances.sort()
-        return [self.game.asteroid_list[i] for i in range(len(distances)) if distances[i] < distance] if distances else []
+        """
+        Get all asteroids within a given distance of the player.
+        
+        Args:
+            distance: Maximum distance to consider.
+            
+        Returns:
+            List of asteroids within the specified distance.
+        """
+        if not self.game.player or not self.game.asteroid_list:
+            return []
+        
+        asteroid_distances = self._get_asteroid_distances()
+        # Filter by distance and return asteroids
+        return [asteroid for asteroid, dist in asteroid_distances if dist < distance]
     
+    def get_nearest_asteroids(self, num_asteroids: int) -> List[Asteroid]:
+        """
+        Get the N nearest asteroids to the player.
+        
+        Args:
+            num_asteroids: Number of nearest asteroids to return.
+            
+        Returns:
+            List of the nearest asteroids, sorted by distance (nearest first).
+            Returns fewer than num_asteroids if there aren't enough asteroids.
+        """
+        if not self.game.player or not self.game.asteroid_list:
+            return []
+        
+        asteroid_distances = self._get_asteroid_distances()
+        if not asteroid_distances:
+            return []
+        
+        # Sort by distance (nearest first)
+        asteroid_distances.sort(key=lambda x: x[1])
+        
+        # Return the first num_asteroids asteroids
+        return [asteroid for asteroid, _ in asteroid_distances[:num_asteroids]]
+
     # TODO: Implement this later
     # def get_near_miss_score(self, safe_distance: float = 50.0) -> float:
     #   return self.get_distance_to_nearest_asteroid() - safe_distance
@@ -62,7 +123,36 @@ class EnvironmentTracker:
 
     # Helper Functions
     def get_distance(self, x1: float, y1: float, x2: float, y2: float) -> float:
+        """Calculate Euclidean distance between two points."""
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
     def all_asteroids_distance_to_player(self) -> List[float]:
+        """
+        Get distances from all asteroids to the player.
+        
+        Returns:
+            List of distances (one per asteroid).
+        """
+        if not self.game.player:
+            return []
         return [self.get_distance(asteroid.center_x, asteroid.center_y, self.game.player.center_x, self.game.player.center_y) for asteroid in self.game.asteroid_list]
+    
+    def _get_asteroid_distances(self) -> List[Tuple[Asteroid, float]]:
+        """
+        Get list of (asteroid, distance) tuples for all asteroids.
+        
+        Returns:
+            List of tuples (asteroid, distance_to_player).
+        """
+        if not self.game.player or not self.game.asteroid_list:
+            return []
+        
+        return [
+            (asteroid, self.get_distance(
+                asteroid.center_x, 
+                asteroid.center_y, 
+                self.game.player.center_x, 
+                self.game.player.center_y
+            ))
+            for asteroid in self.game.asteroid_list
+        ]

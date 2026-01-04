@@ -1,5 +1,28 @@
 # Configuration and Utilities
 
+## Implementation Strategy
+
+**Incremental Approach - GA First:**
+
+This plan establishes configuration and utility systems that will be shared across all AI methods. However, the initial implementation focuses on **Genetic Algorithms (GA) requirements only**. The infrastructure is designed to be extensible, allowing us to add support for other AI methods (ES, NEAT, GP, GNN) incrementally as each is implemented.
+
+**Phase 1 (Current):** Implement utilities needed for GA:
+- Configuration system for GA hyperparameters
+- GA agent save/load functionality
+- Episode lifecycle management for GA
+- GA-specific utility functions
+
+**Phase 2+ (Future):** As other AI methods are implemented:
+- Configuration system will be extended with other method-specific settings
+- Agent save/load will support additional agent types
+- Utilities will be extended as needed
+
+This approach allows us to:
+- Get GA working quickly with proper configuration and utilities
+- Validate the configuration/utility design with real usage
+- Evolve the infrastructure based on actual needs from GA implementation
+- Ensure the shared infrastructure is solid before adding other methods
+
 ## Goal and Scope
 
 **Deliverables:**
@@ -19,10 +42,10 @@
 
 **Why Now:**
 
-- Need to easily swap reward functions, encoders, hyperparameters
-- Need to save/load trained agents for comparison
-- Need consistent configuration across experiments
-- Foundation for experimentation and comparison
+- GA implementation (plan 007) needs configuration for hyperparameters
+- Need to save/load GA agents for comparison
+- Need consistent configuration across GA experiments
+- Foundation for experimentation and comparison (starting with GA)
 
 **What It Enables:**
 
@@ -33,19 +56,24 @@
 
 **Key Requirements:**
 
-- Must support swapping: reward functions, state encoders, hyperparameters
-- Must support agent serialization
+- Must support swapping: reward functions, state encoders, GA hyperparameters (initially)
+- Must support GA agent serialization (extensible for other methods)
 - Must be easy to use and extend
+- Configuration system must be extensible for future AI methods
 
 ## Interfaces and Contracts
 
 ### Configuration System
 
-**Core Features:**
+**Core Features (Phase 1 - GA):**
 - Reward function selection
-- State encoder selection
-- Hyperparameter configuration
+- State encoder selection (VectorEncoder for GA)
+- GA hyperparameter configuration (population size, mutation rate, crossover rate, etc.)
 - Training parameters (episodes, generations, etc.)
+
+**Core Features (Phase 2+ - Future):**
+- Additional hyperparameters for other AI methods
+- Method-specific configuration sections
 
 **Configuration Format:**
 
@@ -60,11 +88,17 @@
 - `load_agent(path) -> agent` - Deserialize agent from file
 - Agent format should be method-agnostic where possible
 
-**Use Cases:**
+**Use Cases (Phase 1 - GA):**
+
+- Save best GA agents
+- Load GA agents for evaluation/comparison
+- Resume GA training from checkpoint
+
+**Use Cases (Phase 2+ - Future):**
 
 - Save best agents from each method
-- Load for evaluation/comparison
-- Resume training from checkpoint
+- Load for evaluation/comparison across methods
+- Resume training from checkpoint for any method
 
 ### Episode Lifecycle Enhancements
 
@@ -107,6 +141,7 @@
 - Each AI method handles its own serialization
 - Common interface for save/load
 - Format should be readable/versioned
+- Initially implemented for GA, extensible for other methods
 
 **Lifecycle Management:**
 
@@ -138,9 +173,10 @@
 
 **Integration:**
 
-- Works with all previous plans
-- Ready for AI implementations
-- Easy to experiment with
+- Works with all previous plans (001-005, GA-focused)
+- Ready for GA implementation (plan 007)
+- Easy to experiment with GA
+- Infrastructure ready for future AI methods
 
 ## Future Considerations
 
@@ -154,5 +190,9 @@
 
 ---
 
-**Note:** This is a skeleton plan file. Once plans 001-005 are completed, this plan will be expanded into a full implementation plan with detailed steps, configuration format specifications, and risk analysis.
+**Implementation Phases:**
+- **Phase 1 (Current)**: GA-focused implementation (GA configuration, GA agent save/load, GA utilities)
+- **Phase 2+ (Future)**: Extended configuration and utilities as other AI methods are added
+
+**Note:** This is a skeleton plan file. Once plans 001-005 are completed, this plan will be expanded into a full implementation plan with detailed steps, configuration format specifications, and risk analysis. The initial implementation will focus on GA requirements, with the infrastructure designed to be extensible for other methods.
 

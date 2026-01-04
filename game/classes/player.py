@@ -57,3 +57,11 @@ class Player(arcade.Sprite):
             self.shoot_timer = self.shoot_cooldown
             return Bullet(self.center_x, self.center_y, self.angle)
         return None
+
+    def get_max_distance(self, screen_width: int, screen_height: int) -> float:
+        """Get the maximum distance the player can travel in the screen."""
+        return math.sqrt(screen_width**2 + screen_height**2)
+
+    def get_distance(self, x: float, y: float) -> float:
+        """Get the distance between the player and a point."""
+        return math.sqrt((self.center_x - x)**2 + (self.center_y - y)**2)

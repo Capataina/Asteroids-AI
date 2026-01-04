@@ -15,46 +15,47 @@ class ActionInterface:
 
   def validate(self, action: List[float]) -> bool:
     """
-    Validate the action values.
+    Validate the action values. Check length, range, NaN/inf.
+
     Args:
       action: The action to validate.
-    Returns:
-      True if the action is valid, False otherwise.
-    """
 
+    Returns:
+      True if the action is valid, raises ValueError otherwise.
+    """
+    if len(action) != 4:
+      raise ValueError(f"Invalid action length: {len(action)}")
     if self.action_space_type == "boolean":
-      if len(action) != 4:
-        return False
-      return all(value in [0, 1] for value in action)
+      if not all(value in [0, 1] for value in action):
+        raise ValueError(f"Invalid action values: {action}")
     elif self.action_space_type == "continuous":
-      if len(action) != 4:
-        return False
-      return all(0 <= value <= 1 for value in action)
+      if not all(0 <= value <= 1 for value in action):
+        raise ValueError(f"Invalid action values: {action}")
+    else:
+      raise ValueError(f"Invalid action space type: {self.action_space_type}")
+    return True
 
   def normalize(self, action: List[float]) -> List[float]:
     """
     Normalize the action values to the valid range. Use clamp to 0-1 range.
+
     Args:
       action: The action to normalize.
+
     Returns:
       The normalized action.
     """
-    if self.action_space_type == "boolean":
-      if len(action) != 4:
-        raise ValueError(f"Invalid action length: {len(action)}")
-      return [max(0, min(value, 1)) for value in action]
-    elif self.action_space_type == "continuous":
-      if len(action) != 4:
-        raise ValueError(f"Invalid action length: {len(action)}")
-      return [max(0, min(value, 1)) for value in action]
-    else:
-      raise ValueError(f"Invalid action space type: {self.action_space_type}")
+
+    self.validate(action)
+    return [max(0, min(value, 1)) for value in action]
 
   def to_game_input(self, action: List[float]) -> Dict[str, bool]:
     """
-    Convert the action to the game input format.
+    Convert the action to the game input format. Use threshold at 0.5 for all types of action spaces for now.
+
     Args:
       action: The action to convert.
+
     Returns:
       The game input format.
     """
@@ -78,6 +79,8 @@ class ActionInterface:
   def get_action_space_size(self) -> int:
     """
     Get the size of the action space.
+    Return 4 for both boolean and continuous action spaces.
+
     Returns:
       The size of the action space.
     """

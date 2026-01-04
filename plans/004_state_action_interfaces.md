@@ -1,5 +1,30 @@
 # State and Action Interface Standardization
 
+## Implementation Strategy
+
+**Incremental Approach - GA First:**
+
+This plan establishes the foundation for state and action interfaces that will be shared across all AI methods. However, the initial implementation focuses on **Genetic Algorithms (GA) requirements only**. The infrastructure is designed to be extensible, allowing us to add support for other AI methods (ES, NEAT, GP, GNN) incrementally as each is implemented.
+
+**Phase 1 (Current):** Implement interfaces needed for GA:
+
+- StateEncoder base class (foundation for all encoders)
+- VectorEncoder (fixed-size vector for GA)
+- ActionInterface (verify/adjust for GA)
+
+**Phase 2+ (Future):** As other AI methods are implemented:
+
+- GraphEncoder will be added when implementing GNN
+- Additional encoders can be added for ES, NEAT, GP as needed
+- The shared StateEncoder base class ensures consistency
+
+This approach allows us to:
+
+- Get GA working quickly with proper infrastructure
+- Validate the interface design with real usage
+- Evolve the infrastructure based on actual needs
+- Avoid over-engineering for methods not yet implemented
+
 ## Goal and Scope
 
 **Deliverables:**
@@ -310,13 +335,20 @@ class ActionInterface:
 
 ## Impacted Areas
 
-**Files to Create:**
+**Files to Create (Phase 1 - GA):**
 
-- `interfaces/StateEncoder.py` - Abstract base class
+- `interfaces/StateEncoder.py` - Abstract base class (shared foundation)
 - `interfaces/encoders/__init__.py` - Package init
-- `interfaces/encoders/VectorEncoder.py` - Vector encoder implementation
-- `interfaces/encoders/GraphEncoder.py` - Graph encoder (refactored from env_wrapper)
-- `interfaces/ActionInterface.py` - Action interface
+- `interfaces/encoders/VectorEncoder.py` - Vector encoder implementation (for GA)
+
+**Files to Verify/Modify (Phase 1 - GA):**
+
+- `interfaces/ActionInterface.py` - Action interface (already exists, verify/adjust for GA)
+
+**Files to Create (Phase 2+ - Future):**
+
+- `interfaces/encoders/GraphEncoder.py` - Graph encoder (when implementing GNN)
+- Additional encoders as needed for other AI methods
 
 **Files to Modify:**
 
@@ -343,10 +375,10 @@ class ActionInterface:
 
 **Implementation:**
 
-- [ ] Create `interfaces/StateEncoder.py`
-- [ ] Define abstract base class with `encode()`, `get_state_size()`, `reset()`
-- [ ] Add docstrings and type hints
-- [ ] Import EnvironmentTracker
+- [x] Create `interfaces/StateEncoder.py`
+- [x] Define abstract base class with `encode()`, `get_state_size()`, `reset()`
+- [x] Add docstrings and type hints
+- [x] Import EnvironmentTracker
 
 **Verification**: Can import StateEncoder, cannot instantiate (abstract), can create subclass
 
@@ -356,13 +388,13 @@ class ActionInterface:
 
 **Implementation:**
 
-- [ ] Create `interfaces/ActionInterface.py`
-- [ ] Implement `__init__()` with action_space_type parameter
-- [ ] Implement `validate()` - check length, range, NaN/inf
-- [ ] Implement `normalize()` - clamp to [0, 1] range
-- [ ] Implement `to_game_input()` - convert to game boolean inputs
-- [ ] Implement `get_action_space_size()` - return 4
-- [ ] Add docstrings and type hints
+- [x] Create `interfaces/ActionInterface.py`
+- [x] Implement `__init__()` with action_space_type parameter
+- [x] Implement `validate()` - check length, range, NaN/inf
+- [x] Implement `normalize()` - clamp to [0, 1] range
+- [x] Implement `to_game_input()` - convert to game boolean inputs
+- [x] Implement `get_action_space_size()` - return 4
+- [x] Add docstrings and type hints
 
 **Verification**: Can instantiate ActionInterface, validate actions, convert to game inputs correctly
 
@@ -372,15 +404,21 @@ class ActionInterface:
 
 **Implementation:**
 
-- [ ] Create `interfaces/encoders/__init__.py`
-- [ ] Create `interfaces/encoders/VectorEncoder.py`
-- [ ] Implement `__init__()` with parameters:
+- [x] Create `interfaces/encoders/__init__.py`
+- [x] Create `interfaces/encoders/VectorEncoder.py`
+- [x] Implement `__init__()` with parameters:
   - `screen_width: int = 800`
   - `screen_height: int = 600`
   - `num_nearest_asteroids: int = 2` (configurable)
+  - `num_nearest_bullets: int = 2` (configurable)
   - `include_bullets: bool = False` (optional)
   - `include_global: bool = False` (optional)
-- [ ] Implement `encode()`:
+  - `max_player_velocity: Optional[float] = None` (optional)
+  - `max_asteroid_velocity: Optional[float] = None` (optional)
+  - `max_asteroid_size: Optional[float] = None` (optional)
+  - `max_asteroid_hp: Optional[float] = None` (optional)
+  - `validate_parameters()` - validate parameters
+- [x] Implement `encode()`:
   - Get player from `env_tracker.get_player()`
   - Extract player features (position, velocity, angle)
   - Get asteroids from `env_tracker.get_all_asteroids()`
@@ -391,13 +429,17 @@ class ActionInterface:
   - Normalize all values
   - Concatenate into fixed-size vector
   - Handle edge cases (no player, no asteroids, etc.)
-- [ ] Implement `get_state_size()` - return calculated size based on configuration
-- [ ] Implement `reset()` - no-op (no internal state)
-- [ ] Add helper methods:
-  - `_normalize_position()`
-  - `_normalize_velocity()`
-  - `_normalize_distance()`
-  - `_calculate_relative_position()`
+- [x] Implement `get_state_size()` - return calculated size based on configuration
+- [x] Implement `reset()` - no-op (no internal state)
+- [x] Add helper methods:
+  - `normalize_position()`
+  - `normalize_velocity()`
+  - `normalize_distance()`
+  - `normalize_angle()`
+- [x] Implement `encode_player()`
+- [x] Implement `encode_asteroids()`
+- [x] Implement `encode_bullets()`
+- [x] Implement `encode_global()`
 
 **Verification**:
 
@@ -406,46 +448,7 @@ class ActionInterface:
 - Handles edge cases (empty lists, None values)
 - Vector size matches `get_state_size()`
 
-### Step 4: Implement GraphEncoder
-
-**Intent**: Refactor existing graph encoding to use EnvironmentTracker
-
-**Implementation:**
-
-- [ ] Create `interfaces/encoders/GraphEncoder.py`
-- [ ] Copy graph construction logic from `env_wrapper.py._get_graph_state()`
-- [ ] Refactor to use EnvironmentTracker:
-  - Replace `self.game.player` with `env_tracker.get_player()`
-  - Replace `self.game.asteroid_list` with `env_tracker.get_all_asteroids()`
-  - Replace `self.game.bullet_list` with `env_tracker.get_all_bullets()`
-  - Replace `self.game.width/height` with parameters or constants
-- [ ] Implement `__init__()` with parameters:
-  - `screen_width: int = 800`
-  - `screen_height: int = 600`
-  - `max_velocity_player: float = 10.0`
-  - `max_velocity_asteroid: float = 5.0`
-- [ ] Implement `encode()`:
-  - Extract node features (player, asteroids, bullets)
-  - Create node type tensor
-  - Create edge_index (empty for now, can add proximity edges later)
-  - Create PyTorch Geometric Data object
-  - Handle edge cases (no player, empty lists)
-- [ ] Implement `get_state_size()` - return -1 (variable-size)
-- [ ] Implement `reset()` - no-op (no internal state)
-- [ ] Add helper methods:
-  - `_extract_player_features()`
-  - `_extract_asteroid_features()`
-  - `_extract_bullet_features()`
-  - `_create_graph_data()`
-
-**Verification**:
-
-- GraphEncoder produces PyTorch Geometric Data objects
-- Node features match original implementation
-- Works with EnvironmentTracker (no direct game access)
-- Handles edge cases (empty lists, None values)
-
-### Step 5: Test encoders independently
+### Step 4: Test encoders independently
 
 **Intent**: Verify encoders work correctly with EnvironmentTracker
 
@@ -458,12 +461,6 @@ class ActionInterface:
   - Test with empty asteroid list
   - Test normalization (values in 0-1 range)
   - Test vector size consistency
-- [ ] Test GraphEncoder:
-  - Test with player only
-  - Test with player + asteroids + bullets
-  - Test with empty lists
-  - Test PyTorch Geometric format
-  - Test node type assignment
 - [ ] Test ActionInterface:
   - Test boolean mode conversion
   - Test continuous mode conversion
@@ -472,7 +469,7 @@ class ActionInterface:
 
 **Verification**: All tests pass, encoders produce expected outputs
 
-### Step 6: Document encoder usage
+### Step 5: Document encoder usage
 
 **Intent**: Provide examples and usage patterns
 
@@ -491,7 +488,6 @@ class ActionInterface:
 
 - [ ] StateEncoder base class (cannot instantiate, can subclass)
 - [ ] VectorEncoder: feature extraction, normalization, edge cases
-- [ ] GraphEncoder: node features, graph construction, edge cases
 - [ ] ActionInterface: validation, normalization, conversion
 
 **Integration Tests:**
@@ -500,7 +496,6 @@ class ActionInterface:
 - [ ] ActionInterface converts actions correctly
 - [ ] Encoders handle all edge cases (empty lists, None values)
 - [ ] VectorEncoder produces consistent vector sizes
-- [ ] GraphEncoder produces valid PyTorch Geometric objects
 
 **Manual Testing:**
 
@@ -514,14 +509,6 @@ encoder = VectorEncoder(screen_width=800, screen_height=600, num_nearest_asteroi
 state = encoder.encode(tracker)
 assert len(state) == encoder.get_state_size()
 assert all(0 <= x <= 1 for x in state)  # Normalized
-
-# Test GraphEncoder
-from interfaces.encoders.GraphEncoder import GraphEncoder
-
-encoder = GraphEncoder(screen_width=800, screen_height=600)
-state = encoder.encode(tracker)
-assert isinstance(state, torch_geometric.data.Data)
-assert state.x.shape[1] == 6  # 6 features per node
 
 # Test ActionInterface
 from interfaces.ActionInterface import ActionInterface
@@ -561,12 +548,6 @@ assert game_input["right_pressed"] == False
 - **Mitigation**: `get_state_size()` calculates size based on configuration, unit tests verify consistency
 - **Detection**: Test vector size matches `get_state_size()` for all configurations
 
-**Graph Format Issues:**
-
-- **Risk**: GraphEncoder produces invalid PyTorch Geometric objects
-- **Mitigation**: Follow PyTorch Geometric Data format exactly, test with PyG validation
-- **Detection**: Integration tests verify graph structure
-
 **Action Conversion Errors:**
 
 - **Risk**: ActionInterface converts actions incorrectly, breaking game input
@@ -579,19 +560,12 @@ assert game_input["right_pressed"] == False
 - **Mitigation**: Encoders should be efficient (O(n) for n entities), profile if needed
 - **Detection**: Profile encoding time, should be <1ms per step
 
-**Refactoring Risks:**
-
-- **Risk**: GraphEncoder refactoring breaks existing GNN training
-- **Mitigation**: Keep output format identical, test with existing code
-- **Detection**: Integration tests with existing env_wrapper
-
 ## Exit Criteria
 
 **Correctness:**
 
-- [ ] All encoders implement StateEncoder interface
-- [ ] VectorEncoder produces fixed-size normalized vectors
-- [ ] GraphEncoder produces valid PyTorch Geometric objects
+- [ ] StateEncoder base class implemented (shared foundation)
+- [ ] VectorEncoder produces fixed-size normalized vectors (for GA)
 - [ ] ActionInterface validates and converts actions correctly
 - [ ] All encoders use EnvironmentTracker (no direct game access)
 - [ ] Edge cases handled gracefully (no crashes)
@@ -600,8 +574,7 @@ assert game_input["right_pressed"] == False
 
 - [ ] Encoders work with EnvironmentTracker
 - [ ] ActionInterface converts to game input format correctly
-- [ ] Encoders are ready for BaseAgent use (plan 005)
-- [ ] GraphEncoder output matches original format (for compatibility)
+- [ ] Encoders are ready for GA implementation and BaseAgent use (plan 005)
 
 **Code Quality:**
 
@@ -612,10 +585,10 @@ assert game_input["right_pressed"] == False
 
 **Functionality:**
 
-- [ ] VectorEncoder supports configurable feature sets
-- [ ] GraphEncoder maintains PyTorch Geometric compatibility
+- [ ] VectorEncoder supports configurable feature sets (for GA)
 - [ ] ActionInterface supports boolean and continuous modes
 - [ ] All encoders handle edge cases (empty lists, None values)
+- [ ] Infrastructure ready for GA implementation (plan 007)
 
 **Documentation:**
 
@@ -625,13 +598,19 @@ assert game_input["right_pressed"] == False
 
 ## Future Considerations
 
-**Follow-ons (After Plan 005):**
+**Phase 2+ (After GA Implementation):**
 
-- Refactor `AsteroidsGraphEnv` to use GraphEncoder (currently uses `_get_graph_state()`)
-- Integrate encoders with BaseAgent and EpisodeRunner
+- Add GraphEncoder when implementing GNN (will use same StateEncoder base)
+- Add additional encoders for ES, NEAT, GP as needed
+- Refactor `AsteroidsGraphEnv` to use GraphEncoder (when implementing GNN)
 - Add proximity-based edges to GraphEncoder
 - Add SensorEncoder (optional, for sensor-based encoding)
 - Feature engineering experiments (different feature sets)
+
+**Follow-ons (After Plan 005):**
+
+- Integrate encoders with BaseAgent and EpisodeRunner
+- GA implementation will use these interfaces (plan 007)
 
 **Advanced Encodings:**
 
@@ -656,4 +635,9 @@ assert game_input["right_pressed"] == False
 
 **Status**: planned
 
-**Last Updated**: 2025-01-XX (expanded from skeleton plan)
+**Implementation Phases:**
+
+- **Phase 1 (Current)**: GA-focused implementation (StateEncoder base, VectorEncoder, ActionInterface)
+- **Phase 2+ (Future)**: Additional encoders added incrementally as other AI methods are implemented
+
+**Last Updated**: 2025-01-XX (revised to reflect GA-first incremental approach)

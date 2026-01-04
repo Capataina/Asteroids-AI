@@ -2,6 +2,9 @@ from interfaces.EnvironmentTracker import EnvironmentTracker
 from interfaces.MetricsTracker import MetricsTracker
 
 class RewardComponent:
+  def __init__(self, name: str):
+    self.name = name
+
   def calculate_step_reward(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
     pass
 
