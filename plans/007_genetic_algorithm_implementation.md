@@ -9,8 +9,10 @@
 - `ai_agents/genetic_algorithm/ga_trainer.py` - DEAP-based evolutionary training loop
 - `ai_agents/genetic_algorithm/operators.py` - Mutation and crossover operators
 - `ai_agents/genetic_algorithm/fitness.py` - Fitness evaluation using EpisodeRunner
+- `training/train_ga.py` - **Visual training entry point** - runs GA training with real-time game visualization
 - Working GA implementation that can train and evolve parameter vectors
 - Integration with all infrastructure (StateEncoder, ActionInterface, RewardCalculator, BaseAgent, EpisodeRunner)
+- **Real-time visualization** - watch the AI learn and improve generation by generation in the game window
 
 **Out of Scope:**
 
@@ -18,6 +20,7 @@
 - Multi-objective optimization - future enhancement
 - Parallel evaluation (can be added incrementally)
 - Training dashboard integration (deferred until all AIs work)
+- **Note**: Real-time visualization during training IS in scope - this is a core requirement for observing AI learning
 
 ## Context and Justification
 
@@ -28,6 +31,7 @@
 - GA provides a good baseline for comparison with other methods
 - DEAP is a mature library well-suited for this task
 - GA implementation will validate the shared infrastructure design
+- **Visualization is core to the project** - the README emphasizes "watchability, smoothness, and qualitative decision-making" as key evaluation criteria, not just metrics
 
 **What It Enables:**
 
@@ -36,6 +40,8 @@
 - Provides baseline performance for comparison
 - Demonstrates the evolutionary training paradigm
 - Foundation for understanding how parameter vectors control behaviour
+- **Real-time visualization of AI learning** - watch the AI improve generation by generation
+- **Qualitative behavioural analysis** - observe movement patterns, aiming strategies, and decision-making in real-time
 
 **Rejected Alternatives:**
 
@@ -52,6 +58,9 @@
 - Must use EpisodeRunner for evaluation (from plan 005)
 - Must use DEAP for evolutionary algorithm framework
 - Parameter vectors must encode control policy (reflexive/heuristic behaviour)
+- **Must provide real-time visualization** - game window must be visible during training
+- **Must display training progress** - show generation number, fitness, best agent performance on screen
+- **Must allow watching AI learn** - observe behavioural changes as the population evolves
 
 ## Interfaces and Contracts
 
@@ -187,6 +196,46 @@ class GATrainer:
 - Uses VectorEncoder for state encoding
 - Uses ActionInterface for action conversion
 - All individuals have same parameter vector size
+
+### Visualization and Training Display
+
+**Training Entry Point:** `train_ga.py` (in `training/train_ga.py`)
+
+**Core Requirements:**
+
+- Must create and display game window using `arcade.run()`
+- Must show real-time training progress on screen:
+  - Current generation number
+  - Best fitness in current generation
+  - Average fitness in current generation
+  - Current individual being evaluated (optional)
+  - Episode statistics (steps, reward, kills, accuracy)
+- Must allow watching the best agent from each generation play
+- Must use `arcade.schedule()` to integrate training updates with game rendering
+- Must display metrics overlay similar to `train_agent.py` approach
+
+**Visualization Strategy:**
+
+1. **Create game window** - Initialize `AsteroidsGame` window
+2. **Schedule training updates** - Use `arcade.schedule()` to run GA training steps
+3. **Render best agent** - Show the best agent from current generation playing
+4. **Display metrics** - Overlay training statistics on game window
+5. **Generation transitions** - Optionally pause between generations to observe best agent
+
+**Implementation Pattern:**
+
+Similar to `train_agent.py`'s `AIDriver` class:
+
+- Create game window
+- Schedule update function that runs GA training steps
+- Hook into `game.on_draw()` to display training metrics
+- Use `arcade.run()` to start the game loop
+
+**Key Difference from Headless Training:**
+
+- Headless: `EpisodeRunner.run_episode()` manually calls `game.on_update()` in a loop
+- Visual: Training uses `arcade.schedule()` and `arcade.run()` so rendering happens automatically
+- Visual training may be slower but enables real-time observation of learning
 
 ### Mutation Operators
 
@@ -438,16 +487,16 @@ def evaluate_fitness(individual: List[float],
 
 **Implementation:**
 
-- [ ] Create `ai_agents/neuroevolution/genetic_algorithm/ga_trainer.py`
-- [ ] Implement `GATrainer.__init__()`:
+- [x] Create `ai_agents/neuroevolution/genetic_algorithm/ga_trainer.py`
+- [x] Implement `GATrainer.__init__()`:
   - Parse configuration
   - Initialize DEAP types (Individual, Population)
   - Register operators with DEAP
   - Set up state encoder, action interface, episode runner
-- [ ] Implement `evaluate_individual()`:
+- [x] Implement `evaluate_individual()`:
   - Call fitness evaluation function
   - Return fitness score
-- [ ] Implement `train()`:
+- [x] Implement `train()`:
   - Initialize population (random parameter vectors)
   - For each generation:
     - Evaluate population
@@ -480,23 +529,53 @@ def evaluate_fitness(individual: List[float],
 
 **Verification**: GA can be configured via configuration system
 
-### Step 7: Create training entry point
+### Step 7: Create visual training entry point
 
-**Intent**: Create script to run GA training
+**Intent**: Create script to run GA training with real-time visualization
 
 **Implementation:**
 
-- [ ] Create `train_ga.py` or update `train_agent.py`:
-  - Load configuration
-  - Initialize GATrainer
-  - Run training
-  - Save best agent
-  - Display results
-- [ ] Add command-line arguments (optional)
-- [ ] Add logging
-- [ ] Test end-to-end training
+- [ ] Create `training/train_ga.py`:
+  - Import `AsteroidsGame`, `SCREEN_WIDTH`, `SCREEN_HEIGHT`, `SCREEN_TITLE`
+  - Create game window: `window = AsteroidsGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)`
+  - Call `window.setup()` to initialize game
+  - Initialize GATrainer with game instance
+  - Create training driver class (similar to `AIDriver` in `train_agent.py`):
+    - Store game window and GATrainer
+    - Track current generation, population, best agent
+    - Create info text overlay for training metrics
+    - Hook into `game.on_draw()` to display metrics
+  - Implement `update()` method scheduled with `arcade.schedule()`:
+    - Run one generation of GA training
+    - Update best agent if fitness improved
+    - Display best agent playing (set game inputs from best agent)
+    - Update info text with generation, fitness, metrics
+    - Handle generation transitions
+  - Call `arcade.run()` to start visual training loop
+- [ ] Display training metrics on screen:
+  - Generation number (e.g., "Generation: 5/100")
+  - Best fitness (e.g., "Best Fitness: 1234.56")
+  - Average fitness (e.g., "Avg Fitness: 987.65")
+  - Current episode stats (steps, reward, kills, accuracy)
+  - Best agent performance indicators
+- [ ] Add command-line arguments (optional):
+  - `--headless`: Run without visualization (faster, for long training)
+  - `--generations`: Number of generations
+  - `--population-size`: Population size
+- [ ] Add logging to console (generation summaries, fitness improvements)
+- [ ] Test visual training:
+  - Window opens and displays game
+  - Training metrics update on screen
+  - Can watch best agent play
+  - Training progresses generation by generation
 
-**Verification**: Can run GA training from command line, produces trained agent
+**Verification**:
+
+- Can run GA training with `python training/train_ga.py`
+- Game window opens and displays Asteroids game
+- Training metrics visible on screen
+- Can watch AI learn and improve over generations
+- Best agent plays visibly in game window
 
 ### Step 8: Add agent save/load
 
@@ -559,22 +638,32 @@ def evaluate_fitness(individual: List[float],
 **Manual Testing:**
 
 ```python
-# Test GA training
-from ai_agents.neuroevolution.genetic_algorithm.ga_trainer import GATrainer
-from training.config import load_config
+# Test visual GA training
+# Run: python training/train_ga.py
 
-config = load_config("ga_config.yaml")
-trainer = GATrainer(config)
-best_agent = trainer.train()
+# Expected behavior:
+# 1. Game window opens showing Asteroids game
+# 2. Training metrics displayed on screen (generation, fitness, etc.)
+# 3. Best agent from each generation plays visibly
+# 4. Can observe AI learning and improving over generations
+# 5. Metrics update in real-time as training progresses
+
+# Test headless GA training (optional)
+# Run: python training/train_ga.py --headless --generations 50
 
 # Test trained agent
-from ai_agents.neuroevolution.genetic_algorithm.episode_runner import EpisodeRunner
+from ai_agents.neuroevolution.genetic_algorithm.ga_agent import GAAgent
+from training.base.EpisodeRunner import EpisodeRunner
 # ... run episode with best_agent ...
 ```
 
 **Expected Signals:**
 
 - GA training runs without errors
+- **Game window opens and displays game during training**
+- **Training metrics visible on screen (generation, fitness, stats)**
+- **Can watch best agent play in real-time**
+- **Observe behavioural improvements over generations**
 - Fitness improves over generations
 - Trained agents show reasonable behaviour
 - Agents can be saved and loaded
@@ -612,6 +701,20 @@ from ai_agents.neuroevolution.genetic_algorithm.episode_runner import EpisodeRun
 - **Mitigation**: Optimize fitness evaluation, consider parallel evaluation later
 - **Detection**: Profile training time, check bottlenecks
 
+**Visualization Issues:**
+
+- **Risk**: Training loop conflicts with arcade rendering, window doesn't update
+- **Mitigation**: Use `arcade.schedule()` properly, ensure `arcade.run()` is called, test rendering
+- **Detection**: Window doesn't open, game doesn't render, metrics don't update
+
+- **Risk**: Training too slow with visualization (rendering overhead)
+- **Mitigation**: Option for headless mode (`--headless` flag), optimize rendering, consider showing only best agent
+- **Detection**: Training takes significantly longer than headless mode
+
+- **Risk**: Metrics overlay blocks game view or is unreadable
+- **Mitigation**: Position metrics carefully, use readable fonts/colors, make overlay optional
+- **Detection**: Can't see game clearly, metrics hard to read
+
 ## Exit Criteria
 
 **Correctness:**
@@ -634,6 +737,10 @@ from ai_agents.neuroevolution.genetic_algorithm.episode_runner import EpisodeRun
 - [ ] Fitness improves over generations (or at least doesn't degrade)
 - [ ] Trained agents show reasonable behaviour in game
 - [ ] Agents can be evaluated and compared
+- [ ] **Visual training works** - game window displays during training
+- [ ] **Training metrics visible** - generation, fitness, stats displayed on screen
+- [ ] **Can watch AI learn** - observe behavioural improvements over generations
+- [ ] **Best agent plays visibly** - see the best agent from each generation in action
 
 **Code Quality:**
 
@@ -671,6 +778,13 @@ from ai_agents.neuroevolution.genetic_algorithm.episode_runner import EpisodeRun
 - Try different policy representations (threshold, heuristic, etc.)
 - Compare interpretability vs performance
 - Analyze evolved parameter vectors
+
+**Visualization Enhancements:**
+
+- Option to show multiple agents playing simultaneously (population view)
+- Generation-by-generation replay (watch evolution of best agent)
+- Fitness curve visualization (plot fitness over generations)
+- Behavioural comparison tools (compare agents from different generations)
 
 **Integration with Dashboard:**
 

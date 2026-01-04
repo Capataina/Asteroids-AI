@@ -59,6 +59,19 @@ class AsteroidsGame(arcade.Window):
         self.reward_calculator.add_component(AccuracyBonus())
         self.reward_calculator.add_component(KPMBonus())
 
+        # Flag to control whether game should update its own reward calculator
+        # Set to False during AI training when external reward calculator is used
+        self.update_internal_rewards = True
+        
+        # Flag to control whether game should auto-reset on collision
+        # Set to False during AI training when external episode management is used
+        self.auto_reset_on_collision = True
+
+        # Manual spawning mode - matches headless game timing for display consistency
+        self.manual_spawning = False
+        self.time_since_last_spawn = 0.0
+        self.asteroid_spawn_interval = 0.75
+
     def reset_game(self):
         """Reset the entire game state to a 'fresh' start."""
         # Unschedule the asteroid spawner so we don't stack multiple timers
@@ -86,8 +99,12 @@ class AsteroidsGame(arcade.Window):
         for _ in range(8):
             self.spawn_asteroid(delta_time=0)
 
-        # Schedule asteroid spawns exactly once
-        arcade.schedule(self.spawn_asteroid, 0.75)
+        # Reset manual spawn timer
+        self.time_since_last_spawn = 0.0
+
+        # Only use arcade.schedule if NOT in manual spawning mode
+        if not self.manual_spawning:
+            arcade.schedule(self.spawn_asteroid, 0.75)
 
         # Reset last player position for distance-based reward
         self.last_player_x = self.player.center_x
@@ -170,8 +187,13 @@ class AsteroidsGame(arcade.Window):
         # Player-asteroid collisions
         if self.player in self.player_list:
             if arcade.check_for_collision_with_list(self.player, self.asteroid_list):
-                print("Player hit an asteroid! Final Score:", self.reward_calculator.current_score(self.tracker, self.metrics_tracker))
-                self.reset_game()
+                # Only print and reset if auto-reset is enabled (manual play mode)
+                if self.auto_reset_on_collision:
+                    print("Player hit an asteroid! Final Score:", self.reward_calculator.current_score(self.tracker, self.metrics_tracker))
+                    self.reset_game()
+                else:
+                    # During AI training, just remove the player and let training loop handle reset
+                    self.player.remove_from_sprite_lists()
 
         # Handle continuous input because the library is weird and "lightweight" (lowkey bad)
         if self.left_pressed:
@@ -186,10 +208,20 @@ class AsteroidsGame(arcade.Window):
                 self.bullet_list.append(bullet)
                 self.metrics_tracker.total_shots_fired += 1
 
+        # Manual asteroid spawning (matches headless game timing exactly)
+        if self.manual_spawning:
+            self.time_since_last_spawn += delta_time
+            if self.time_since_last_spawn >= self.asteroid_spawn_interval:
+                self.spawn_asteroid(delta_time=0)
+                self.time_since_last_spawn = 0.0
+
+        # Only update internal reward calculator if not being controlled by external training
+        if self.update_internal_rewards:
+            self.reward_calculator.calculate_step_reward(self.tracker, self.metrics_tracker)
+
         self.score_text.text = f"Score: {math.floor(self.reward_calculator.score)}"
         self.metrics_tracker.time_alive += delta_time
         self.tracker.update(self)
-        self.reward_calculator.calculate_step_reward(self.tracker, self.metrics_tracker)
 
     def wrap_sprite(self, sprite):
         if sprite.center_x < 0:

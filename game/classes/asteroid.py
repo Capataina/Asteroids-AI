@@ -14,11 +14,14 @@ class Asteroid(arcade.Sprite):
             screen_width,
             screen_height,
             texture=None,
-            scale=1.25
+            scale=1.25,
+            rng=None  # Optional isolated Random instance for reproducibility
     ):
+        # Use provided RNG or fall back to global random module
+        self._rng = rng if rng is not None else random
 
         if texture is None:
-            texture = random.choice(ASTEROID_TEXTURES)
+            texture = self._rng.choice(ASTEROID_TEXTURES)
 
         super().__init__(texture, scale)
 
@@ -34,8 +37,8 @@ class Asteroid(arcade.Sprite):
 
         # Randomly choose an edge for initial position
         # (or random positions around any edge)
-        self.center_x = random.choice([0, screen_width])
-        self.center_y = random.choice([0, screen_height])
+        self.center_x = self._rng.choice([0, screen_width])
+        self.center_y = self._rng.choice([0, screen_height])
 
         # Speed based on size
         if self.this_scale >= 1.0:
@@ -46,11 +49,11 @@ class Asteroid(arcade.Sprite):
             self.max_speed = 3
 
         # Random direction
-        self.change_x = random.uniform(-self.max_speed, self.max_speed)
-        self.change_y = random.uniform(-self.max_speed, self.max_speed)
+        self.change_x = self._rng.uniform(-self.max_speed, self.max_speed)
+        self.change_y = self._rng.uniform(-self.max_speed, self.max_speed)
 
         # Random rotation spin
-        self.rotation_speed = random.uniform(-self.max_speed * 3, self.max_speed * 3)
+        self.rotation_speed = self._rng.uniform(-self.max_speed * 3, self.max_speed * 3)
 
         # Lifetime if you want them to disappear eventually, scales with size
         self.lifetime = 1200 * self.this_scale
@@ -103,16 +106,17 @@ class Asteroid(arcade.Sprite):
             screen_width=self.screen_width,
             screen_height=self.screen_height,
             texture=self.texture,
-            scale=new_scale
+            scale=new_scale,
+            rng=self._rng  # Pass our RNG for reproducibility
         )
         # Place child at the same position
         child.center_x = self.center_x
         child.center_y = self.center_y
 
-        # Possibly randomize children’s speed and rotation again:
-        child.change_x = random.uniform(-child.max_speed, child.max_speed)
-        child.change_y = random.uniform(-child.max_speed, child.max_speed)
-        child.rotation_speed = random.uniform(-child.max_speed * 3, child.max_speed * 3)
+        # Randomize children's speed and rotation using our RNG
+        child.change_x = self._rng.uniform(-child.max_speed, child.max_speed)
+        child.change_y = self._rng.uniform(-child.max_speed, child.max_speed)
+        child.rotation_speed = self._rng.uniform(-child.max_speed * 3, child.max_speed * 3)
 
         # (Optional) shorter lifetime for smaller ones, if you like
         child.lifetime = self.lifetime  # or maybe self.lifetime / 2, etc.

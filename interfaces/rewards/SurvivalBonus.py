@@ -13,7 +13,8 @@ class SurvivalBonus(RewardComponent):
     current_time_alive = metrics_tracker.get_time_alive()
     delta_time = current_time_alive - self.prev_time_alive
     self.prev_time_alive = current_time_alive
-    return delta_time * self.reward_multiplier
+    # Guard against negative delta (should not happen, but prevents negative rewards)
+    return max(0.0, delta_time * self.reward_multiplier)
 
   def calculate_episode_reward(self, metrics_tracker: MetricsTracker) -> float:
     return 0.0

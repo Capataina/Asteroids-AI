@@ -20,7 +20,14 @@ class GAGeneticOperators:
     Returns:
       Mutated individual (tuple for DEAP)
     """
-    return [individual[i] + random.gauss(0, self.mutation_gaussian_sigma) for i in range(len(individual)) if random.random() < self.mutation_probability]
+    # Mutate each gene probabilistically, but always return ALL genes
+    mutated = [
+      individual[i] + random.gauss(0, self.mutation_gaussian_sigma) 
+      if random.random() < self.mutation_probability 
+      else individual[i]
+      for i in range(len(individual))
+    ]
+    return (mutated,)
 
   def mutate_uniform(self, individual: List[float]) -> Tuple[List[float]]:
     """
@@ -32,7 +39,14 @@ class GAGeneticOperators:
     Returns:
       Mutated individual (tuple for DEAP)
     """
-    return [individual[i] + random.uniform(self.mutation_uniform_low, self.mutation_uniform_high) for i in range(len(individual)) if random.random() < self.mutation_probability]
+    # Mutate each gene probabilistically, but always return ALL genes
+    mutated = [
+      random.uniform(self.mutation_uniform_low, self.mutation_uniform_high)
+      if random.random() < self.mutation_probability 
+      else individual[i]
+      for i in range(len(individual))
+    ]
+    return (mutated,)
 
   def crossover_blend(self, individual1: List[float], individual2: List[float]) -> Tuple[List[float], List[float]]:
     """
@@ -45,7 +59,16 @@ class GAGeneticOperators:
     Returns:
       Two offspring (tuples for DEAP)
     """
-    return [(individual1[i] * self.crossover_probability + individual2[i] * (1 - self.crossover_probability)) for i in range(len(individual1))]
+    # Create two complementary offspring
+    child1 = [
+      individual1[i] * self.crossover_probability + individual2[i] * (1 - self.crossover_probability)
+      for i in range(len(individual1))
+    ]
+    child2 = [
+      individual2[i] * self.crossover_probability + individual1[i] * (1 - self.crossover_probability)
+      for i in range(len(individual2))
+    ]
+    return (child1, child2)
 
   def crossover_arithmetic(self, individual1: List[float], individual2: List[float]) -> Tuple[List[float], List[float]]:
     """
@@ -58,4 +81,13 @@ class GAGeneticOperators:
     Returns:
       Two offspring (tuples for DEAP)
     """
-    return [(individual1[i] * self.crossover_probability + individual2[i] * (1 - self.crossover_probability)) for i in range(len(individual1))]
+    # Create two complementary offspring
+    child1 = [
+      individual1[i] * self.crossover_probability + individual2[i] * (1 - self.crossover_probability)
+      for i in range(len(individual1))
+    ]
+    child2 = [
+      individual2[i] * self.crossover_probability + individual1[i] * (1 - self.crossover_probability)
+      for i in range(len(individual2))
+    ]
+    return (child1, child2)

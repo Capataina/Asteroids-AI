@@ -50,6 +50,10 @@ class EpisodeRunner:
 
     # Frame rate for manual stepping (default 60 FPS)
     self.frame_delay = 1.0 / 60.0
+    
+    # Disable game's internal systems during episode running
+    self.game.update_internal_rewards = False
+    self.game.auto_reset_on_collision = False
 
   def run_episode(self, agent: BaseAgent, max_steps: int = 1000) -> EpisodeResult:
     """

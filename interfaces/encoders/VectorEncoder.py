@@ -90,9 +90,35 @@ class VectorEncoder:
   def encode(self, env_tracker: EnvironmentTracker) -> List[float]:
     """
     Encode the environment tracker state into a vector.
+    Returns a flat list of floats.
     """
-
-    return self.encode_player(env_tracker) + self.encode_asteroids(env_tracker) + self.encode_bullets(env_tracker)
+    # Encode player (returns list of 6 floats)
+    player_encoding = self.encode_player(env_tracker)
+    
+    # Encode asteroids (returns list of lists, need to flatten)
+    asteroids_encoding = self.encode_asteroids(env_tracker)
+    
+    # Encode bullets (returns list of lists, need to flatten)
+    bullets_encoding = self.encode_bullets(env_tracker)
+    
+    # Flatten and concatenate all encodings
+    result = player_encoding.copy()
+    
+    # Flatten asteroids encoding
+    for asteroid_features in asteroids_encoding:
+      if isinstance(asteroid_features, list):
+        result.extend(asteroid_features)
+      else:
+        result.append(float(asteroid_features))
+    
+    # Flatten bullets encoding
+    for bullet_features in bullets_encoding:
+      if isinstance(bullet_features, list):
+        result.extend(bullet_features)
+      else:
+        result.append(float(bullet_features))
+    
+    return result
 
 
   # Encoding Methods
@@ -122,24 +148,35 @@ class VectorEncoder:
     ]
 
 
-  def encode_asteroids(self, env_tracker: EnvironmentTracker) -> List[float]:
+  def encode_asteroids(self, env_tracker: EnvironmentTracker) -> List[List[float]]:
     """
-    Encode the asteroids state into a vector.
+    Encode the asteroids state into a list of vectors.
+    Returns a list of lists (one list per asteroid).
 
     Args:
       asteroids: The asteroids to encode.
       env_tracker: The environment tracker to use for the state.
 
     Returns:
-      The encoded asteroids state.
+      List of encoded asteroid states (list of lists).
     """
     asteroids = env_tracker.get_all_asteroids()
     player = env_tracker.get_player()
 
-    if asteroids is None or player is None:
-      return []
+    if asteroids is None or player is None or len(asteroids) == 0:
+      # Return zero-padded encoding for missing asteroids
+      return [[0.0] * 5 for _ in range(self.num_nearest_asteroids)]
     
-    return [self.encode_asteroid(asteroid, player, env_tracker) for asteroid in asteroids[:self.num_nearest_asteroids]]
+    # Encode available asteroids
+    encoded = []
+    for i in range(self.num_nearest_asteroids):
+      if i < len(asteroids):
+        encoded.append(self.encode_asteroid(asteroids[i], player, env_tracker))
+      else:
+        # Pad with zeros if we have fewer asteroids than expected
+        encoded.append([0.0] * 5)
+    
+    return encoded
 
   def encode_asteroid(self, asteroid: asteroid.Asteroid, player: Player, env_tracker: EnvironmentTracker) -> List[float]:
     """
@@ -173,9 +210,10 @@ class VectorEncoder:
       self.normalize_velocity(relative_velocity_y), 
     ]
 
-  def encode_bullets(self, env_tracker: EnvironmentTracker) -> List[float]:
+  def encode_bullets(self, env_tracker: EnvironmentTracker) -> List[List[float]]:
     """
-    Encode bullets state into a vector (if include_bullets is True).
+    Encode bullets state into a list of vectors (if include_bullets is True).
+    Returns a list of lists (one list per bullet).
 
     Args:
       bullets: The bullets to encode.
@@ -183,7 +221,7 @@ class VectorEncoder:
       env_tracker: The environment tracker to use for the state.
 
     Returns:
-      The encoded bullets state.
+      List of encoded bullet states (list of lists).
     """
     if not self.include_bullets:
       return []
@@ -191,7 +229,20 @@ class VectorEncoder:
     bullets = env_tracker.get_all_bullets()
     player = env_tracker.get_player()
     
-    return [self.encode_bullet(bullet, player, env_tracker) for bullet in bullets[:self.num_nearest_bullets]]
+    if bullets is None or player is None or len(bullets) == 0:
+      # Return zero-padded encoding for missing bullets
+      return [[0.0] * 5 for _ in range(self.num_nearest_bullets)]
+    
+    # Encode available bullets
+    encoded = []
+    for i in range(self.num_nearest_bullets):
+      if i < len(bullets):
+        encoded.append(self.encode_bullet(bullets[i], player, env_tracker))
+      else:
+        # Pad with zeros if we have fewer bullets than expected
+        encoded.append([0.0] * 5)
+    
+    return encoded
 
   def encode_bullet(self, bullet: bullet.Bullet, player: Player, env_tracker: EnvironmentTracker) -> List[float]:
     """
@@ -240,10 +291,10 @@ class VectorEncoder:
     """
     Get the size of the encoded state vector.
     """
-    size = 6  # Player features
-    size += 6 * self.num_nearest_asteroids  # Asteroid features
+    size = 6  # Player features (x, y, vx, vy, sin(angle), cos(angle))
+    size += 5 * self.num_nearest_asteroids  # Asteroid features (rel_x, rel_y, distance, rel_vx, rel_vy) per asteroid
     if self.include_bullets:
-      size += 4  # Bullet features (TODO: update when implemented)
+      size += 5 * self.num_nearest_bullets  # Bullet features (rel_x, rel_y, distance, rel_vx, rel_vy) per bullet
     if self.include_global:
       size += 2  # Global features (TODO: update when implemented)
     return size
@@ -270,3 +321,10 @@ class VectorEncoder:
   # Normalize angle to -1-1 range
   def normalize_angle_cos(self, angle: float) -> float:
     return math.cos(math.radians(angle))
+
+  def reset(self) -> None:
+    """
+    Reset any internal state (if needed).
+    VectorEncoder has no internal state, so this is a no-op.
+    """
+    pass

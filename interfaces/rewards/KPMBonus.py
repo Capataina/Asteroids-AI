@@ -31,10 +31,11 @@ class KPMBonus(RewardComponent):
     delta_time = current_time - self.prev_time_alive
     self.prev_time_alive = current_time
     
+    # Guard against negative delta (should not happen, but prevents negative rewards)
+    delta_time = max(0.0, delta_time)
     delta_time_minutes = delta_time / 60.0
 
     return delta_time_minutes * window_kpm * self.bonus_per_kpm if window_kpm > 0 else 0.0
 
-  def reset(self) -> None:
-    self.kill_timestamps = []
-    self.prev_time_alive = 0.0
+  def calculate_episode_reward(self, metrics_tracker: MetricsTracker) -> float:
+    return 0.0  # KPMBonus only gives step rewards, not episode rewards

@@ -75,7 +75,16 @@ class GATrainer:
     Returns:
       List of parameter vectors
     """
-    return [[random.uniform(self.mutation_uniform_low, self.mutation_uniform_high) for _ in range(self.state_encoder.get_state_size())] for _ in range(self.population_size)]
+    # Calculate correct parameter size: state_size * action_size
+    # Each action (4 total: left, right, thrust, shoot) needs a weight for each state feature
+    state_size = self.state_encoder.get_state_size()
+    action_size = 4
+    param_size = state_size * action_size
+    
+    return [
+      [random.uniform(self.mutation_uniform_low, self.mutation_uniform_high) for _ in range(param_size)]
+      for _ in range(self.population_size)
+    ]
 
   def elitism(self, population: List[List[float]], fitnesses: List[float]) -> List[List[float]]:
     """
@@ -101,4 +110,11 @@ class GATrainer:
     Returns:
       List of indices of selected parents
     """
-    return [random.randint(0, len(fitnesses) - 1) for _ in range(self.tournament_size)]
+    selected = []
+    for _ in range(len(fitnesses)):
+      # Randomly select tournament_size individuals
+      tournament_indices = random.sample(range(len(fitnesses)), min(tournament_size, len(fitnesses)))
+      # Find the best individual in the tournament
+      winner_idx = max(tournament_indices, key=lambda idx: fitnesses[idx])
+      selected.append(winner_idx)
+    return selected

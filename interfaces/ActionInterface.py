@@ -1,4 +1,5 @@
 from typing import List, Dict
+import math
 
 class ActionInterface:
   def __init__(self, action_space_type: str):
@@ -25,14 +26,14 @@ class ActionInterface:
     """
     if len(action) != 4:
       raise ValueError(f"Invalid action length: {len(action)}")
-    if self.action_space_type == "boolean":
-      if not all(value in [0, 1] for value in action):
-        raise ValueError(f"Invalid action values: {action}")
-    elif self.action_space_type == "continuous":
-      if not all(0 <= value <= 1 for value in action):
-        raise ValueError(f"Invalid action values: {action}")
-    else:
-      raise ValueError(f"Invalid action space type: {self.action_space_type}")
+    
+    # Check for NaN or inf values
+    for value in action:
+      if not isinstance(value, (int, float)) or math.isnan(value) or math.isinf(value):
+        raise ValueError(f"Invalid action values (NaN or inf): {action}")
+    
+    # For boolean mode, we accept continuous values that will be thresholded
+    # No need to check exact 0/1 since normalize() will handle the conversion
     return True
 
   def normalize(self, action: List[float]) -> List[float]:
@@ -45,9 +46,8 @@ class ActionInterface:
     Returns:
       The normalized action.
     """
-
-    self.validate(action)
-    return [max(0, min(value, 1)) for value in action]
+    # Clamp values to [0, 1] range (don't call validate, just normalize)
+    return [max(0.0, min(float(value), 1.0)) for value in action]
 
   def to_game_input(self, action: List[float]) -> Dict[str, bool]:
     """

@@ -13,13 +13,13 @@ class Player(arcade.Sprite):
         # Movement
         self.change_x = 0
         self.change_y = 0
-        self.acceleration = 0.3
-        self.rotation_speed = 5
+        self.acceleration = 0.15  # Reduced from 0.3 for more realistic movement
+        self.rotation_speed = 3   # Reduced from 5 for smoother turning
         self.slowdown = 0.99
 
         # Shooting
-        self.shoot_cooldown = 0.12  # seconds between shots
-        self.shoot_timer = 0       # timer that goes down each frame
+        self.shoot_cooldown = 0.25  # Increased from 0.12 - less spammy shooting
+        self.shoot_timer = 0        # timer that goes down each frame
 
     def update(self, delta_time: float = 1/60) -> None:
         """Update the player's movement, apply friction, and manage the shoot timer."""

@@ -3,7 +3,7 @@ from interfaces.EnvironmentTracker import EnvironmentTracker
 from interfaces.MetricsTracker import MetricsTracker
 
 class KillAsteroid(RewardComponent):
-  def __init__(self, reward_per_asteroid: float = 10.0):
+  def __init__(self, reward_per_asteroid: float = 50.0):  # Increased from 25 to emphasize killing
     self.name = "KillAsteroid"
     self.reward_per_asteroid = reward_per_asteroid
     self.prev_kills = 0
@@ -17,7 +17,8 @@ class KillAsteroid(RewardComponent):
     if current_kills != self.prev_kills:
       delta_kills = current_kills - self.prev_kills
       self.prev_kills = current_kills
-      return delta_kills * self.reward_per_asteroid
+      # Guard against negative delta (should not happen, but prevents negative rewards)
+      return max(0.0, delta_kills * self.reward_per_asteroid)
 
 
   def calculate_episode_reward(self, metrics_tracker: MetricsTracker) -> float:

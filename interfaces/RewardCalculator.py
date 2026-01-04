@@ -47,7 +47,10 @@ class ComposableRewardCalculator:
     reward = 0.0
 
     for name in self.enabled_components:
-      reward += self.components[name].calculate_episode_reward(metrics_tracker)
+      component_reward = self.components[name].calculate_episode_reward(metrics_tracker)
+      # Ensure we always get a number, never None
+      if component_reward is not None:
+        reward += component_reward
 
     self.score += reward
 
