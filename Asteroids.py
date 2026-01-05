@@ -72,6 +72,10 @@ class AsteroidsGame(arcade.Window):
         self.time_since_last_spawn = 0.0
         self.asteroid_spawn_interval = 0.75
 
+        # External control mode - when True, on_update does nothing (training loop controls updates)
+        # This prevents arcade's automatic on_update from double-counting time
+        self.external_control = False
+
     def reset_game(self):
         """Reset the entire game state to a 'fresh' start."""
         # Unschedule the asteroid spawner so we don't stack multiple timers
@@ -150,6 +154,11 @@ class AsteroidsGame(arcade.Window):
         self.score_text.draw()
 
     def on_update(self, delta_time):
+        # Skip if under external control (training loop calls this explicitly)
+        # This prevents arcade's automatic on_update from double-counting
+        if self.external_control:
+            return
+
         self.player_list.update()
         self.asteroid_list.update()
         self.bullet_list.update()

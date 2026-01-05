@@ -33,11 +33,14 @@ class ComposableRewardCalculator:
   def is_enabled(self, name: str) -> bool:
     return name in self.enabled_components
 
-  def calculate_step_reward(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
+  def calculate_step_reward(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker, debug: bool = False) -> float:
     reward = 0.0
 
     for name in self.enabled_components:
-      reward += self.components[name].calculate_step_reward(env_tracker, metrics_tracker)
+      component_reward = self.components[name].calculate_step_reward(env_tracker, metrics_tracker)
+      if debug and abs(component_reward) > 0.1:
+        print(f"    {name}: {component_reward:.2f}")
+      reward += component_reward
 
     self.score += reward
 

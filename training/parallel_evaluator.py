@@ -8,7 +8,7 @@ import concurrent.futures
 import random
 from typing import List, Tuple, Dict
 from game.headless_game import HeadlessAsteroidsGame
-from ai_agents.neuroevolution.genetic_algorithm.ga_agent import GAAgent
+from ai_agents.neuroevolution.genetic_algorithm.nn_ga_agent import NeuralNetworkGAAgent
 from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from interfaces.RewardCalculator import ComposableRewardCalculator
@@ -33,18 +33,20 @@ def evaluate_single_agent(
     action_interface: ActionInterface,
     max_steps: int = 2000,
     frame_delay: float = 1.0 / 60.0,
-    random_seed: int = None
+    random_seed: int = None,
+    hidden_size: int = 24
 ) -> float:
     """
     Evaluate a single agent in a headless game instance.
 
     Args:
-        individual: Parameter vector for the agent
+        individual: Parameter vector for the agent (neural network weights)
         state_encoder: State encoder instance
         action_interface: Action interface instance
         max_steps: Maximum steps per episode
         frame_delay: Time delta per step
         random_seed: Random seed for reproducible asteroid spawning
+        hidden_size: Number of hidden neurons in neural network
 
     Returns:
         Fitness score (total reward)
@@ -56,35 +58,40 @@ def evaluate_single_agent(
     
     # Create reward calculator
     reward_calculator = ComposableRewardCalculator()
-    
-    # Active rewards (currently enabled) - REBALANCED for 1500-step episodes!
-    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=100.0))  # 100 points per kill (most important!)
-    reward_calculator.add_component(AccuracyBonus(bonus_per_second=2.0))  # 2 pts/sec (was 15) - 50 points for full episode at 100% accuracy
-    
-    # Behavioral shaping rewards (NEW - active) - REBALANCED!
-    reward_calculator.add_component(FacingAsteroidBonus(bonus_per_second=2.0))  # 2 pts/sec (was 15) - ~50 points for full episode
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=0.5, penalty_per_second=-1.0))  # 0.5 pts/sec (was 3) - ~12 points for full episode
-    
+
+    # === CORE REWARDS ===
+    # Kill reward reduced so shooting cost matters more
+    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=100.0))  # 100 points per kill
+
+    # Survival bonus - gives value to staying alive, not just shooting
+    reward_calculator.add_component(SurvivalBonus(reward_multiplier=2.0))  # 2 pts/sec - ~50 points for full 25s episode
+
+    # === SHOOTING DISCIPLINE ===
+    # ConservingAmmoBonus: +5 for shots when facing asteroid, -5 for random shots
+    # This teaches WHEN to shoot, discouraging "hold shoot button" behavior
+    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=5.0, bad_shot_penalty=-5.0, alignment_threshold=0.7))
+
+    # === BEHAVIORAL SHAPING ===
+    reward_calculator.add_component(FacingAsteroidBonus(bonus_per_second=2.0))  # 2 pts/sec - encourages aiming
+    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=1.0, penalty_per_second=-0.5))  # Encourages movement
+
     # Reset reward calculator to ensure clean state
     reward_calculator.reset()
-    
-    # Available but disabled rewards (can be uncommented to test)
-    # reward_calculator.add_component(SurvivalBonus())  # Time alive bonus
-    # reward_calculator.add_component(ShootingPenalty())  # -0.5 points per shot (too punishing with ConservingAmmo)
+
+    # === DISABLED REWARDS (for reference) ===
+    # reward_calculator.add_component(AccuracyBonus(bonus_per_second=2.0))  # Replaced by ConservingAmmoBonus for more direct feedback
+    # reward_calculator.add_component(ShootingPenalty())  # -0.5 per shot (use ConservingAmmoBonus instead)
     # reward_calculator.add_component(ChunkBonus())  # Kill multiple asteroids near simultaneously
     # reward_calculator.add_component(NearMiss())  # Reward for close calls
     # reward_calculator.add_component(KPMBonus())  # Kills per minute bonus
-    
-    # Additional behavioral shaping (implemented but not yet tested)
-    # reward_calculator.add_component(ConservingAmmoBonus())  # +5 good shots, -5 bad shots (conflicts with ShootingPenalty)
     # reward_calculator.add_component(LeadingTargetBonus())  # Predictive aiming
     # reward_calculator.add_component(MovingTowardDangerBonus())  # Aggressive play
     # reward_calculator.add_component(SpacingFromWallsBonus())  # Stay away from edges
-    
-    # Create agent
-    agent = GAAgent(individual, state_encoder, action_interface)
+
+    # Create neural network agent
+    agent = NeuralNetworkGAAgent(individual, state_encoder, action_interface, hidden_size=hidden_size)
     agent.reset()
-    
+
     # Reset state encoder for this episode
     state_encoder_copy = VectorEncoder(
         screen_width=800,
@@ -158,10 +165,14 @@ def evaluate_population_parallel(
     action_interface: ActionInterface,
     max_steps: int = 2000,
     max_workers: int = None,
-    generation_seed: int = None
+    generation_seed: int = None,
+    seeds_per_agent: int = 3
 ) -> Tuple[List[float], int, Dict]:
     """
-    Evaluate entire population in parallel.
+    Evaluate entire population in parallel with multiple seeds per agent.
+
+    Each agent is evaluated on multiple different seeds and their fitness
+    is averaged. This selects for generalization rather than luck on one seed.
 
     Args:
         population: List of parameter vectors
@@ -169,20 +180,27 @@ def evaluate_population_parallel(
         action_interface: Action interface instance
         max_steps: Maximum steps per episode
         max_workers: Number of parallel workers (None = auto)
-        generation_seed: Random seed for this generation (all agents face same asteroids)
+        generation_seed: Base seed for this generation (used to derive per-agent seeds)
+        seeds_per_agent: Number of different seeds to evaluate each agent on (default: 3)
 
     Returns:
-        Tuple of (List of fitness scores, seed used, aggregated metrics dict)
+        Tuple of (List of averaged fitness scores, base seed used, aggregated metrics dict)
     """
-    # Use a consistent seed for all agents in this generation
-    # This ensures fair comparison - all agents face the SAME asteroid configuration
+    # Base seed for this generation - used to derive unique seeds
     if generation_seed is None:
         generation_seed = random.randint(0, 2**31 - 1)
 
+    # Generate seeds for all evaluations: each agent gets `seeds_per_agent` different seeds
+    # Agent i gets seeds: [base + i*seeds_per_agent + 0, base + i*seeds_per_agent + 1, ...]
+    all_eval_tasks = []
+    for agent_idx, individual in enumerate(population):
+        for seed_offset in range(seeds_per_agent):
+            seed = generation_seed + agent_idx * seeds_per_agent + seed_offset
+            all_eval_tasks.append((agent_idx, individual, seed))
+
     # Use ThreadPoolExecutor for parallel evaluation
-    # Threading works well here since game logic is Python-heavy
+    # All 300 evaluations (100 agents × 3 seeds) run in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all evaluation tasks - ALL use the SAME seed for fair comparison
         futures = [
             executor.submit(
                 evaluate_single_agent,
@@ -190,31 +208,54 @@ def evaluate_population_parallel(
                 state_encoder,
                 action_interface,
                 max_steps,
-                random_seed=generation_seed  # Same seed for all agents!
+                random_seed=seed
             )
-            for individual in population
+            for agent_idx, individual, seed in all_eval_tasks
         ]
 
         # Collect results as they complete
-        results = [future.result() for future in futures]
+        all_results = [future.result() for future in futures]
 
-    # Extract fitness scores and aggregate metrics
-    fitnesses = [r['fitness'] for r in results]
+    # Group results by agent and average their fitness
+    agent_results = [[] for _ in range(len(population))]
+    for i, result in enumerate(all_results):
+        agent_idx = i // seeds_per_agent
+        agent_results[agent_idx].append(result)
 
-    # Aggregate behavioral metrics across population
+    # Calculate averaged fitness for each agent
+    fitnesses = []
+    averaged_results = []  # Store averaged metrics per agent for aggregation
+    for agent_idx, results in enumerate(agent_results):
+        avg_fitness = sum(r['fitness'] for r in results) / len(results)
+        fitnesses.append(avg_fitness)
+
+        # Also average the behavioral metrics for this agent
+        averaged_results.append({
+            'fitness': avg_fitness,
+            'steps_survived': sum(r['steps_survived'] for r in results) / len(results),
+            'kills': sum(r['kills'] for r in results) / len(results),
+            'shots_fired': sum(r['shots_fired'] for r in results) / len(results),
+            'accuracy': sum(r['accuracy'] for r in results) / len(results),
+        })
+
+    # Find best agent (by averaged fitness)
+    best_idx = fitnesses.index(max(fitnesses))
+    best_agent_results = agent_results[best_idx]
+
+    # Aggregate behavioral metrics across population (using averaged per-agent metrics)
     aggregated_metrics = {
-        'avg_steps_survived': sum(r['steps_survived'] for r in results) / len(results),
-        'avg_kills': sum(r['kills'] for r in results) / len(results),
-        'avg_shots_fired': sum(r['shots_fired'] for r in results) / len(results),
-        'avg_accuracy': sum(r['accuracy'] for r in results) / len(results),
-        'total_kills': sum(r['kills'] for r in results),
-        'total_shots': sum(r['shots_fired'] for r in results),
-        'max_kills': max(r['kills'] for r in results),
-        'max_steps': max(r['steps_survived'] for r in results),
-        # Best agent's detailed stats
-        'best_agent_kills': results[fitnesses.index(max(fitnesses))]['kills'],
-        'best_agent_steps': results[fitnesses.index(max(fitnesses))]['steps_survived'],
-        'best_agent_accuracy': results[fitnesses.index(max(fitnesses))]['accuracy'],
+        'avg_steps_survived': sum(r['steps_survived'] for r in averaged_results) / len(averaged_results),
+        'avg_kills': sum(r['kills'] for r in averaged_results) / len(averaged_results),
+        'avg_shots_fired': sum(r['shots_fired'] for r in averaged_results) / len(averaged_results),
+        'avg_accuracy': sum(r['accuracy'] for r in averaged_results) / len(averaged_results),
+        'total_kills': sum(r['kills'] for r in averaged_results),
+        'total_shots': sum(r['shots_fired'] for r in averaged_results),
+        'max_kills': max(r['kills'] for r in averaged_results),
+        'max_steps': max(r['steps_survived'] for r in averaged_results),
+        # Best agent's stats (averaged across their seeds)
+        'best_agent_kills': averaged_results[best_idx]['kills'],
+        'best_agent_steps': averaged_results[best_idx]['steps_survived'],
+        'best_agent_accuracy': averaged_results[best_idx]['accuracy'],
     }
 
     return fitnesses, generation_seed, aggregated_metrics
@@ -226,28 +267,30 @@ def evaluate_agent_visual(
     state_encoder: VectorEncoder,
     action_interface: ActionInterface,
     reward_calculator: ComposableRewardCalculator,
-    max_steps: int = 500
+    max_steps: int = 500,
+    hidden_size: int = 24
 ) -> Tuple[float, int]:
     """
     Evaluate agent in the visual game window.
     Used to display the best agent.
-    
+
     Args:
-        individual: Parameter vector
+        individual: Parameter vector (neural network weights)
         game: Visual AsteroidsGame instance
         state_encoder: State encoder
         action_interface: Action interface
         reward_calculator: Reward calculator
         max_steps: Maximum steps to display
-    
+        hidden_size: Number of hidden neurons in neural network
+
     Returns:
         Tuple of (total_reward, steps_survived)
     """
     # Reset game
     game.reset_game()
-    
-    # Create agent
-    agent = GAAgent(individual, state_encoder, action_interface)
+
+    # Create neural network agent
+    agent = NeuralNetworkGAAgent(individual, state_encoder, action_interface, hidden_size=hidden_size)
     agent.reset()
     
     # Reset everything

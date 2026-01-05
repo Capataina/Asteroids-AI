@@ -30,7 +30,7 @@ from interfaces.rewards.AccuracyBonus import AccuracyBonus
 from interfaces.rewards.KPMBonus import KPMBonus
 from interfaces.rewards.ShootingPenalty import ShootingPenalty
 from ai_agents.neuroevolution.genetic_algorithm.ga_trainer import GATrainer
-from ai_agents.neuroevolution.genetic_algorithm.ga_agent import GAAgent
+from ai_agents.neuroevolution.genetic_algorithm.nn_ga_agent import NeuralNetworkGAAgent
 from training.parallel_evaluator import evaluate_population_parallel
 from training.analytics import TrainingAnalytics
 
@@ -69,11 +69,14 @@ class ParallelGATrainingDriver:
         self.current_generation = 0
         self.population = []
         self.fitnesses = []
-        self.best_agent: Optional[GAAgent] = None  # All-time best (for saving)
+        self.best_agent: Optional[NeuralNetworkGAAgent] = None  # All-time best (for saving)
         self.best_fitness = float('-inf')
         self.best_individual = None
-        self.display_agent: Optional[GAAgent] = None  # Current generation's best (for display)
+        self.display_agent: Optional[NeuralNetworkGAAgent] = None  # Current generation's best (for display)
         self.display_fitness = 0.0
+
+        # Neural network configuration
+        self.hidden_size = 24  # Hidden layer neurons
 
         # Display state
         self.showing_best_agent = False
@@ -124,11 +127,22 @@ class ParallelGATrainingDriver:
         self.game.on_draw = new_draw
     
     def _initialize_population(self):
-        """Initialize random population."""
+        """Initialize random population with neural network parameter vectors."""
         state_size = self.ga_trainer.state_encoder.get_state_size()
         action_size = 4
-        param_size = state_size * action_size
-        
+
+        # Neural network parameter count: W1 + b1 + W2 + b2
+        # W1: state_size x hidden_size, b1: hidden_size
+        # W2: hidden_size x action_size, b2: action_size
+        param_size = NeuralNetworkGAAgent.get_parameter_count(
+            input_size=state_size,
+            hidden_size=self.hidden_size,
+            output_size=action_size
+        )
+
+        print(f"Neural network architecture: {state_size} -> {self.hidden_size} -> {action_size}")
+        print(f"Total parameters per agent: {param_size}")
+
         self.population = [
             [random.uniform(
                 self.ga_trainer.mutation_uniform_low,
@@ -149,10 +163,11 @@ class ParallelGATrainingDriver:
                     print(f"Now displaying ALL-TIME best agent...")
                     # For the final demo, show the all-time best agent
                     if self.best_individual is not None:
-                        self.display_agent = GAAgent(
+                        self.display_agent = NeuralNetworkGAAgent(
                             self.best_individual,
                             self.ga_trainer.state_encoder,
-                            self.ga_trainer.action_interface
+                            self.ga_trainer.action_interface,
+                            hidden_size=self.hidden_size
                         )
                         self.display_fitness = self.best_fitness
                     self._start_best_agent_display()
@@ -172,6 +187,7 @@ class ParallelGATrainingDriver:
                 if self.best_agent_steps >= self.best_agent_max_steps or self.game.player not in self.game.player_list:
                     self.showing_best_agent = False
                     self.game.manual_spawning = False  # Restore normal spawning
+                    self.game.external_control = False  # Allow arcade to control again
                     self.phase = "evolving"
                 return
             
@@ -203,10 +219,11 @@ class ParallelGATrainingDriver:
 
                 # Always display the CURRENT generation's best agent (not all-time best)
                 # This lets users see what the current population is doing
-                self.display_agent = GAAgent(
+                self.display_agent = NeuralNetworkGAAgent(
                     current_gen_best_individual,
                     self.ga_trainer.state_encoder,
-                    self.ga_trainer.action_interface
+                    self.ga_trainer.action_interface,
+                    hidden_size=self.hidden_size
                 )
                 self.display_fitness = current_gen_best_fitness
                 
@@ -269,9 +286,16 @@ class ParallelGATrainingDriver:
 
         # Reset game with fresh random asteroids
         self.game.reset_game()
+
+        # CRITICAL: Reset game's metrics_tracker
+        self.game.metrics_tracker.time_alive = 0.0
+        self.game.metrics_tracker.reset()
+
+        # Enable external control - we'll call on_update explicitly
+        # This prevents arcade's automatic on_update from double-counting
+        self.game.external_control = True
+
         self.ga_trainer.episode_runner.env_tracker.update(self.game)
-        self.ga_trainer.episode_runner.metrics_tracker.reset()  # Reset metrics for new episode!
-        self.ga_trainer.episode_runner.metrics_tracker.update(self.game)
         self.ga_trainer.episode_runner.reward_calculator.reset()
         self.ga_trainer.episode_runner.state_encoder.reset()
         self.display_agent.reset()
@@ -285,6 +309,7 @@ class ParallelGATrainingDriver:
             # Player died, end display early
             print(f"Best agent died after {self.best_agent_steps} steps")
             self.showing_best_agent = False
+            self.game.external_control = False  # Allow arcade to control again
             self.phase = "evolving"
             return
         
@@ -307,17 +332,22 @@ class ParallelGATrainingDriver:
         self.game.up_pressed = game_input["up_pressed"]
         self.game.space_pressed = game_input["space_pressed"]
         
-        # Step game
+        # Step game - temporarily allow on_update to run
+        self.game.external_control = False
         self.game.on_update(self.frame_delay)
-        
+        self.game.external_control = True
+
         # Update trackers - use the GAME's own trackers, not episode_runner's!
         # The visual game updates its own metrics_tracker with kills/shots
         self.ga_trainer.episode_runner.env_tracker.update(self.game)
 
         # Calculate reward using the GAME's metrics tracker (which has actual kill/shot data)
+        # Enable debug on every 100th step to see per-component rewards
+        debug_this_step = (self.best_agent_steps % 100 == 99)
         step_reward = self.ga_trainer.episode_runner.reward_calculator.calculate_step_reward(
             self.ga_trainer.episode_runner.env_tracker,
-            self.game.metrics_tracker  # Use game's tracker, not episode_runner's!
+            self.game.metrics_tracker,
+            debug=debug_this_step
         )
 
         self.best_agent_steps += 1
@@ -325,9 +355,10 @@ class ParallelGATrainingDriver:
         # Debug: Print running score and actions every 100 steps
         if self.best_agent_steps % 100 == 0:
             current_score = self.ga_trainer.episode_runner.reward_calculator.score
-            kills = self.game.metrics_tracker.total_kills  # Use game's tracker!
+            kills = self.game.metrics_tracker.total_kills
             shots = self.game.metrics_tracker.total_shots_fired
-            print(f"  Step {self.best_agent_steps}: Score={current_score:.1f}, Kills={kills}, Shots={shots}")
+            time_alive = self.game.metrics_tracker.time_alive
+            print(f"  Step {self.best_agent_steps}: Score={current_score:.1f}, Kills={kills}, Shots={shots}, Time={time_alive:.2f}s, StepReward={step_reward:.2f}")
 
         self._update_info_text("Displaying best agent")
 
@@ -443,36 +474,23 @@ def create_ga_trainer(game, **kwargs):
     
     action_interface = ActionInterface(action_space_type="boolean")
     
-    # Create reward calculator
+    # Create reward calculator - MUST MATCH parallel_evaluator.py exactly!
     reward_calculator = ComposableRewardCalculator()
-    
-    # Active rewards (currently enabled) - REBALANCED for 1500-step episodes!
-    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=100.0))  # 100 points per kill (most important!)
-    reward_calculator.add_component(AccuracyBonus(bonus_per_second=2.0))  # 2 pts/sec (was 15) - 50 points for full episode at 100% accuracy
-    
-    # Behavioral shaping rewards (NEW - active) - REBALANCED!
+
+    # === CORE REWARDS (synced with parallel_evaluator.py) ===
+    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=100.0))
+    reward_calculator.add_component(SurvivalBonus(reward_multiplier=2.0))
+
+    # === SHOOTING DISCIPLINE ===
+    from interfaces.rewards.ConservingAmmoBonus import ConservingAmmoBonus
+    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=5.0, bad_shot_penalty=-5.0, alignment_threshold=0.7))
+
+    # === BEHAVIORAL SHAPING ===
     from interfaces.rewards.FacingAsteroidBonus import FacingAsteroidBonus
     from interfaces.rewards.MaintainingMomentumBonus import MaintainingMomentumBonus
-    reward_calculator.add_component(FacingAsteroidBonus(bonus_per_second=2.0))  # 2 pts/sec (was 15) - ~50 points for full episode
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=0.5, penalty_per_second=-1.0))  # 0.5 pts/sec (was 3) - ~12 points for full episode
-    
-    # Available but disabled rewards (can be uncommented to test)
-    # reward_calculator.add_component(SurvivalBonus())  # Time alive bonus
-    # reward_calculator.add_component(ShootingPenalty())  # -0.5 points per shot (too punishing with ConservingAmmo)
-    # reward_calculator.add_component(ChunkBonus())  # Kill multiple asteroids near simultaneously
-    # reward_calculator.add_component(NearMiss())  # Reward for close calls
-    # reward_calculator.add_component(KPMBonus())  # Kills per minute bonus
-    
-    # Additional behavioral shaping (implemented but not yet tested)
-    # from interfaces.rewards.ConservingAmmoBonus import ConservingAmmoBonus
-    # from interfaces.rewards.LeadingTargetBonus import LeadingTargetBonus
-    # from interfaces.rewards.MovingTowardDangerBonus import MovingTowardDangerBonus
-    # from interfaces.rewards.SpacingFromWallsBonus import SpacingFromWallsBonus
-    # reward_calculator.add_component(ConservingAmmoBonus())  # +5 good shots, -5 bad shots (conflicts with ShootingPenalty)
-    # reward_calculator.add_component(LeadingTargetBonus())  # Predictive aiming
-    # reward_calculator.add_component(MovingTowardDangerBonus())  # Aggressive play
-    # reward_calculator.add_component(SpacingFromWallsBonus())  # Stay away from edges
-    
+    reward_calculator.add_component(FacingAsteroidBonus(bonus_per_second=2.0))
+    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=1.0, penalty_per_second=-0.5))
+
     from training.base.EpisodeRunner import EpisodeRunner
     episode_runner = EpisodeRunner(
         game=game,
