@@ -150,32 +150,37 @@ class VectorEncoder:
 
   def encode_asteroids(self, env_tracker: EnvironmentTracker) -> List[List[float]]:
     """
-    Encode the asteroids state into a list of vectors.
-    Returns a list of lists (one list per asteroid).
+    Encode the nearest asteroids state into a list of vectors.
+    Returns a list of lists (one list per asteroid), sorted by distance (nearest first).
 
     Args:
-      asteroids: The asteroids to encode.
       env_tracker: The environment tracker to use for the state.
 
     Returns:
-      List of encoded asteroid states (list of lists).
+      List of encoded asteroid states (list of lists), nearest asteroids first.
     """
-    asteroids = env_tracker.get_all_asteroids()
     player = env_tracker.get_player()
 
-    if asteroids is None or player is None or len(asteroids) == 0:
+    if player is None:
+      # Return zero-padded encoding for missing player
+      return [[0.0] * 5 for _ in range(self.num_nearest_asteroids)]
+
+    # Get the NEAREST asteroids, sorted by distance (not arbitrary order)
+    nearest_asteroids = env_tracker.get_nearest_asteroids(self.num_nearest_asteroids)
+
+    if len(nearest_asteroids) == 0:
       # Return zero-padded encoding for missing asteroids
       return [[0.0] * 5 for _ in range(self.num_nearest_asteroids)]
-    
-    # Encode available asteroids
+
+    # Encode available asteroids (already sorted by distance)
     encoded = []
     for i in range(self.num_nearest_asteroids):
-      if i < len(asteroids):
-        encoded.append(self.encode_asteroid(asteroids[i], player, env_tracker))
+      if i < len(nearest_asteroids):
+        encoded.append(self.encode_asteroid(nearest_asteroids[i], player, env_tracker))
       else:
         # Pad with zeros if we have fewer asteroids than expected
         encoded.append([0.0] * 5)
-    
+
     return encoded
 
   def encode_asteroid(self, asteroid: asteroid.Asteroid, player: Player, env_tracker: EnvironmentTracker) -> List[float]:

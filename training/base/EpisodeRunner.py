@@ -121,11 +121,11 @@ class EpisodeRunner:
         done = True
         done_reason = "collision"
 
-      # Calculate episode reward
-      episode_reward = self.reward_calculator.calculate_episode_reward(self.metrics_tracker)
-      total_reward += episode_reward
+    # Calculate episode reward (OUTSIDE the loop - only once at episode end)
+    episode_reward = self.reward_calculator.calculate_episode_reward(self.metrics_tracker)
+    total_reward += episode_reward
 
-      # Collect metrics
-      metrics = self.metrics_tracker.get_episode_stats()
+    # Collect metrics
+    metrics = self.metrics_tracker.get_episode_stats()
 
     return EpisodeResult(total_reward=total_reward, steps=steps, metrics=metrics, done_reason=done_reason)

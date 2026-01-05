@@ -8,7 +8,7 @@ class GAGeneticOperators:
     self.mutation_gaussian_sigma = mutation_gaussian_sigma
     self.mutation_uniform_low = mutation_uniform_low
     self.mutation_uniform_high = mutation_uniform_high
-    self.crossover_probability = crossover_probability
+    self.crossover_alpha = crossover_alpha  # Blend factor for crossover (0.5 = equal mix)
 
   def mutate_gaussian(self, individual: List[float]) -> Tuple[List[float]]:
     """
@@ -55,17 +55,19 @@ class GAGeneticOperators:
     Args:
       individual1: First parent
       individual2: Second parent
-    
+
     Returns:
       Two offspring (tuples for DEAP)
     """
-    # Create two complementary offspring
+    # Create two complementary offspring using crossover_alpha as blend factor
+    # alpha=0.5 means equal mix, alpha=0.7 means 70% from first parent
+    alpha = self.crossover_alpha
     child1 = [
-      individual1[i] * self.crossover_probability + individual2[i] * (1 - self.crossover_probability)
+      individual1[i] * alpha + individual2[i] * (1 - alpha)
       for i in range(len(individual1))
     ]
     child2 = [
-      individual2[i] * self.crossover_probability + individual1[i] * (1 - self.crossover_probability)
+      individual2[i] * alpha + individual1[i] * (1 - alpha)
       for i in range(len(individual2))
     ]
     return (child1, child2)
@@ -73,21 +75,22 @@ class GAGeneticOperators:
   def crossover_arithmetic(self, individual1: List[float], individual2: List[float]) -> Tuple[List[float], List[float]]:
     """
     Arithmetic crossover: weighted average of parents.
-    
+
     Args:
       individual1: First parent
       individual2: Second parent
-    
+
     Returns:
       Two offspring (tuples for DEAP)
     """
-    # Create two complementary offspring
+    # Create two complementary offspring using crossover_alpha as blend factor
+    alpha = self.crossover_alpha
     child1 = [
-      individual1[i] * self.crossover_probability + individual2[i] * (1 - self.crossover_probability)
+      individual1[i] * alpha + individual2[i] * (1 - alpha)
       for i in range(len(individual1))
     ]
     child2 = [
-      individual2[i] * self.crossover_probability + individual1[i] * (1 - self.crossover_probability)
+      individual2[i] * alpha + individual1[i] * (1 - alpha)
       for i in range(len(individual2))
     ]
     return (child1, child2)

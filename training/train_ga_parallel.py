@@ -74,13 +74,12 @@ class ParallelGATrainingDriver:
         self.best_individual = None
         self.display_agent: Optional[GAAgent] = None  # Current generation's best (for display)
         self.display_fitness = 0.0
-        self.display_seed = None  # Random seed used during evaluation (for reproducible display)
-        
+
         # Display state
         self.showing_best_agent = False
         self.best_agent_steps = 0
         self.best_agent_max_steps = 1500
-        
+
         # Phase tracking
         self.phase = "evaluating"  # "evaluating", "displaying_best", "evolving"
         
@@ -182,8 +181,9 @@ class ParallelGATrainingDriver:
                 self._update_info_text("Evaluating population in parallel...")
                 
                 # PARALLEL EVALUATION - ALL AGENTS AT ONCE
-                # All agents use the SAME random seed for fair comparison
-                self.fitnesses, self.display_seed, gen_metrics = evaluate_population_parallel(
+                # All agents use the SAME random seed for fair comparison within a generation
+                # (seed is used internally but not stored - display uses fresh game)
+                self.fitnesses, _, gen_metrics = evaluate_population_parallel(
                     self.population,
                     self.ga_trainer.state_encoder,
                     self.ga_trainer.action_interface,
@@ -252,22 +252,22 @@ class ParallelGATrainingDriver:
             traceback.print_exc()
     
     def _start_best_agent_display(self):
-        """Start displaying the current generation's best agent."""
+        """Start displaying the current generation's best agent in a FRESH game.
+
+        This tests the agent's ability to generalize to new asteroid configurations,
+        rather than attempting to replay the exact evaluation scenario.
+        """
         if self.display_agent is None:
             return
 
         self.showing_best_agent = True
         self.best_agent_steps = 0
 
-        # Use the SAME random seed as evaluation for reproducible asteroid spawning
-        # This ensures the displayed agent faces the SAME asteroids it was evaluated on
-        if self.display_seed is not None:
-            random.seed(self.display_seed)
+        # Use normal arcade.schedule spawning (fresh random game, not seeded replay)
+        # This tests generalization - can the agent handle NEW asteroid configurations?
+        self.game.manual_spawning = False
 
-        # Enable manual spawning mode to match headless game timing exactly
-        self.game.manual_spawning = True
-
-        # Reset game (will spawn asteroids using the seeded random)
+        # Reset game with fresh random asteroids
         self.game.reset_game()
         self.ga_trainer.episode_runner.env_tracker.update(self.game)
         self.ga_trainer.episode_runner.metrics_tracker.reset()  # Reset metrics for new episode!
@@ -276,7 +276,7 @@ class ParallelGATrainingDriver:
         self.ga_trainer.episode_runner.state_encoder.reset()
         self.display_agent.reset()
 
-        print(f"Displaying generation's best agent (fitness={self.display_fitness:.2f}, all-time best={self.best_fitness:.2f}, seed={self.display_seed})...")
+        print(f"Testing best agent in fresh game (training fitness={self.display_fitness:.2f}, all-time best={self.best_fitness:.2f})...")
     
     def _update_best_agent_display(self, delta_time):
         """Update best agent playing visually."""
@@ -416,9 +416,9 @@ class ParallelGATrainingDriver:
             metrics = self.game.metrics_tracker.get_episode_stats()
             self.info_text.text = (
                 f"Generation {self.current_generation + 1}/{self.ga_trainer.num_generations} | "
-                f"Gen Best Playing ({self.best_agent_steps}/{self.best_agent_max_steps})\n"
-                f"This Agent: {self.display_fitness:.2f} | All-Time Best: {self.best_fitness:.2f} | "
-                f"Kills: {metrics.get('total_kills', 0)}"
+                f"Testing Best Agent ({self.best_agent_steps}/{self.best_agent_max_steps})\n"
+                f"Training Fitness: {self.display_fitness:.2f} | All-Time Best: {self.best_fitness:.2f} | "
+                f"Fresh Game Kills: {metrics.get('total_kills', 0)}"
             )
         else:
             avg = sum(self.fitnesses) / len(self.fitnesses) if self.fitnesses else 0
