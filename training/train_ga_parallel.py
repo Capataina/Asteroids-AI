@@ -29,6 +29,7 @@ from interfaces.rewards.NearMiss import NearMiss
 from interfaces.rewards.AccuracyBonus import AccuracyBonus
 from interfaces.rewards.KPMBonus import KPMBonus
 from interfaces.rewards.ShootingPenalty import ShootingPenalty
+from interfaces.rewards.FacingAsteroidBonus import FacingAsteroidBonus
 from ai_agents.neuroevolution.genetic_algorithm.ga_trainer import GATrainer
 from ai_agents.neuroevolution.genetic_algorithm.nn_ga_agent import NeuralNetworkGAAgent
 from training.parallel_evaluator import evaluate_population_parallel
@@ -477,20 +478,30 @@ def create_ga_trainer(game, **kwargs):
     # Create reward calculator - MUST MATCH parallel_evaluator.py exactly!
     reward_calculator = ComposableRewardCalculator()
 
-    # === CORE REWARDS (synced with parallel_evaluator.py) ===
-    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=100.0))
-    reward_calculator.add_component(SurvivalBonus(reward_multiplier=2.0))
-
-    # === SHOOTING DISCIPLINE ===
+    # === "SKILL-BASED" REWARD CONFIGURATION V2 ===
     from interfaces.rewards.ConservingAmmoBonus import ConservingAmmoBonus
-    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=5.0, bad_shot_penalty=-5.0, alignment_threshold=0.7))
-
-    # === BEHAVIORAL SHAPING ===
-    from interfaces.rewards.FacingAsteroidBonus import FacingAsteroidBonus
+    from interfaces.rewards.LeadingTargetBonus import LeadingTargetBonus
+    from interfaces.rewards.MovingTowardDangerBonus import MovingTowardDangerBonus
+    from interfaces.rewards.NearMiss import NearMiss
+    from interfaces.rewards.SpacingFromWallsBonus import SpacingFromWallsBonus
     from interfaces.rewards.MaintainingMomentumBonus import MaintainingMomentumBonus
-    reward_calculator.add_component(FacingAsteroidBonus(bonus_per_second=2.0))
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=1.0, penalty_per_second=-0.5))
 
+    # 1. Core Objective (Value reduced to emphasize skill)
+    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
+    reward_calculator.add_component(SurvivalBonus(reward_multiplier=1.0))
+
+    # 2. Shot Discipline (High skill, high reward)
+    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=20.0, bad_shot_penalty=-20.0, alignment_threshold=0.8))
+    # reward_calculator.add_component(LeadingTargetBonus(bonus_per_shot=40.0, prediction_time=0.4, alignment_threshold=0.95))
+
+    # 3. Movement & Positioning (Crucial for survival and strategy)
+    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=5.0, penalty_per_second=-5.0))
+    reward_calculator.add_component(NearMiss(reward_per_near_miss=15.0, safe_distance=60.0))
+    reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
+
+    # 4. Aggression / Hunting
+    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=3.0, min_safe_distance=250.0))
+    
     from training.base.EpisodeRunner import EpisodeRunner
     episode_runner = EpisodeRunner(
         game=game,

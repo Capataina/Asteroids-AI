@@ -17,8 +17,9 @@ Asteroids AI/
 ├── ai_agents/
 │   ├── neuroevolution/
 │   │   └── genetic_algorithm/
-│   │       ├── ga_agent.py       # GA agent implementing BaseAgent
-│   │       ├── ga_trainer.py     # GA configuration and operators container
+│   │       ├── ga_agent.py       # LEGACY: Agent with simple linear policy
+│   │       ├── nn_ga_agent.py    # CURRENT: Agent with neural network policy
+│   │       ├── ga_trainer.py     # GA configuration and component container
 │   │       ├── ga_fitness.py     # Fitness evaluation (NOTE: broken, not used)
 │   │       └── operators.py      # Mutation and crossover operators
 │   └── reinforcement_learning/
@@ -36,19 +37,6 @@ Asteroids AI/
 │   ├── encoders/
 │   │   └── VectorEncoder.py      # Fixed-size vector for GA
 │   └── rewards/                  # Individual reward components
-│       ├── SurvivalBonus.py
-│       ├── KillAsteroid.py
-│       ├── ChunkBonus.py
-│       ├── AccuracyBonus.py
-│       ├── NearMiss.py
-│       ├── KPMBonus.py
-│       ├── ShootingPenalty.py
-│       ├── FacingAsteroidBonus.py
-│       ├── MaintainingMomentumBonus.py
-│       ├── ConservingAmmoBonus.py
-│       ├── LeadingTargetBonus.py
-│       ├── MovingTowardDangerBonus.py
-│       └── SpacingFromWallsBonus.py
 ├── training/
 │   ├── base/
 │   │   ├── BaseAgent.py          # Abstract agent interface
@@ -68,154 +56,82 @@ Asteroids AI/
 
 ### Game Core (`Asteroids.py` + `game/headless_game.py`)
 
-- **Asteroids.py**: Visual game with arcade.Window for display
-  - Handles rendering, keyboard input, visual feedback
-  - Used during training to display best agent playing
-  - Uses `arcade.schedule()` for asteroid spawning
-
-- **HeadlessAsteroidsGame**: Fast game simulation without rendering
-  - Used for parallel evaluation of agents
-  - Independent RNG instance per game for reproducible, thread-safe evaluation
-  - Manual collision detection with explicit radii (no textures loaded)
-
-### Game Entities (`game/classes/`)
-
-- **Player**: Movement (thrust, rotation), shooting with cooldown
-- **Bullet**: Projectile with lifetime, velocity
-- **Asteroid**: HP-based destruction, fragmentation into smaller asteroids, RNG support
+- **Asteroids.py**: Visual game with arcade.Window for display. Used during training to display the best agent of a generation playing in a _fresh, unseeded_ game.
+- **HeadlessAsteroidsGame**: Fast, non-visual game simulation used for the parallel evaluation of the agent population.
 
 ### AI Interface Layer (`interfaces/`)
 
-- **EnvironmentTracker**: Current state snapshot, derived metrics
-  - Provides access to player, asteroids, bullets
-  - Calculates nearest asteroids, distances
-  - Stable API for game state access
-
-- **MetricsTracker**: Aggregated statistics over episode
-  - Tracks: shots_fired, hits, kills, time_alive
-  - Calculates: accuracy, kills_per_minute
-
-- **RewardCalculator**: Component-based reward system
-  - `ComposableRewardCalculator` with pluggable components
-  - Active components: KillAsteroid, AccuracyBonus, FacingAsteroidBonus, MaintainingMomentumBonus
-  - Components track state (prev_kills, prev_time) for delta-based rewards
-
-- **StateEncoder + VectorEncoder**: State encoding for agents
-  - VectorEncoder: Fixed-size vector (16 features with 2 asteroids)
-  - 6 player features + 5 features × num_asteroids
-
-- **ActionInterface**: Action validation and conversion
-  - Validates action format [left, right, thrust, shoot]
-  - Converts to game input booleans via 0.5 threshold
+- **EnvironmentTracker**: Provides a snapshot of the current game state (player, asteroids, bullets).
+- **MetricsTracker**: Aggregates statistics over an episode (shots fired, kills, time alive, etc.).
+- **RewardCalculator**: A composable system that combines multiple reward components into a single fitness score.
+- **VectorEncoder**: Encodes the game state into a fixed-size vector for the agent. The default configuration produces a 16-dimensional vector (6 player features + 5 features for each of the 2 nearest asteroids).
+- **ActionInterface**: Validates and normalizes the agent's output action vector.
 
 ### GA Implementation (`ai_agents/neuroevolution/genetic_algorithm/`)
 
-- **GAAgent**: Implements BaseAgent with linear policy
-  - Parameter vector size: state_size × action_size (e.g., 16 × 4 = 64)
-  - Linear policy: action[i] = sum(weights × state)
+- **NeuralNetworkGAAgent**: The current agent used for GA training. It implements `BaseAgent` with a feedforward neural network policy.
 
-- **GATrainer**: Configuration container (not the actual training loop!)
-  - Stores hyperparameters and creates operators
-  - `train()` method exists but is NOT used by parallel training
+  - **Architecture**: Input(16) -> Hidden(24, tanh) -> Output(4, sigmoid).
+  - The parameter vector evolved by the GA represents the flattened weights and biases of this network.
+  - For the default architecture, this results in **508 parameters** per agent.
 
-- **GAGeneticOperators**: Mutation and crossover operators
-  - mutate_gaussian: Adds Gaussian noise per gene
-  - mutate_uniform: Replaces genes with uniform random
-  - crossover_blend: Weighted average of parents
+- **GATrainer**: A container class that holds hyperparameters (population size, mutation rates, etc.) and shared components (state encoder, action interface). Its `train()` method is **not** used by the current parallel training pipeline.
+
+- **GAGeneticOperators**: A class in `operators.py` that implements the mutation (Gaussian) and crossover (blend) operators used in the evolutionary process.
 
 ### Parallel Training (`training/`)
 
-- **train_ga_parallel.py**: Main training entry point
-  - `ParallelGATrainingDriver`: Actual GA training loop
-  - Uses arcade.schedule() for visual updates
-  - Displays best agent from each generation
+- **train_ga_parallel.py**: The main entry point for GA training.
+  - **ParallelGATrainingDriver**: This class contains the primary GA training loop. It manages the population, orchestrates evaluation, and runs the evolutionary steps (selection, crossover, mutation).
+- **parallel_evaluator.py**: Provides the `evaluate_population_parallel()` function, which evaluates the entire population's fitness simultaneously using a `ThreadPoolExecutor` and headless game instances.
+- **EpisodeRunner**: Used only during the visual display phase of the best agent, not for parallel evaluation.
 
-- **parallel_evaluator.py**: Parallel fitness evaluation
-  - `evaluate_population_parallel()`: Evaluates all agents simultaneously
-  - Uses ThreadPoolExecutor for parallelism
-  - Each agent gets same random seed for fair comparison
+## Data Flow: Current Parallel Training
 
-- **EpisodeRunner**: Episode execution for visual display
-  - Used during best agent display phase
-  - NOT used for parallel evaluation
+1.  **Initialization**: `ParallelGATrainingDriver._initialize_population()` creates a population of random parameter vectors. Each vector corresponds to the flattened weights of a `NeuralNetworkGAAgent`.
 
-## Data Flow
+2.  **Parallel Evaluation**: `evaluate_population_parallel()` is called. It creates a `HeadlessAsteroidsGame` for each agent in the population and runs them in parallel to get their fitness scores and behavioral metrics. All agents in a generation are evaluated using the same random seed for fairness.
 
-### Current Parallel Training Flow
+3.  **Display Phase**: The best agent from the evaluated generation is instantiated as a `NeuralNetworkGAAgent`. It is then run in the main visual `AsteroidsGame` instance with **new, random asteroid positions** to test its ability to generalize.
 
-1. **Initialization**: `ParallelGATrainingDriver._initialize_population()`
-   - Creates random 64-dimensional parameter vectors
-   - Population size: 100 agents
+4.  **Evolution**: `ParallelGATrainingDriver._evolve_generation()` creates the next generation's population using:
 
-2. **Parallel Evaluation**: `evaluate_population_parallel()`
-   - Creates HeadlessAsteroidsGame per agent
-   - All agents use same random seed for fair comparison
-   - Returns fitness scores and behavioral metrics
+- Tournament selection
+- Blend crossover
+- Gaussian mutation
+- Elitism (top 20% of the previous generation survive)
 
-3. **Display Phase**: Best agent plays visually
-   - Uses same seed as evaluation for reproducibility
-   - EpisodeRunner controls visual game stepping
-   - Updates display with training metrics
-
-4. **Evolution**: `ParallelGATrainingDriver._evolve_generation()`
-   - Tournament selection (size=3)
-   - Crossover blend (70% probability)
-   - Gaussian mutation (all offspring)
-   - Elitism: Top 20% survive
-
-5. **Next Generation**: Loop back to step 2
-
-### Reward Flow
-
-1. **Per-Step Rewards**: `RewardCalculator.calculate_step_reward()`
-   - KillAsteroid: +100 per asteroid destroyed (delta-based)
-   - AccuracyBonus: +2/sec × accuracy (if accuracy > 25%)
-   - FacingAsteroidBonus: +2/sec when facing asteroids
-   - MaintainingMomentumBonus: +0.5/sec moving, -1/sec stationary
-
-2. **Episode Rewards**: `RewardCalculator.calculate_episode_reward()`
-   - Currently returns 0 for all active components
-   - Available for end-of-episode bonuses
+5.  **Loop**: The process repeats from Step 2 for the specified number of generations.
 
 ## Implementation Status
 
 ### Completed Infrastructure
 
-- **EnvironmentTracker**: Game state access
-- **MetricsTracker**: Episode statistics
-- **RewardCalculator**: Component-based rewards (12 components implemented)
-- **StateEncoder + VectorEncoder**: State encoding
-- **ActionInterface**: Action validation
-- **BaseAgent + EpisodeRunner**: Episode execution
-- **Parallel GA Training**: Full implementation with visualization
+- **Parallel GA Training**: A full, working implementation that uses a neural network agent, parallel evaluation, and visual display of the best agent.
+- All core interfaces (`EnvironmentTracker`, `MetricsTracker`, `RewardCalculator`, `VectorEncoder`, `BaseAgent`) are integrated and functional.
 
-### Known Issues (As of 2026-01-05)
+### Known Issues (As of 2026-01-05 - _Updated_)
 
-1. **EpisodeRunner.py:124-126**: Episode reward calculated inside loop
-   - Should be outside the while loop (only affects display, not training)
+1.  **Hardcoded NN Architecture**: The neural network's hidden layer size (24) is hardcoded in `train_ga_parallel.py`. This should be moved to a configuration file or the `GATrainer` for better modularity.
 
-2. **ga_trainer.py**: Contains bugs but NOT used for training
-   - `train()` method has min/max confusion
-   - `elitism()` selects worst instead of best
-   - train_ga_parallel.py implements its own correct logic
+2.  **Unused/Broken GA Files**: The original GA files are now outdated or broken and are not used by the main training pipeline.
+    - `ga_trainer.py`: Its `train()` and `elitism()` methods are buggy and unused.
+    - `ga_fitness.py`: This file is broken (references uninitialized attributes) and unused.
+    - `ga_agent.py`: This is a legacy agent with a simpler linear policy and is not used.
 
-3. **ga_fitness.py**: Broken (missing attributes)
-   - References `self.state_encoder` never initialized
-   - Not used by current training pipeline
+### Previously Known Issues (Now Fixed)
 
-4. **operators.py**: crossover_alpha parameter ignored
-   - Uses crossover_probability as blend factor instead
-
-5. **VectorEncoder**: Asteroids not sorted by distance
-   - Gets asteroids in arbitrary order, not nearest-first
+- **~~VectorEncoder sorting~~**: This issue has been **FIXED**. The `VectorEncoder` now correctly sorts asteroids by distance.
+- **~~operators.py crossover bug~~**: This issue has been **FIXED**. The `crossover_blend` operator now correctly uses the `crossover_alpha` parameter.
 
 ## Configuration
 
-### Current GA Hyperparameters (train_ga_parallel.py)
+### Current GA Hyperparameters (`train_ga_parallel.py`)
 
 ```python
 population_size = 100
 num_generations = 500
+hidden_size = 24                 # Neural network hidden layer size
 mutation_probability = 0.20      # Per-gene probability
 crossover_probability = 0.7
 mutation_gaussian_sigma = 0.15
@@ -223,33 +139,3 @@ elitism = 20%                    # Top 20% survive
 tournament_size = 3
 max_steps = 1500                 # Per episode
 ```
-
-### Current Reward Configuration
-
-```python
-KillAsteroid(reward_per_asteroid=100.0)
-AccuracyBonus(bonus_per_second=2.0)
-FacingAsteroidBonus(bonus_per_second=2.0)
-MaintainingMomentumBonus(bonus_per_second=0.5, penalty_per_second=-1.0)
-```
-
-## Future Considerations
-
-### Immediate Fixes Needed
-
-- Fix EpisodeRunner episode reward calculation
-- Fix VectorEncoder to sort asteroids by distance
-- Remove or fix broken ga_fitness.py
-
-### Infrastructure Enhancements
-
-- Configuration system (plan 006)
-- Agent save/load functionality
-- Additional AI methods (NEAT, ES, GP, GNN+SAC)
-
-### Advanced Features
-
-- Training dashboard with multiple AI methods
-- Parallel episode evaluation on GPU
-- Behavioral novelty metrics
-- Policy visualization tools

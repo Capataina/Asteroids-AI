@@ -59,21 +59,23 @@ def evaluate_single_agent(
     # Create reward calculator
     reward_calculator = ComposableRewardCalculator()
 
-    # === CORE REWARDS ===
-    # Kill reward reduced so shooting cost matters more
-    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=100.0))  # 100 points per kill
+    # === "SKILL-BASED" REWARD CONFIGURATION V2 ===
 
-    # Survival bonus - gives value to staying alive, not just shooting
-    reward_calculator.add_component(SurvivalBonus(reward_multiplier=2.0))  # 2 pts/sec - ~50 points for full 25s episode
+    # 1. Core Objective (Value reduced to emphasize skill)
+    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
+    reward_calculator.add_component(SurvivalBonus(reward_multiplier=1.0))
 
-    # === SHOOTING DISCIPLINE ===
-    # ConservingAmmoBonus: +5 for shots when facing asteroid, -5 for random shots
-    # This teaches WHEN to shoot, discouraging "hold shoot button" behavior
-    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=5.0, bad_shot_penalty=-5.0, alignment_threshold=0.7))
+    # 2. Shot Discipline (Skill-based, high impact)
+    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=20.0, bad_shot_penalty=-20.0, alignment_threshold=0.8))
+    # reward_calculator.add_component(LeadingTargetBonus(bonus_per_shot=40.0, prediction_time=0.4, alignment_threshold=0.95))
 
-    # === BEHAVIORAL SHAPING ===
-    reward_calculator.add_component(FacingAsteroidBonus(bonus_per_second=2.0))  # 2 pts/sec - encourages aiming
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=1.0, penalty_per_second=-0.5))  # Encourages movement
+    # 3. Movement & Positioning (Crucial for survival and strategy)
+    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=5.0, penalty_per_second=-5.0))
+    reward_calculator.add_component(NearMiss(reward_per_near_miss=15.0, safe_distance=60.0))
+    reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
+
+    # 4. Aggression / Hunting
+    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=3.0, min_safe_distance=250.0))
 
     # Reset reward calculator to ensure clean state
     reward_calculator.reset()
@@ -155,6 +157,7 @@ def evaluate_single_agent(
         'hits': game.metrics_tracker.total_hits,
         'accuracy': game.metrics_tracker.get_accuracy(),
         'time_alive': game.metrics_tracker.time_alive,
+        'reward_breakdown': reward_calculator.get_reward_breakdown(),
     }
     return metrics
 
@@ -225,22 +228,35 @@ def evaluate_population_parallel(
     # Calculate averaged fitness for each agent
     fitnesses = []
     averaged_results = []  # Store averaged metrics per agent for aggregation
+    pop_reward_breakdown = {}
     for agent_idx, results in enumerate(agent_results):
         avg_fitness = sum(r['fitness'] for r in results) / len(results)
         fitnesses.append(avg_fitness)
 
         # Also average the behavioral metrics for this agent
+        avg_kills = sum(r['kills'] for r in results) / len(results)
         averaged_results.append({
             'fitness': avg_fitness,
             'steps_survived': sum(r['steps_survived'] for r in results) / len(results),
-            'kills': sum(r['kills'] for r in results) / len(results),
+            'kills': avg_kills,
             'shots_fired': sum(r['shots_fired'] for r in results) / len(results),
             'accuracy': sum(r['accuracy'] for r in results) / len(results),
         })
 
+        # Aggregate reward breakdown
+        for r in results:
+            for component, score in r['reward_breakdown'].items():
+                if component not in pop_reward_breakdown:
+                    pop_reward_breakdown[component] = 0.0
+                pop_reward_breakdown[component] += score
+    
+    # Average the collected reward breakdowns across all evaluations
+    num_evals = len(all_results)
+    avg_reward_breakdown = {k: v / num_evals for k, v in pop_reward_breakdown.items()}
+
+
     # Find best agent (by averaged fitness)
     best_idx = fitnesses.index(max(fitnesses))
-    best_agent_results = agent_results[best_idx]
 
     # Aggregate behavioral metrics across population (using averaged per-agent metrics)
     aggregated_metrics = {
@@ -256,6 +272,7 @@ def evaluate_population_parallel(
         'best_agent_kills': averaged_results[best_idx]['kills'],
         'best_agent_steps': averaged_results[best_idx]['steps_survived'],
         'best_agent_accuracy': averaged_results[best_idx]['accuracy'],
+        'avg_reward_breakdown': avg_reward_breakdown,
     }
 
     return fitnesses, generation_seed, aggregated_metrics

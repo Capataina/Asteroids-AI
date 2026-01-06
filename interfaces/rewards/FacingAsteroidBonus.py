@@ -29,7 +29,7 @@ class FacingAsteroidBonus(RewardComponent):
         # Calculate angle to nearest asteroid
         dx = nearest_asteroid.center_x - player.center_x
         dy = nearest_asteroid.center_y - player.center_y
-        angle_to_asteroid = math.degrees(math.atan2(dx, dy))
+        angle_to_asteroid = math.degrees(math.atan2(dy, dx))
         
         # Calculate how well we're facing it (angle difference)
         angle_diff = abs(player.angle - angle_to_asteroid)

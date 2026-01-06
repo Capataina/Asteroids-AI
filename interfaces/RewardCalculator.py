@@ -19,10 +19,12 @@ class ComposableRewardCalculator:
     self.score = 0.0
     self.components = {}
     self.enabled_components = set()
+    self.component_scores = {}  # Tracks score per component
   
   def add_component(self, component: RewardComponent):
     self.components[component.name] = component
     self.enabled_components.add(component.name)
+    self.component_scores[component.name] = 0.0
 
   def enable_component(self, name: str):
     self.enabled_components.add(name)
@@ -41,6 +43,7 @@ class ComposableRewardCalculator:
       if debug and abs(component_reward) > 0.1:
         print(f"    {name}: {component_reward:.2f}")
       reward += component_reward
+      self.component_scores[name] += component_reward
 
     self.score += reward
 
@@ -54,10 +57,15 @@ class ComposableRewardCalculator:
       # Ensure we always get a number, never None
       if component_reward is not None:
         reward += component_reward
+        self.component_scores[name] += component_reward
 
     self.score += reward
 
     return reward
+  
+  def get_reward_breakdown(self) -> dict:
+    """Returns a dictionary of rewards contributed by each component."""
+    return self.component_scores.copy()
 
   def current_score(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
     return self.score
@@ -66,3 +74,6 @@ class ComposableRewardCalculator:
     for name in self.enabled_components:
       self.components[name].reset()
     self.score = 0.0
+    # Also reset the component scores
+    for name in self.component_scores:
+        self.component_scores[name] = 0.0

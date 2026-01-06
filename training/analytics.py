@@ -85,6 +85,7 @@ class TrainingAnalytics:
             gen_data['best_agent_kills'] = behavioral_metrics.get('best_agent_kills', 0)
             gen_data['best_agent_steps'] = behavioral_metrics.get('best_agent_steps', 0)
             gen_data['best_agent_accuracy'] = behavioral_metrics.get('best_agent_accuracy', 0)
+            gen_data['avg_reward_breakdown'] = behavioral_metrics.get('avg_reward_breakdown', {})
 
         # Add best agent stats if available
         if best_agent_stats:
@@ -185,6 +186,10 @@ class TrainingAnalytics:
             f.write(f"- **Avg Improvement (Early->Late):** {summary.get('avg_improvement_early_to_late', 0):.2f}\n")
             f.write(f"- **Stagnation:** {summary.get('final_stagnation', 0)} generations since improvement\n\n")
 
+            # Reward Component Analysis
+            f.write("## Reward Component Analysis\n\n")
+            self._write_reward_analysis(f)
+
             # Behavioral Summary (if available)
             if has_behavior:
                 f.write("## Behavioral Summary (Last 10 Generations)\n\n")
@@ -197,6 +202,41 @@ class TrainingAnalytics:
             # Learning Progress
             f.write("## Learning Progress\n\n")
             self._write_learning_progress(f)
+    
+    def _write_reward_analysis(self, f):
+        """Analyze and write reward component contributions from the last generation."""
+        if not self.generations_data or 'avg_reward_breakdown' not in self.generations_data[-1]:
+            f.write("No reward component data available for analysis.\n\n")
+            return
+
+        # Analyze the last generation for the most relevant snapshot
+        last_gen_breakdown = self.generations_data[-1].get('avg_reward_breakdown', {})
+        
+        if not last_gen_breakdown:
+            f.write("Reward breakdown for the last generation is empty.\n\n")
+            return
+
+        # Calculate total positive rewards to use as a base for percentages
+        total_positive_rewards = sum(v for v in last_gen_breakdown.values() if v > 0)
+        
+        sorted_components = sorted(last_gen_breakdown.items(), key=lambda item: abs(item[1]), reverse=True)
+
+        f.write("Based on the average scores from the final generation:\n\n")
+        f.write("| Reward Component | Avg. Score per Episode | Pct of Positive Rewards |\n")
+        f.write("|------------------|------------------------|-------------------------|\n")
+
+        for component, avg_score in sorted_components:
+            percentage = (avg_score / total_positive_rewards) * 100 if total_positive_rewards > 0 else 0
+            f.write(f"| {component} | {avg_score:,.2f} | {percentage:+.1f}% |\n")
+        
+        f.write("\n")
+        f.write("*Note: Percentages are relative to the sum of all positive rewards in the final generation.*\n\n")
+
+    def _write_learning_progress(self, f):
+        """Analyze learning progress."""
+        if len(self.generations_data) < 5:
+            f.write("Not enough data for learning analysis.\n\n")
+            return
 
             # Convergence Analysis
             f.write("## Convergence Analysis\n\n")
