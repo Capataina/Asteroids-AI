@@ -18,6 +18,8 @@ from pathlib import Path
 class TrainingAnalytics:
     """Tracks detailed training metrics across generations."""
 
+    SCHEMA_VERSION = "2.0"  # Updated schema with fresh game and distribution tracking
+
     def __init__(self):
         self.generations_data = []
         self.start_time = datetime.now()
@@ -26,6 +28,12 @@ class TrainingAnalytics:
         self.all_time_best_fitness = float('-inf')
         self.all_time_best_generation = 0
         self.generations_since_improvement = 0
+
+        # Fresh game tracking
+        self.fresh_game_data = {}  # generation -> fresh_game metrics
+
+        # Distribution tracking (per-agent arrays)
+        self.distributions_data = {}  # generation -> distribution arrays
 
     def record_generation(self, generation: int, fitness_scores: List[float],
                          behavioral_metrics: Optional[Dict[str, Any]] = None,
@@ -97,6 +105,91 @@ class TrainingAnalytics:
         """Store training configuration."""
         self.config = config
 
+    def record_fresh_game(self, generation: int, fresh_game_data: Dict[str, Any],
+                          generalization_metrics: Dict[str, Any]):
+        """Record fresh game test results for a generation.
+
+        Args:
+            generation: Generation number
+            fresh_game_data: Fresh game performance metrics
+            generalization_metrics: Comparison to training performance
+        """
+        self.fresh_game_data[generation] = {
+            'fresh_game': fresh_game_data,
+            'generalization_metrics': generalization_metrics
+        }
+
+        # Also attach to the generation data if it exists
+        for gen_data in self.generations_data:
+            if gen_data['generation'] == generation:
+                gen_data['fresh_game'] = fresh_game_data
+                gen_data['generalization_metrics'] = generalization_metrics
+                break
+
+    def record_distributions(self, generation: int, fitness_values: List[float],
+                            per_agent_metrics: List[Dict[str, Any]]):
+        """Record per-agent distribution data for a generation.
+
+        Args:
+            generation: Generation number
+            fitness_values: List of all fitness scores (sorted)
+            per_agent_metrics: List of per-agent behavioral metrics
+        """
+        sorted_fitness = sorted(fitness_values)
+        sorted_kills = sorted([m.get('kills', 0) for m in per_agent_metrics])
+        sorted_steps = sorted([m.get('steps_survived', 0) for m in per_agent_metrics])
+        sorted_accuracy = sorted([m.get('accuracy', 0) for m in per_agent_metrics])
+        sorted_shots = sorted([m.get('shots_fired', 0) for m in per_agent_metrics])
+
+        # Calculate distribution statistics
+        n = len(sorted_fitness)
+        mean = sum(sorted_fitness) / n if n > 0 else 0
+        std_dev = self._std_dev(sorted_fitness)
+
+        # Skewness calculation (Fisher's)
+        if std_dev > 0 and n > 2:
+            skewness = (n / ((n - 1) * (n - 2))) * sum(((x - mean) / std_dev) ** 3 for x in sorted_fitness)
+        else:
+            skewness = 0.0
+
+        # Kurtosis calculation (Fisher's, excess kurtosis)
+        if std_dev > 0 and n > 3:
+            m4 = sum((x - mean) ** 4 for x in sorted_fitness) / n
+            kurtosis = (m4 / (std_dev ** 4)) - 3
+        else:
+            kurtosis = 0.0
+
+        # Count viable (positive fitness) vs failed agents
+        viable_count = sum(1 for f in sorted_fitness if f > 0)
+        failed_count = n - viable_count
+
+        distributions = {
+            'fitness_values': sorted_fitness,
+            'kills_values': sorted_kills,
+            'steps_values': sorted_steps,
+            'accuracy_values': sorted_accuracy,
+            'shots_values': sorted_shots,
+        }
+
+        distribution_stats = {
+            'fitness_skewness': skewness,
+            'fitness_kurtosis': kurtosis,
+            'viable_agent_count': viable_count,
+            'failed_agent_count': failed_count,
+        }
+
+        self.distributions_data[generation] = {
+            'distributions': distributions,
+            'distribution_stats': distribution_stats
+        }
+
+        # Also attach to generation data if it exists
+        for gen_data in self.generations_data:
+            if gen_data['generation'] == generation:
+                gen_data['distributions'] = distributions
+                gen_data['distribution_stats'] = distribution_stats
+                break
+
     def _median(self, values: List[float]) -> float:
         """Calculate median value."""
         sorted_vals = sorted(values)
@@ -157,16 +250,52 @@ class TrainingAnalytics:
             summary['max_kills_ever'] = max(g.get('max_kills', 0) for g in self.generations_data)
             summary['max_steps_ever'] = max(g.get('max_steps', 0) for g in self.generations_data)
 
+        # Fresh game aggregations
+        fresh_games = [g for g in self.generations_data if 'fresh_game' in g]
+        if fresh_games:
+            gen_metrics = [g.get('generalization_metrics', {}) for g in fresh_games]
+            fresh_data = [g.get('fresh_game', {}) for g in fresh_games]
+
+            # Calculate fresh game stats
+            fitness_ratios = [m.get('fitness_ratio', 0) for m in gen_metrics if m.get('fitness_ratio', 0) > 0]
+            if fitness_ratios:
+                summary['avg_generalization_ratio'] = sum(fitness_ratios) / len(fitness_ratios)
+                summary['worst_generalization_ratio'] = min(fitness_ratios)
+                summary['best_generalization_ratio'] = max(fitness_ratios)
+
+            # Find best fresh game performance
+            fresh_fitnesses = [(g['generation'], g['fresh_game']['fitness'])
+                              for g in fresh_games if g.get('fresh_game', {}).get('fitness')]
+            if fresh_fitnesses:
+                best_fresh = max(fresh_fitnesses, key=lambda x: x[1])
+                summary['best_fresh_fitness'] = best_fresh[1]
+                summary['best_fresh_generation'] = best_fresh[0]
+
+            # Average fresh game kills
+            fresh_kills = [d.get('kills', 0) for d in fresh_data]
+            if fresh_kills:
+                summary['avg_fresh_kills'] = sum(fresh_kills) / len(fresh_kills)
+
+            # Episode completion rate
+            completed = sum(1 for d in fresh_data if d.get('completed_full_episode', False))
+            summary['fresh_episode_completion_rate'] = completed / len(fresh_data) if fresh_data else 0
+
         return summary
 
     def generate_markdown_report(self, output_path: str = "training_summary.md"):
         """Generate comprehensive markdown training report."""
         summary = self.get_summary_stats()
         has_behavior = 'final_avg_kills' in summary
+        has_fresh_game = 'avg_generalization_ratio' in summary
 
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write("# Training Summary Report\n\n")
-            f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"**Schema Version:** {self.SCHEMA_VERSION}\n\n")
+
+            # Quick Trend Overview (Sparklines) - NEW
+            f.write("## Quick Trend Overview\n\n")
+            self._write_sparklines(f)
 
             # Training Configuration
             f.write("## Training Configuration\n\n")
@@ -184,11 +313,48 @@ class TrainingAnalytics:
             f.write(f"- **Final Best Fitness:** {summary.get('final_best_fitness', 0):.2f}\n")
             f.write(f"- **Final Average Fitness:** {summary.get('final_avg_fitness', 0):.2f}\n")
             f.write(f"- **Avg Improvement (Early->Late):** {summary.get('avg_improvement_early_to_late', 0):.2f}\n")
-            f.write(f"- **Stagnation:** {summary.get('final_stagnation', 0)} generations since improvement\n\n")
+            f.write(f"- **Stagnation:** {summary.get('final_stagnation', 0)} generations since improvement\n")
 
-            # Reward Component Analysis
-            f.write("## Reward Component Analysis\n\n")
-            self._write_reward_analysis(f)
+            # Fresh game summary (if available)
+            if has_fresh_game:
+                f.write(f"\n**Generalization (Fresh Game Performance):**\n")
+                f.write(f"- Avg Generalization Ratio: {summary.get('avg_generalization_ratio', 0):.2f}\n")
+                f.write(f"- Best Fresh Fitness: {summary.get('best_fresh_fitness', 0):.2f} (Gen {summary.get('best_fresh_generation', 0)})\n")
+                f.write(f"- Episode Completion Rate: {summary.get('fresh_episode_completion_rate', 0)*100:.1f}%\n")
+            f.write("\n")
+
+            # Training Progress by Decile - NEW
+            f.write("## Training Progress by Decile\n\n")
+            self._write_decile_breakdown(f)
+
+            # Kill Efficiency Analysis - NEW
+            f.write("## Kill Efficiency Analysis\n\n")
+            self._write_kill_efficiency(f)
+
+            # Reward Component Evolution - NEW
+            f.write("## Reward Component Evolution\n\n")
+            self._write_reward_evolution(f)
+
+            # Population Health Dashboard - NEW (Phase 2)
+            f.write("## Population Health Dashboard\n\n")
+            self._write_population_health(f)
+
+            # Stagnation Analysis - ENHANCED
+            f.write("## Stagnation Analysis\n\n")
+            self._write_stagnation_analysis(f)
+
+            # Generalization Analysis (Fresh Game) - NEW
+            if has_fresh_game:
+                f.write("## Generalization Analysis (Fresh Game)\n\n")
+                self._write_generalization_analysis(f)
+
+            # Correlation Matrix - NEW (Phase 2)
+            f.write("## Correlation Analysis\n\n")
+            self._write_correlation_matrix(f)
+
+            # Survival Distribution - NEW (Phase 2)
+            f.write("## Survival Distribution\n\n")
+            self._write_survival_distribution(f)
 
             # Behavioral Summary (if available)
             if has_behavior:
@@ -202,7 +368,527 @@ class TrainingAnalytics:
             # Learning Progress
             f.write("## Learning Progress\n\n")
             self._write_learning_progress(f)
-    
+
+            # Convergence Analysis
+            f.write("## Convergence Analysis\n\n")
+            self._write_convergence_analysis(f)
+
+            # Behavioral Trends (if available)
+            if has_behavior:
+                f.write("## Behavioral Trends\n\n")
+                self._write_behavioral_trends(f)
+
+            # Recent Generations Table
+            f.write("## Recent Generations (Last 30)\n\n")
+            self._write_generation_table(f, limit=30, include_behavior=has_behavior)
+
+            # Best Generations
+            f.write("\n## Top 10 Best Generations\n\n")
+            self._write_best_generations(f, include_behavior=has_behavior)
+
+            # Trend Analysis
+            f.write("\n## Trend Analysis\n\n")
+            self._write_trend_analysis(f)
+
+            # ASCII Charts
+            f.write("\n## Fitness Progression (ASCII Chart)\n\n")
+            self._write_ascii_chart(f)
+
+        print(f"\n[OK] Training summary saved to: {output_path}")
+        return output_path
+
+    # ============ NEW ANALYTICS METHODS ============
+
+    def _write_sparklines(self, f):
+        """Generate ASCII sparklines for quick trend visualization."""
+        if len(self.generations_data) < 2:
+            f.write("Not enough data for sparklines.\n\n")
+            return
+
+        sparkline_chars = "▁▂▃▄▅▆▇█"
+
+        def make_sparkline(values, width=10):
+            """Create sparkline from values."""
+            if not values:
+                return "N/A"
+            # Sample to width points
+            step = max(1, len(values) // width)
+            sampled = values[::step][:width]
+            if len(sampled) < 2:
+                return "▄" * len(sampled)
+
+            min_val = min(sampled)
+            max_val = max(sampled)
+            range_val = max_val - min_val
+
+            if range_val == 0:
+                return "▄" * len(sampled)
+
+            result = ""
+            for v in sampled:
+                idx = int((v - min_val) / range_val * 7)
+                idx = max(0, min(7, idx))
+                result += sparkline_chars[idx]
+            return result
+
+        # Gather metrics
+        best_fitness = [g['best_fitness'] for g in self.generations_data]
+        avg_fitness = [g['avg_fitness'] for g in self.generations_data]
+        avg_kills = [g.get('avg_kills', 0) for g in self.generations_data]
+        avg_accuracy = [g.get('avg_accuracy', 0) for g in self.generations_data]
+        avg_steps = [g.get('avg_steps', 0) for g in self.generations_data]
+        std_devs = [g.get('std_dev', 0) for g in self.generations_data]
+
+        def pct_change(values):
+            if len(values) < 2 or values[0] == 0:
+                return 0
+            return ((values[-1] - values[0]) / abs(values[0])) * 100
+
+        f.write("```\n")
+        f.write(f"Best Fitness: {best_fitness[0]:.0f} → {best_fitness[-1]:.0f}   [{make_sparkline(best_fitness)}] {pct_change(best_fitness):+.0f}%\n")
+        f.write(f"Avg Fitness:  {avg_fitness[0]:.0f} → {avg_fitness[-1]:.0f}   [{make_sparkline(avg_fitness)}] {pct_change(avg_fitness):+.0f}%\n")
+        if any(avg_kills):
+            f.write(f"Avg Kills:    {avg_kills[0]:.1f} → {avg_kills[-1]:.1f}   [{make_sparkline(avg_kills)}] {pct_change(avg_kills):+.0f}%\n")
+        if any(avg_accuracy):
+            f.write(f"Avg Accuracy: {avg_accuracy[0]*100:.0f}% → {avg_accuracy[-1]*100:.0f}%   [{make_sparkline(avg_accuracy)}] {pct_change(avg_accuracy):+.0f}%\n")
+        if any(avg_steps):
+            f.write(f"Avg Steps:    {avg_steps[0]:.0f} → {avg_steps[-1]:.0f}   [{make_sparkline(avg_steps)}] {pct_change(avg_steps):+.0f}%\n")
+        if any(std_devs):
+            f.write(f"Diversity:    {std_devs[0]:.0f} → {std_devs[-1]:.0f}   [{make_sparkline(std_devs)}] {pct_change(std_devs):+.0f}%\n")
+        f.write("```\n\n")
+
+    def _write_decile_breakdown(self, f):
+        """Write training progress broken down by decile (10 equal phases)."""
+        n = len(self.generations_data)
+        if n < 10:
+            # For short runs, use fewer phases
+            if n < 5:
+                f.write("Not enough data for decile breakdown (need at least 5 generations).\n\n")
+                return
+            num_phases = n
+        else:
+            num_phases = 10
+
+        phase_size = max(1, n // num_phases)
+
+        f.write("| Phase | Gens | Best Fit | Avg Fit | Avg Kills | Avg Acc | Avg Steps | Diversity |\n")
+        f.write("|-------|------|----------|---------|-----------|---------|-----------|----------|\n")
+
+        for phase in range(num_phases):
+            start_idx = phase * phase_size
+            end_idx = min(start_idx + phase_size, n)
+            if phase == num_phases - 1:
+                end_idx = n  # Include all remaining in last phase
+
+            phase_data = self.generations_data[start_idx:end_idx]
+            if not phase_data:
+                continue
+
+            start_gen = phase_data[0]['generation']
+            end_gen = phase_data[-1]['generation']
+            best_fit = max(g['best_fitness'] for g in phase_data)
+            avg_fit = sum(g['avg_fitness'] for g in phase_data) / len(phase_data)
+            avg_kills = sum(g.get('avg_kills', 0) for g in phase_data) / len(phase_data)
+            avg_acc = sum(g.get('avg_accuracy', 0) for g in phase_data) / len(phase_data)
+            avg_steps = sum(g.get('avg_steps', 0) for g in phase_data) / len(phase_data)
+            diversity = sum(g.get('std_dev', 0) for g in phase_data) / len(phase_data)
+
+            pct_start = int((phase / num_phases) * 100)
+            pct_end = int(((phase + 1) / num_phases) * 100)
+
+            f.write(f"| {pct_start}-{pct_end}% | {start_gen}-{end_gen} | {best_fit:.0f} | {avg_fit:.0f} | "
+                   f"{avg_kills:.1f} | {avg_acc*100:.0f}% | {avg_steps:.0f} | {diversity:.0f} |\n")
+
+        f.write("\n")
+
+    def _write_kill_efficiency(self, f):
+        """Write kill efficiency analysis."""
+        if not self.generations_data or 'avg_kills' not in self.generations_data[-1]:
+            f.write("No behavioral data available for kill efficiency analysis.\n\n")
+            return
+
+        # Get final phase data (last 10%)
+        n = len(self.generations_data)
+        final_phase = self.generations_data[-max(1, n // 10):]
+        first_phase = self.generations_data[:max(1, n // 10)]
+
+        def calc_efficiency(data):
+            avg_kills = sum(g.get('avg_kills', 0) for g in data) / len(data)
+            avg_steps = sum(g.get('avg_steps', 1) for g in data) / len(data)
+            avg_shots = sum(g.get('avg_shots', 1) for g in data) / len(data)
+            avg_accuracy = sum(g.get('avg_accuracy', 0) for g in data) / len(data)
+
+            kills_per_100 = (avg_kills / max(1, avg_steps)) * 100
+            shots_per_kill = avg_shots / max(0.1, avg_kills)
+            conversion_rate = avg_kills / max(1, avg_shots)
+
+            return kills_per_100, shots_per_kill, conversion_rate, avg_kills
+
+        final_k100, final_spk, final_conv, final_kills = calc_efficiency(final_phase)
+        first_k100, first_spk, first_conv, first_kills = calc_efficiency(first_phase)
+
+        f.write("### Current Performance (Final Phase)\n\n")
+        f.write(f"- **Kills per 100 Steps:** {final_k100:.2f} (up from {first_k100:.2f} in Phase 1)\n")
+        f.write(f"- **Shots per Kill:** {final_spk:.2f} (down from {first_spk:.2f} in Phase 1)\n")
+        f.write(f"- **Kill Conversion Rate:** {final_conv*100:.1f}% (up from {first_conv*100:.1f}% in Phase 1)\n")
+        f.write(f"- **Average Kills per Episode:** {final_kills:.1f}\n\n")
+
+        # Efficiency trend table
+        f.write("### Efficiency Trend\n\n")
+        f.write("| Phase | Kills/100 Steps | Shots/Kill | Conversion Rate |\n")
+        f.write("|-------|-----------------|------------|----------------|\n")
+
+        num_phases = min(5, n)
+        phase_size = max(1, n // num_phases)
+
+        for phase in range(num_phases):
+            start_idx = phase * phase_size
+            end_idx = min(start_idx + phase_size, n)
+            if phase == num_phases - 1:
+                end_idx = n
+
+            phase_data = self.generations_data[start_idx:end_idx]
+            k100, spk, conv, _ = calc_efficiency(phase_data)
+            f.write(f"| Phase {phase + 1} | {k100:.2f} | {spk:.2f} | {conv*100:.1f}% |\n")
+
+        # Assessment
+        spk_improvement = ((first_spk - final_spk) / max(0.1, first_spk)) * 100
+        f.write(f"\n**Assessment:** ")
+        if spk_improvement > 50:
+            f.write(f"Agent has learned efficient killing. Shots per kill dropped {spk_improvement:.0f}%.\n\n")
+        elif spk_improvement > 20:
+            f.write(f"Agent has improved efficiency moderately. Shots per kill dropped {spk_improvement:.0f}%.\n\n")
+        elif spk_improvement > 0:
+            f.write(f"Agent shows slight efficiency improvement. Shots per kill dropped {spk_improvement:.0f}%.\n\n")
+        else:
+            f.write("Agent efficiency has not improved significantly.\n\n")
+
+    def _write_reward_evolution(self, f):
+        """Write reward component evolution across training phases."""
+        if not self.generations_data or 'avg_reward_breakdown' not in self.generations_data[-1]:
+            f.write("No reward component data available.\n\n")
+            return
+
+        # Get phases
+        n = len(self.generations_data)
+        num_phases = min(10, n)
+        phase_size = max(1, n // num_phases)
+
+        # Get component names from last generation
+        components = list(self.generations_data[-1].get('avg_reward_breakdown', {}).keys())
+        if not components:
+            f.write("No reward breakdown data available.\n\n")
+            return
+
+        # Calculate average for each component in first and last phase
+        first_phase = self.generations_data[:phase_size]
+        mid_phase = self.generations_data[n//2 - phase_size//2:n//2 + phase_size//2] or self.generations_data[n//2:n//2+1]
+        last_phase = self.generations_data[-phase_size:]
+
+        def avg_component(data, comp):
+            values = [g.get('avg_reward_breakdown', {}).get(comp, 0) for g in data]
+            return sum(values) / len(values) if values else 0
+
+        f.write("| Component | Phase 1 | Mid | Final | Trend | Status |\n")
+        f.write("|-----------|---------|-----|-------|-------|--------|\n")
+
+        for comp in sorted(components, key=lambda c: abs(avg_component(last_phase, c)), reverse=True):
+            first_val = avg_component(first_phase, comp)
+            mid_val = avg_component(mid_phase, comp)
+            last_val = avg_component(last_phase, comp)
+
+            # Calculate trend
+            if first_val != 0:
+                pct_change = ((last_val - first_val) / abs(first_val)) * 100
+            else:
+                pct_change = 100 if last_val > 0 else -100 if last_val < 0 else 0
+
+            # Trend indicator
+            if pct_change > 100:
+                trend = "↑↑↑"
+            elif pct_change > 50:
+                trend = "↑↑"
+            elif pct_change > 10:
+                trend = "↑"
+            elif pct_change < -100:
+                trend = "↓↓↓"
+            elif pct_change < -50:
+                trend = "↓↓"
+            elif pct_change < -10:
+                trend = "↓"
+            else:
+                trend = "→"
+
+            # Status
+            if last_val > 0 and pct_change > 10:
+                status = "Learned"
+            elif last_val > 0:
+                status = "Stable"
+            elif last_val < 0 and first_val < last_val:
+                status = "Improving"
+            elif last_val < 0:
+                status = "Not learned"
+            else:
+                status = "Negligible"
+
+            f.write(f"| {comp} | {first_val:+.1f} | {mid_val:+.1f} | {last_val:+.1f} | {trend} {pct_change:+.0f}% | {status} |\n")
+
+        f.write("\n")
+
+    def _write_population_health(self, f):
+        """Write population health dashboard."""
+        if len(self.generations_data) < 5:
+            f.write("Not enough data for population health analysis.\n\n")
+            return
+
+        recent = self.generations_data[-10:]
+        early = self.generations_data[:10]
+
+        # Calculate metrics
+        avg_std_recent = sum(g['std_dev'] for g in recent) / len(recent)
+        avg_std_early = sum(g['std_dev'] for g in early) / len(early)
+        avg_mean_recent = sum(g['avg_fitness'] for g in recent) / len(recent)
+
+        # Diversity index (coefficient of variation)
+        diversity_index = avg_std_recent / max(1, abs(avg_mean_recent))
+
+        # Elite gap
+        avg_best_recent = sum(g['best_fitness'] for g in recent) / len(recent)
+        elite_gap = (avg_best_recent - avg_mean_recent) / max(1, abs(avg_mean_recent))
+
+        # Floor trend (min fitness improvement)
+        min_first = sum(g['min_fitness'] for g in early) / len(early)
+        min_last = sum(g['min_fitness'] for g in recent) / len(recent)
+        floor_trend = min_last - min_first
+
+        # Ceiling trend
+        best_first = sum(g['best_fitness'] for g in early) / len(early)
+        best_last = sum(g['best_fitness'] for g in recent) / len(recent)
+        ceiling_trend = best_last - best_first
+
+        # IQR trend
+        iqr_early = sum(g['p75_fitness'] - g['p25_fitness'] for g in early) / len(early)
+        iqr_recent = sum(g['p75_fitness'] - g['p25_fitness'] for g in recent) / len(recent)
+
+        # Overall health status
+        warnings = []
+        if diversity_index < 0.2:
+            health_status = "Warning"
+            warnings.append("Low diversity - population may be prematurely converged")
+        elif diversity_index > 1.0:
+            health_status = "Warning"
+            warnings.append("High diversity - population may be too chaotic")
+        elif elite_gap > 3.0:
+            health_status = "Warning"
+            warnings.append("High elite gap - knowledge not spreading to population")
+        elif floor_trend < 0:
+            health_status = "Watch"
+            warnings.append("Floor declining - worst agents getting worse")
+        else:
+            health_status = "Healthy"
+
+        f.write(f"### Current Status: {'🟢' if health_status == 'Healthy' else '🟡' if health_status == 'Watch' else '🔴'} {health_status}\n\n")
+
+        f.write("| Metric | Value | Trend (Recent) | Status |\n")
+        f.write("|--------|-------|----------------|--------|\n")
+
+        div_status = "🟢 Good" if 0.3 <= diversity_index <= 0.7 else "🟡 Watch" if 0.2 <= diversity_index <= 1.0 else "🔴 Warning"
+        div_trend = "↓ Decreasing" if avg_std_recent < avg_std_early else "↑ Increasing" if avg_std_recent > avg_std_early else "→ Stable"
+        f.write(f"| Diversity Index | {diversity_index:.2f} | {div_trend} | {div_status} |\n")
+
+        gap_status = "🟢 Good" if 0.5 <= elite_gap <= 2.0 else "🟡 Watch" if elite_gap <= 3.0 else "🔴 Warning"
+        f.write(f"| Elite Gap | {elite_gap:.2f} | → | {gap_status} |\n")
+
+        floor_status = "🟢 Good" if floor_trend >= 0 else "🟡 Watch"
+        f.write(f"| Min Fitness Trend | {floor_trend:+.1f} | {'↑' if floor_trend > 0 else '↓'} | {floor_status} |\n")
+
+        ceiling_status = "🟢 Good" if ceiling_trend > 0 else "🟡 Watch"
+        f.write(f"| Max Fitness Trend | {ceiling_trend:+.1f} | {'↑' if ceiling_trend > 0 else '↓'} | {ceiling_status} |\n")
+
+        iqr_change = iqr_recent - iqr_early
+        f.write(f"| IQR (p75-p25) | {iqr_recent:.0f} | {'↓' if iqr_change < 0 else '↑'} {abs(iqr_change):.0f} | 🟢 |\n")
+
+        f.write("\n")
+
+        if warnings:
+            f.write("### Warnings\n\n")
+            for w in warnings:
+                f.write(f"- ⚠️ {w}\n")
+            f.write("\n")
+
+    def _write_generalization_analysis(self, f):
+        """Write generalization analysis from fresh game data."""
+        fresh_games = [g for g in self.generations_data if 'fresh_game' in g]
+        if not fresh_games:
+            f.write("No fresh game data available.\n\n")
+            return
+
+        # Recent fresh game stats
+        recent = fresh_games[-10:] if len(fresh_games) >= 10 else fresh_games
+
+        f.write("### Recent Fresh Game Performance\n\n")
+        f.write("| Gen | Training Fit | Fresh Fit | Ratio | Grade | Cause of Death |\n")
+        f.write("|-----|--------------|-----------|-------|-------|----------------|\n")
+
+        for g in recent[-10:]:
+            train_fit = g.get('best_fitness', 0)
+            fresh = g.get('fresh_game', {})
+            gen_met = g.get('generalization_metrics', {})
+            f.write(f"| {g['generation']} | {train_fit:.0f} | {fresh.get('fitness', 0):.0f} | "
+                   f"{gen_met.get('fitness_ratio', 0):.2f} | {gen_met.get('generalization_grade', 'N/A')} | "
+                   f"{fresh.get('cause_of_death', 'N/A')} |\n")
+
+        f.write("\n")
+
+        # Summary stats
+        all_ratios = [g.get('generalization_metrics', {}).get('fitness_ratio', 0) for g in fresh_games]
+        valid_ratios = [r for r in all_ratios if r > 0]
+        if valid_ratios:
+            avg_ratio = sum(valid_ratios) / len(valid_ratios)
+            min_ratio = min(valid_ratios)
+            max_ratio = max(valid_ratios)
+
+            f.write("### Generalization Summary\n\n")
+            f.write(f"- **Average Fitness Ratio:** {avg_ratio:.2f}\n")
+            f.write(f"- **Best Ratio:** {max_ratio:.2f}\n")
+            f.write(f"- **Worst Ratio:** {min_ratio:.2f}\n")
+
+            # Grade distribution
+            grades = [g.get('generalization_metrics', {}).get('generalization_grade', 'N/A') for g in fresh_games]
+            grade_counts = {}
+            for grade in grades:
+                grade_counts[grade] = grade_counts.get(grade, 0) + 1
+
+            f.write(f"\n**Grade Distribution:** ")
+            for grade in ['A', 'B', 'C', 'D', 'F']:
+                count = grade_counts.get(grade, 0)
+                if count > 0:
+                    f.write(f"{grade}:{count} ")
+            f.write("\n\n")
+
+    def _write_correlation_matrix(self, f):
+        """Write correlation analysis between metrics."""
+        if len(self.generations_data) < 10:
+            f.write("Not enough data for correlation analysis.\n\n")
+            return
+
+        # Get distributions data or calculate from aggregates
+        has_distributions = any('distributions' in g for g in self.generations_data)
+
+        if has_distributions:
+            # Use full distribution data
+            all_fitness = []
+            all_kills = []
+            all_steps = []
+            all_accuracy = []
+
+            for g in self.generations_data:
+                if 'distributions' in g:
+                    all_fitness.extend(g['distributions'].get('fitness_values', []))
+                    all_kills.extend(g['distributions'].get('kills_values', []))
+                    all_steps.extend(g['distributions'].get('steps_values', []))
+                    all_accuracy.extend(g['distributions'].get('accuracy_values', []))
+        else:
+            # Use generation-level averages as proxy
+            all_fitness = [g['avg_fitness'] for g in self.generations_data]
+            all_kills = [g.get('avg_kills', 0) for g in self.generations_data]
+            all_steps = [g.get('avg_steps', 0) for g in self.generations_data]
+            all_accuracy = [g.get('avg_accuracy', 0) for g in self.generations_data]
+
+        def pearson_correlation(x, y):
+            """Calculate Pearson correlation coefficient."""
+            if len(x) != len(y) or len(x) < 2:
+                return 0.0
+            n = len(x)
+            mean_x = sum(x) / n
+            mean_y = sum(y) / n
+            std_x = math.sqrt(sum((xi - mean_x) ** 2 for xi in x) / n)
+            std_y = math.sqrt(sum((yi - mean_y) ** 2 for yi in y) / n)
+            if std_x == 0 or std_y == 0:
+                return 0.0
+            cov = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n)) / n
+            return cov / (std_x * std_y)
+
+        # Calculate correlations
+        corr_kills = pearson_correlation(all_fitness, all_kills)
+        corr_steps = pearson_correlation(all_fitness, all_steps)
+        corr_accuracy = pearson_correlation(all_fitness, all_accuracy)
+
+        def strength(r):
+            r = abs(r)
+            if r >= 0.7:
+                return "Strong"
+            elif r >= 0.4:
+                return "Moderate"
+            else:
+                return "Weak"
+
+        f.write("### Fitness Correlations\n\n")
+        f.write("| Metric | Correlation | Strength |\n")
+        f.write("|--------|-------------|----------|\n")
+        f.write(f"| Kills | {corr_kills:+.2f} | {strength(corr_kills)} |\n")
+        f.write(f"| Steps Survived | {corr_steps:+.2f} | {strength(corr_steps)} |\n")
+        f.write(f"| Accuracy | {corr_accuracy:+.2f} | {strength(corr_accuracy)} |\n")
+        f.write("\n")
+
+        # Interpretation
+        f.write("### Interpretation\n\n")
+        strongest = max([(abs(corr_kills), 'kills', corr_kills),
+                        (abs(corr_steps), 'survival time', corr_steps),
+                        (abs(corr_accuracy), 'accuracy', corr_accuracy)])
+        f.write(f"Fitness is most strongly predicted by {strongest[1]} (r={strongest[2]:.2f}).\n\n")
+
+    def _write_survival_distribution(self, f):
+        """Write survival distribution analysis."""
+        if not self.generations_data or 'avg_steps' not in self.generations_data[-1]:
+            f.write("No survival data available.\n\n")
+            return
+
+        # Get survival data from last phase
+        n = len(self.generations_data)
+        final_phase = self.generations_data[-max(1, n // 10):]
+
+        avg_survival = sum(g.get('avg_steps', 0) for g in final_phase) / len(final_phase)
+        max_survival = max(g.get('max_steps', 0) for g in final_phase)
+
+        # Estimate completion rate (survived to max_steps)
+        max_steps_config = self.config.get('max_steps', 1500)
+
+        f.write("### Survival Statistics (Final Phase)\n\n")
+        f.write(f"- **Mean Survival:** {avg_survival:.0f} steps ({avg_survival/max_steps_config*100:.1f}% of max)\n")
+        f.write(f"- **Max Survival:** {max_survival:.0f} steps\n")
+
+        # Progression over training
+        first_phase = self.generations_data[:max(1, n // 10)]
+        first_avg_survival = sum(g.get('avg_steps', 0) for g in first_phase) / len(first_phase)
+
+        f.write(f"\n### Survival Progression\n\n")
+        f.write("| Phase | Mean Steps | Change |\n")
+        f.write("|-------|------------|--------|\n")
+
+        num_phases = min(5, n)
+        phase_size = max(1, n // num_phases)
+        prev_survival = None
+
+        for phase in range(num_phases):
+            start_idx = phase * phase_size
+            end_idx = min(start_idx + phase_size, n)
+            if phase == num_phases - 1:
+                end_idx = n
+
+            phase_data = self.generations_data[start_idx:end_idx]
+            phase_survival = sum(g.get('avg_steps', 0) for g in phase_data) / len(phase_data)
+
+            change = ""
+            if prev_survival is not None:
+                delta = phase_survival - prev_survival
+                change = f"{delta:+.0f}"
+
+            f.write(f"| Phase {phase + 1} | {phase_survival:.0f} | {change} |\n")
+            prev_survival = phase_survival
+
+        f.write("\n")
+
     def _write_reward_analysis(self, f):
         """Analyze and write reward component contributions from the last generation."""
         if not self.generations_data or 'avg_reward_breakdown' not in self.generations_data[-1]:
@@ -231,44 +917,6 @@ class TrainingAnalytics:
         
         f.write("\n")
         f.write("*Note: Percentages are relative to the sum of all positive rewards in the final generation.*\n\n")
-
-    def _write_learning_progress(self, f):
-        """Analyze learning progress."""
-        if len(self.generations_data) < 5:
-            f.write("Not enough data for learning analysis.\n\n")
-            return
-
-            # Convergence Analysis
-            f.write("## Convergence Analysis\n\n")
-            self._write_convergence_analysis(f)
-
-            # Behavioral Trends (if available)
-            if has_behavior:
-                f.write("## Behavioral Trends\n\n")
-                self._write_behavioral_trends(f)
-
-            # Stagnation Analysis
-            f.write("## Stagnation Analysis\n\n")
-            self._write_stagnation_analysis(f)
-
-            # Recent Generations Table
-            f.write("## Recent Generations (Last 30)\n\n")
-            self._write_generation_table(f, limit=30, include_behavior=has_behavior)
-
-            # Best Generations
-            f.write("\n## Top 10 Best Generations\n\n")
-            self._write_best_generations(f, include_behavior=has_behavior)
-
-            # Trend Analysis
-            f.write("\n## Trend Analysis\n\n")
-            self._write_trend_analysis(f)
-
-            # ASCII Charts
-            f.write("\n## Fitness Progression (ASCII Chart)\n\n")
-            self._write_ascii_chart(f)
-
-        print(f"\n[OK] Training summary saved to: {output_path}")
-        return output_path
 
     def _write_learning_progress(self, f):
         """Analyze learning progress."""
@@ -567,11 +1215,14 @@ class TrainingAnalytics:
     def save_json(self, output_path: str = "training_data.json"):
         """Save raw training data as JSON."""
         data = {
+            'schema_version': self.SCHEMA_VERSION,
             'config': self.config,
             'start_time': self.start_time.isoformat(),
             'end_time': datetime.now().isoformat(),
             'summary': self.get_summary_stats(),
-            'generations': self.generations_data
+            'generations': self.generations_data,
+            'fresh_game_data': self.fresh_game_data,
+            'distributions_data': self.distributions_data,
         }
 
         with open(output_path, 'w', encoding='utf-8') as f:

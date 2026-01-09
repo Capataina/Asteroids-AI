@@ -25,6 +25,10 @@ from interfaces.rewards.LeadingTargetBonus import LeadingTargetBonus
 from interfaces.rewards.MovingTowardDangerBonus import MovingTowardDangerBonus
 from interfaces.rewards.SpacingFromWallsBonus import SpacingFromWallsBonus
 from interfaces.rewards.MaintainingMomentumBonus import MaintainingMomentumBonus
+from interfaces.rewards.DeathPenalty import DeathPenalty
+from interfaces.rewards.ProximityPenalty import ProximityPenalty
+from interfaces.rewards.VelocityKillBonus import VelocityKillBonus
+from interfaces.rewards.ExplorationBonus import ExplorationBonus
 
 
 def evaluate_single_agent(
@@ -59,48 +63,54 @@ def evaluate_single_agent(
     # Create reward calculator
     reward_calculator = ComposableRewardCalculator()
 
-    # === "SKILL-BASED" REWARD CONFIGURATION V2 ===
+    # ### EXPERIMENT: MOVEMENT-ONLY REWARDS (REBALANCED) ###
+    # Goal: Evolve movement behaviors without kill incentives.
+    # Balance: Positive scores achievable with ~5 seconds of good movement.
 
-    # 1. Core Objective (Value reduced to emphasize skill)
-    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
-    reward_calculator.add_component(SurvivalBonus(reward_multiplier=1.0))
+    # 1. Survival baseline - increased to provide steady positive signal
+    reward_calculator.add_component(SurvivalBonus(reward_multiplier=3.0))
 
-    # 2. Shot Discipline (Skill-based, high impact)
-    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=20.0, bad_shot_penalty=-20.0, alignment_threshold=0.8))
-    # reward_calculator.add_component(LeadingTargetBonus(bonus_per_shot=40.0, prediction_time=0.4, alignment_threshold=0.95))
+    # 2. Movement rewards - core learning signal
+    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=15.0, penalty_per_second=-5.0))
+    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=10.0, min_safe_distance=200.0))
 
-    # 3. Movement & Positioning (Crucial for survival and strategy)
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=5.0, penalty_per_second=-5.0))
-    reward_calculator.add_component(NearMiss(reward_per_near_miss=15.0, safe_distance=60.0))
-    reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
+    # 3. Reward skillful dodging
+    reward_calculator.add_component(NearMiss(reward_per_near_miss=20.0, safe_distance=60.0))
 
-    # 4. Aggression / Hunting
-    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=3.0, min_safe_distance=250.0))
+    # 4. Penalties - reduced to not dominate the signal
+    reward_calculator.add_component(ProximityPenalty(danger_zone_radius=100.0, max_penalty_per_second=-5.0))
+    reward_calculator.add_component(DeathPenalty(penalty=-50.0))
+
+    # === FUTURE/DEACTIVATED REWARDS FOR REFERENCE ===
+    # --- Shooting / Kill based rewards ---
+    # reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
+    # reward_calculator.add_component(ConservingAmmoBonus(hit_bonus=20.0, shot_penalty=-5.0))
+    # reward_calculator.add_component(VelocityKillBonus(bonus_per_kill=50.0, max_speed_for_full_bonus=10.0))
+
+    # --- Exploration rewards ---
+    # reward_calculator.add_component(ExplorationBonus(screen_width=800, screen_height=600, grid_rows=3, grid_cols=4, bonus_per_cell=50.0))
+    
+    # --- Other disabled rewards ---
+    # reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
 
     # Reset reward calculator to ensure clean state
     reward_calculator.reset()
-
-    # === DISABLED REWARDS (for reference) ===
-    # reward_calculator.add_component(AccuracyBonus(bonus_per_second=2.0))  # Replaced by ConservingAmmoBonus for more direct feedback
-    # reward_calculator.add_component(ShootingPenalty())  # -0.5 per shot (use ConservingAmmoBonus instead)
-    # reward_calculator.add_component(ChunkBonus())  # Kill multiple asteroids near simultaneously
-    # reward_calculator.add_component(NearMiss())  # Reward for close calls
-    # reward_calculator.add_component(KPMBonus())  # Kills per minute bonus
-    # reward_calculator.add_component(LeadingTargetBonus())  # Predictive aiming
-    # reward_calculator.add_component(MovingTowardDangerBonus())  # Aggressive play
-    # reward_calculator.add_component(SpacingFromWallsBonus())  # Stay away from edges
 
     # Create neural network agent
     agent = NeuralNetworkGAAgent(individual, state_encoder, action_interface, hidden_size=hidden_size)
     agent.reset()
 
-    # Reset state encoder for this episode
+    # Reset state encoder for this episode (copy all config from original)
     state_encoder_copy = VectorEncoder(
-        screen_width=800,
-        screen_height=600,
+        screen_width=state_encoder.screen_width,
+        screen_height=state_encoder.screen_height,
         num_nearest_asteroids=state_encoder.num_nearest_asteroids,
         include_bullets=state_encoder.include_bullets,
-        include_global=state_encoder.include_global
+        include_global=state_encoder.include_global,
+        max_player_velocity=state_encoder.max_player_velocity,
+        max_asteroid_velocity=state_encoder.max_asteroid_velocity,
+        max_asteroid_size=state_encoder.max_asteroid_size,
+        max_asteroid_hp=state_encoder.max_asteroid_hp,
     )
     state_encoder_copy.reset()
     
@@ -170,7 +180,7 @@ def evaluate_population_parallel(
     max_workers: int = None,
     generation_seed: int = None,
     seeds_per_agent: int = 3
-) -> Tuple[List[float], int, Dict]:
+) -> Tuple[List[float], int, Dict, List[Dict]]:
     """
     Evaluate entire population in parallel with multiple seeds per agent.
 
@@ -187,7 +197,11 @@ def evaluate_population_parallel(
         seeds_per_agent: Number of different seeds to evaluate each agent on (default: 3)
 
     Returns:
-        Tuple of (List of averaged fitness scores, base seed used, aggregated metrics dict)
+        Tuple of:
+            - List of averaged fitness scores
+            - Base seed used
+            - Aggregated metrics dict (population averages)
+            - List of per-agent metrics (for distribution tracking)
     """
     # Base seed for this generation - used to derive unique seeds
     if generation_seed is None:
@@ -275,7 +289,8 @@ def evaluate_population_parallel(
         'avg_reward_breakdown': avg_reward_breakdown,
     }
 
-    return fitnesses, generation_seed, aggregated_metrics
+    # Return per-agent metrics list for distribution tracking
+    return fitnesses, generation_seed, aggregated_metrics, averaged_results
 
 
 def evaluate_agent_visual(

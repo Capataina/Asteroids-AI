@@ -84,8 +84,17 @@ class ParallelGATrainingDriver:
         self.best_agent_steps = 0
         self.best_agent_max_steps = 1500
 
+        # Fresh game tracking (for generalization analysis)
+        self.fresh_game_start_kills = 0
+        self.fresh_game_start_shots = 0
+
         # Phase tracking
         self.phase = "evaluating"  # "evaluating", "displaying_best", "evolving"
+
+        # Adaptive mutation
+        self.original_mutation_probability = self.ga_trainer.operators.mutation_probability
+        self.original_mutation_gaussian_sigma = self.ga_trainer.operators.mutation_gaussian_sigma
+
         
         # Analytics tracking
         self.analytics = TrainingAnalytics()
@@ -183,9 +192,19 @@ class ParallelGATrainingDriver:
             # Phase: Displaying best agent
             if self.showing_best_agent:
                 self._update_best_agent_display(delta_time)
-                
+
                 # Check if done displaying (max steps reached OR player died)
-                if self.best_agent_steps >= self.best_agent_max_steps or self.game.player not in self.game.player_list:
+                if self.best_agent_steps >= self.best_agent_max_steps:
+                    # Completed full episode
+                    self._capture_fresh_game_metrics("completed_episode")
+                    self.showing_best_agent = False
+                    self.game.manual_spawning = False  # Restore normal spawning
+                    self.game.external_control = False  # Allow arcade to control again
+                    self.phase = "evolving"
+                elif self.game.player not in self.game.player_list:
+                    # Player died - capture fresh game metrics
+                    print(f"Best agent died after {self.best_agent_steps} steps")
+                    self._capture_fresh_game_metrics("asteroid_collision")
                     self.showing_best_agent = False
                     self.game.manual_spawning = False  # Restore normal spawning
                     self.game.external_control = False  # Allow arcade to control again
@@ -200,12 +219,13 @@ class ParallelGATrainingDriver:
                 # PARALLEL EVALUATION - ALL AGENTS AT ONCE
                 # All agents use the SAME random seed for fair comparison within a generation
                 # (seed is used internally but not stored - display uses fresh game)
-                self.fitnesses, _, gen_metrics = evaluate_population_parallel(
+                self.fitnesses, _, gen_metrics, per_agent_metrics = evaluate_population_parallel(
                     self.population,
                     self.ga_trainer.state_encoder,
                     self.ga_trainer.action_interface,
                     max_steps=1500,  # Increased to give agents more time to learn
-                    max_workers=self.max_workers
+                    max_workers=self.max_workers,
+                    seeds_per_agent=3  # Reduced from 6 to allow larger population
                 )
 
                 # Find best in current generation
@@ -240,6 +260,13 @@ class ParallelGATrainingDriver:
                     behavioral_metrics=gen_metrics
                 )
 
+                # Record per-agent distributions for Phase 2 analytics
+                self.analytics.record_distributions(
+                    generation=self.current_generation + 1,
+                    fitness_values=self.fitnesses,
+                    per_agent_metrics=per_agent_metrics
+                )
+
                 # Print stats with behavioral info
                 print(f"Generation {self.current_generation + 1}: "
                       f"Best={max_fitness:.2f}, Avg={avg_fitness:.2f}, "
@@ -257,6 +284,31 @@ class ParallelGATrainingDriver:
             
             # Phase: Evolving
             if self.phase == "evolving":
+                # Check for stagnation and adapt mutation to escape local optima
+                if self.analytics.generations_data:
+                    stagnation = self.analytics.generations_data[-1]['generations_since_improvement']
+                    stagnation_threshold = 10
+
+                    if stagnation > stagnation_threshold:
+                        # PROGRESSIVE adaptation: mutation increases with stagnation duration
+                        # Scale factor grows from 1.5x at 10 gens to 4x at 50 gens
+                        stagnation_severity = min((stagnation - stagnation_threshold) / 40.0, 1.0)  # 0 to 1
+                        prob_multiplier = 2.0 + stagnation_severity * 2.0  # 2x to 4x
+                        sigma_multiplier = 1.5 + stagnation_severity * 1.5  # 1.5x to 3x
+
+                        adapted_prob = min(self.original_mutation_probability * prob_multiplier, 0.8)
+                        adapted_sigma = self.original_mutation_gaussian_sigma * sigma_multiplier
+
+                        self.ga_trainer.operators.mutation_probability = adapted_prob
+                        self.ga_trainer.operators.mutation_gaussian_sigma = adapted_sigma
+                        print(f"  Stagnation={stagnation} gens. Mutation boosted to prob={adapted_prob:.2f}, sigma={adapted_sigma:.3f}")
+                    else:
+                        # If not stagnated, ensure mutation rates are at their default values
+                        if self.ga_trainer.operators.mutation_probability != self.original_mutation_probability:
+                            print(f"  New best found. Resetting mutation to defaults.")
+                        self.ga_trainer.operators.mutation_probability = self.original_mutation_probability
+                        self.ga_trainer.operators.mutation_gaussian_sigma = self.original_mutation_gaussian_sigma
+
                 print(f"Evolving generation {self.current_generation + 1}...")
                 self._evolve_generation()
                 self.current_generation += 1
@@ -301,17 +353,93 @@ class ParallelGATrainingDriver:
         self.ga_trainer.episode_runner.state_encoder.reset()
         self.display_agent.reset()
 
+        # Track starting state for fresh game metrics
+        self.fresh_game_start_kills = self.game.metrics_tracker.total_kills
+        self.fresh_game_start_shots = self.game.metrics_tracker.total_shots_fired
+
         print(f"Testing best agent in fresh game (training fitness={self.display_fitness:.2f}, all-time best={self.best_fitness:.2f})...")
-    
+
+    def _capture_fresh_game_metrics(self, cause_of_death: str):
+        """Capture fresh game metrics when display ends.
+
+        Args:
+            cause_of_death: "asteroid_collision", "completed_episode", or "timeout"
+        """
+        # Get metrics from the fresh game
+        metrics = self.game.metrics_tracker
+        reward_calc = self.ga_trainer.episode_runner.reward_calculator
+
+        fresh_kills = metrics.total_kills - self.fresh_game_start_kills
+        fresh_shots = metrics.total_shots_fired - self.fresh_game_start_shots
+        fresh_accuracy = fresh_kills / fresh_shots if fresh_shots > 0 else 0.0
+        fresh_fitness = reward_calc.score
+
+        fresh_game_data = {
+            'fitness': fresh_fitness,
+            'kills': fresh_kills,
+            'steps_survived': self.best_agent_steps,
+            'shots_fired': fresh_shots,
+            'accuracy': fresh_accuracy,
+            'time_alive_seconds': metrics.time_alive,
+            'cause_of_death': cause_of_death,
+            'completed_full_episode': cause_of_death == "completed_episode",
+            'reward_breakdown': reward_calc.get_reward_breakdown(),
+        }
+
+        # Calculate generalization metrics (comparing to training performance)
+        # Use the best agent's training stats from the current generation
+        gen_data = self.analytics.generations_data[-1] if self.analytics.generations_data else {}
+        training_fitness = self.display_fitness
+        training_kills = gen_data.get('best_agent_kills', 0)
+        training_steps = gen_data.get('best_agent_steps', 0)
+        training_accuracy = gen_data.get('best_agent_accuracy', 0)
+
+        # Calculate ratios (avoid division by zero)
+        fitness_ratio = fresh_fitness / training_fitness if training_fitness > 0 else 0.0
+        kills_ratio = fresh_kills / training_kills if training_kills > 0 else 0.0
+        steps_ratio = self.best_agent_steps / training_steps if training_steps > 0 else 0.0
+        accuracy_delta = fresh_accuracy - training_accuracy
+
+        # Assign generalization grade based on fitness ratio
+        if fitness_ratio >= 0.90:
+            grade = "A"
+        elif fitness_ratio >= 0.70:
+            grade = "B"
+        elif fitness_ratio >= 0.50:
+            grade = "C"
+        elif fitness_ratio >= 0.30:
+            grade = "D"
+        else:
+            grade = "F"
+
+        generalization_metrics = {
+            'fitness_ratio': fitness_ratio,
+            'kills_ratio': kills_ratio,
+            'steps_ratio': steps_ratio,
+            'accuracy_delta': accuracy_delta,
+            'generalization_grade': grade,
+        }
+
+        # Record to analytics
+        self.analytics.record_fresh_game(
+            generation=self.current_generation + 1,
+            fresh_game_data=fresh_game_data,
+            generalization_metrics=generalization_metrics
+        )
+
+        # Print summary
+        print(f"  Fresh game results: Fitness={fresh_fitness:.1f}, Kills={fresh_kills}, "
+              f"Steps={self.best_agent_steps}, Accuracy={fresh_accuracy*100:.1f}%")
+        print(f"  Generalization: Fitness ratio={fitness_ratio:.2f} (Grade {grade}), "
+              f"Kills ratio={kills_ratio:.2f}")
+
     def _update_best_agent_display(self, delta_time):
         """Update best agent playing visually."""
-        # Check if agent died
+        # Check if agent died (from previous frame)
+        # Note: We don't capture metrics here - that's done in the main update loop
+        # after this function returns, to handle deaths that occur during on_update()
         if self.display_agent is None or self.game.player not in self.game.player_list:
-            # Player died, end display early
-            print(f"Best agent died after {self.best_agent_steps} steps")
-            self.showing_best_agent = False
-            self.game.external_control = False  # Allow arcade to control again
-            self.phase = "evolving"
+            # Player died - main loop will handle cleanup and metrics capture
             return
         
         # Get action from current generation's best agent
@@ -398,10 +526,26 @@ class ParallelGATrainingDriver:
                 offspring[i] = list(mutated[0]) if isinstance(mutated[0], list) else mutated[0]
         
         # Elitism: keep best individuals from previous generation
-        # TUNED: Increased from 10% to 20% for more stability
+        # Reduced from 20% to 10% to allow more exploration
         sorted_pop = sorted(zip(self.population, self.fitnesses), key=lambda x: x[1], reverse=True)
-        elite_count = max(2, self.ga_trainer.population_size // 5)  # 20% elitism (was 10%)
-        elite = [ind for ind, fit in sorted_pop[:elite_count]]
+        elite_count = max(2, self.ga_trainer.population_size // 10)  # 10% elitism (was 20%)
+        elite = [ind.copy() for ind, fit in sorted_pop[:elite_count]]
+
+        # Preserve the all-time best individual, but NOT during extended stagnation
+        # (if we're stuck for 30+ gens, forcing the old best might be counterproductive)
+        stagnation = 0
+        if self.analytics.generations_data:
+            stagnation = self.analytics.generations_data[-1].get('generations_since_improvement', 0)
+
+        if self.best_individual is not None and stagnation < 30:
+            # Check if all-time best is already in elite (by value comparison)
+            best_in_elite = any(
+                all(abs(a - b) < 1e-9 for a, b in zip(self.best_individual, ind))
+                for ind in elite
+            )
+            if not best_in_elite:
+                # Replace the worst elite with all-time best
+                elite[-1] = self.best_individual.copy()
 
         # New population: elite + best offspring
         self.population = elite + offspring[:self.ga_trainer.population_size - len(elite)]
@@ -485,23 +629,41 @@ def create_ga_trainer(game, **kwargs):
     from interfaces.rewards.NearMiss import NearMiss
     from interfaces.rewards.SpacingFromWallsBonus import SpacingFromWallsBonus
     from interfaces.rewards.MaintainingMomentumBonus import MaintainingMomentumBonus
+    from interfaces.rewards.DeathPenalty import DeathPenalty
+    from interfaces.rewards.ProximityPenalty import ProximityPenalty
+    from interfaces.rewards.VelocityKillBonus import VelocityKillBonus
+    from interfaces.rewards.ExplorationBonus import ExplorationBonus
 
-    # 1. Core Objective (Value reduced to emphasize skill)
-    reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
-    reward_calculator.add_component(SurvivalBonus(reward_multiplier=1.0))
+    # ### EXPERIMENT: MOVEMENT-ONLY REWARDS (REBALANCED) ###
+    # Goal: Evolve movement behaviors without kill incentives.
+    # Balance: Positive scores achievable with ~5 seconds of good movement.
 
-    # 2. Shot Discipline (High skill, high reward)
-    reward_calculator.add_component(ConservingAmmoBonus(good_shot_bonus=20.0, bad_shot_penalty=-20.0, alignment_threshold=0.8))
-    # reward_calculator.add_component(LeadingTargetBonus(bonus_per_shot=40.0, prediction_time=0.4, alignment_threshold=0.95))
+    # 1. Survival baseline - increased to provide steady positive signal
+    reward_calculator.add_component(SurvivalBonus(reward_multiplier=3.0))
 
-    # 3. Movement & Positioning (Crucial for survival and strategy)
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=5.0, penalty_per_second=-5.0))
-    reward_calculator.add_component(NearMiss(reward_per_near_miss=15.0, safe_distance=60.0))
-    reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
+    # 2. Movement rewards - core learning signal
+    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=15.0, penalty_per_second=-5.0))
+    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=10.0, min_safe_distance=200.0))
 
-    # 4. Aggression / Hunting
-    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=3.0, min_safe_distance=250.0))
+    # 3. Reward skillful dodging
+    reward_calculator.add_component(NearMiss(reward_per_near_miss=20.0, safe_distance=60.0))
+
+    # 4. Penalties - reduced to not dominate the signal
+    reward_calculator.add_component(ProximityPenalty(danger_zone_radius=100.0, max_penalty_per_second=-5.0))
+    reward_calculator.add_component(DeathPenalty(penalty=-50.0))
+
+    # === FUTURE/DEACTIVATED REWARDS FOR REFERENCE ===
+    # --- Shooting / Kill based rewards ---
+    # reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
+    # reward_calculator.add_component(ConservingAmmoBonus(hit_bonus=20.0, shot_penalty=-5.0))
+    # reward_calculator.add_component(VelocityKillBonus(bonus_per_kill=50.0, max_speed_for_full_bonus=10.0))
+
+    # --- Exploration rewards ---
+    # reward_calculator.add_component(ExplorationBonus(screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT, grid_rows=3, grid_cols=4, bonus_per_cell=50.0))
     
+    # --- Other disabled rewards ---
+    # reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
+
     from training.base.EpisodeRunner import EpisodeRunner
     episode_runner = EpisodeRunner(
         game=game,
@@ -525,15 +687,14 @@ def main():
     window = AsteroidsGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     window.setup()
     
-    # Create GA trainer with TUNED parameters for stable learning
+    # Create GA trainer with parameters tuned for exploration
     ga_trainer = create_ga_trainer(
         game=window,
-        population_size=100,
+        population_size=100,  # Increased from 50 for more diversity (100×3 = 300 sims)
         num_generations=500,
-        # TUNED: Reduced mutation for more stable convergence
-        mutation_probability=0.20,  # Was 0.35 - less frequent mutation preserves good solutions
+        mutation_probability=0.20,
         crossover_probability=0.7,
-        mutation_gaussian_sigma=0.15,  # Was 0.3 - smaller mutations for fine-tuning
+        mutation_gaussian_sigma=0.15,
         mutation_uniform_low=-1.0,
         mutation_uniform_high=1.0,
         crossover_alpha=0.5

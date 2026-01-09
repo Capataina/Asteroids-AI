@@ -12,18 +12,17 @@ class NearMiss(RewardComponent):
     self.rewarded_asteroids = []
 
   def calculate_step_reward(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
+    # Get all asteroids within near-miss range
+    nearby_asteroids = env_tracker.get_asteroids_in_range(self.safe_distance)
 
-    # We get the nearest asteroids under a certain distance
-    nearest_asteroids = env_tracker.get_asteroids_in_range(self.safe_distance)
-
-    # For each asteroid, we only reward the player once
-    for asteroid in nearest_asteroids:
+    # Reward for each NEW asteroid entering the danger zone
+    total_reward = 0.0
+    for asteroid in nearby_asteroids:
       if asteroid not in self.rewarded_asteroids:
-        reward = self.reward_per_near_miss
+        total_reward += self.reward_per_near_miss
         self.rewarded_asteroids.append(asteroid)
-        return reward
-    
-    return 0.0
+
+    return total_reward
 
   def calculate_episode_reward(self, metrics_tracker: MetricsTracker) -> float:
     return 0.0

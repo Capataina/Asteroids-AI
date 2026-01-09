@@ -50,47 +50,60 @@ class GAGeneticOperators:
 
   def crossover_blend(self, individual1: List[float], individual2: List[float]) -> Tuple[List[float], List[float]]:
     """
-    Blend crossover: create offspring between parents.
+    BLX-alpha crossover: create offspring by sampling from extended range.
+
+    For each gene, samples from [min - alpha*d, max + alpha*d] where d is the
+    distance between parents. This creates genetic diversity even when parents
+    are similar.
 
     Args:
       individual1: First parent
       individual2: Second parent
 
     Returns:
-      Two offspring (tuples for DEAP)
+      Two distinct offspring
     """
-    # Create two complementary offspring using crossover_alpha as blend factor
-    # alpha=0.5 means equal mix, alpha=0.7 means 70% from first parent
     alpha = self.crossover_alpha
-    child1 = [
-      individual1[i] * alpha + individual2[i] * (1 - alpha)
-      for i in range(len(individual1))
-    ]
-    child2 = [
-      individual2[i] * alpha + individual1[i] * (1 - alpha)
-      for i in range(len(individual2))
-    ]
+    child1 = []
+    child2 = []
+
+    for i in range(len(individual1)):
+      p1 = individual1[i]
+      p2 = individual2[i]
+
+      # Calculate range for BLX-alpha
+      d = abs(p1 - p2)
+      low = min(p1, p2) - alpha * d
+      high = max(p1, p2) + alpha * d
+
+      # Sample two different children from the range
+      child1.append(random.uniform(low, high))
+      child2.append(random.uniform(low, high))
+
     return (child1, child2)
 
   def crossover_arithmetic(self, individual1: List[float], individual2: List[float]) -> Tuple[List[float], List[float]]:
     """
-    Arithmetic crossover: weighted average of parents.
+    Arithmetic crossover: weighted average of parents with random alpha.
+
+    Uses a random alpha for each crossover to create diverse offspring.
 
     Args:
       individual1: First parent
       individual2: Second parent
 
     Returns:
-      Two offspring (tuples for DEAP)
+      Two complementary offspring
     """
-    # Create two complementary offspring using crossover_alpha as blend factor
-    alpha = self.crossover_alpha
+    # Use random alpha for diversity
+    alpha = random.uniform(0.3, 0.7)
+
     child1 = [
       individual1[i] * alpha + individual2[i] * (1 - alpha)
       for i in range(len(individual1))
     ]
     child2 = [
-      individual2[i] * alpha + individual1[i] * (1 - alpha)
+      individual1[i] * (1 - alpha) + individual2[i] * alpha
       for i in range(len(individual2))
     ]
     return (child1, child2)

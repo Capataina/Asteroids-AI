@@ -25,6 +25,10 @@ class EnvironmentTracker:
     
     def get_player(self) -> Optional[Player]:
         return self.game.player
+
+    def is_player_alive(self) -> bool:
+        """Check if player is alive (in player_list)."""
+        return self.game.player is not None and self.game.player in self.game.player_list
         
     def get_tick(self) -> int:
         return self.game.time
