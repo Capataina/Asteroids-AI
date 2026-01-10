@@ -13,7 +13,9 @@ from training.analytics.analysis.fitness import median, std_dev, calculate_skewn
 
 def record_generation(data: AnalyticsData, generation: int, fitness_scores: List[float],
                       behavioral_metrics: Optional[Dict[str, Any]] = None,
-                      best_agent_stats: Optional[Dict[str, Any]] = None):
+                      best_agent_stats: Optional[Dict[str, Any]] = None,
+                      timing_stats: Optional[Dict[str, float]] = None,
+                      operator_stats: Optional[Dict[str, int]] = None):
     """Record metrics for a generation.
 
     Args:
@@ -22,6 +24,8 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         fitness_scores: List of fitness scores for all agents
         behavioral_metrics: Optional aggregated behavioral metrics
         best_agent_stats: Optional stats for the best agent
+        timing_stats: Optional timing metrics (duration of phases)
+        operator_stats: Optional genetic operator statistics
     """
     if not fitness_scores:
         return
@@ -43,6 +47,14 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         'p75_fitness': sorted_scores[3 * n // 4] if n >= 4 else sorted_scores[-1],
         'p90_fitness': sorted_scores[int(n * 0.9)] if n >= 10 else sorted_scores[-1],
     }
+
+    # Add timing stats if available
+    if timing_stats:
+        gen_data.update(timing_stats)
+        
+    # Add operator stats if available
+    if operator_stats:
+        gen_data.update(operator_stats)
 
     # Calculate improvement metrics
     if data.generations_data:
@@ -66,12 +78,24 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         gen_data['avg_steps'] = behavioral_metrics.get('avg_steps_survived', 0)
         gen_data['avg_accuracy'] = behavioral_metrics.get('avg_accuracy', 0)
         gen_data['avg_shots'] = behavioral_metrics.get('avg_shots_fired', 0)
+        
+        # Action metrics
+        gen_data['avg_thrust_frames'] = behavioral_metrics.get('avg_thrust_frames', 0)
+        gen_data['avg_turn_frames'] = behavioral_metrics.get('avg_turn_frames', 0)
+        gen_data['avg_shoot_frames'] = behavioral_metrics.get('avg_shoot_frames', 0)
+        
         gen_data['total_kills'] = behavioral_metrics.get('total_kills', 0)
         gen_data['max_kills'] = behavioral_metrics.get('max_kills', 0)
         gen_data['max_steps'] = behavioral_metrics.get('max_steps', 0)
+        
+        # Best agent metrics
         gen_data['best_agent_kills'] = behavioral_metrics.get('best_agent_kills', 0)
         gen_data['best_agent_steps'] = behavioral_metrics.get('best_agent_steps', 0)
         gen_data['best_agent_accuracy'] = behavioral_metrics.get('best_agent_accuracy', 0)
+        gen_data['best_agent_thrust'] = behavioral_metrics.get('best_agent_thrust', 0)
+        gen_data['best_agent_turn'] = behavioral_metrics.get('best_agent_turn', 0)
+        gen_data['best_agent_shoot'] = behavioral_metrics.get('best_agent_shoot', 0)
+        
         gen_data['avg_reward_breakdown'] = behavioral_metrics.get('avg_reward_breakdown', {})
 
     # Add best agent stats if available
@@ -119,6 +143,9 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
     sorted_steps = sorted([m.get('steps_survived', 0) for m in per_agent_metrics])
     sorted_accuracy = sorted([m.get('accuracy', 0) for m in per_agent_metrics])
     sorted_shots = sorted([m.get('shots_fired', 0) for m in per_agent_metrics])
+    sorted_thrust = sorted([m.get('thrust_frames', 0) for m in per_agent_metrics])
+    sorted_turn = sorted([m.get('turn_frames', 0) for m in per_agent_metrics])
+    sorted_shoot = sorted([m.get('shoot_frames', 0) for m in per_agent_metrics])
 
     # Calculate distribution statistics
     skewness = calculate_skewness(sorted_fitness)
@@ -134,6 +161,9 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
         'steps_values': sorted_steps,
         'accuracy_values': sorted_accuracy,
         'shots_values': sorted_shots,
+        'thrust_values': sorted_thrust,
+        'turn_values': sorted_turn,
+        'shoot_values': sorted_shoot,
     }
 
     distribution_stats = {

@@ -96,6 +96,11 @@ def calculate_behavioral_by_quarter(generations_data: List[Dict[str, Any]]) -> L
         avg_steps = sum(g.get('avg_steps', 0) for g in q) / len(q)
         avg_acc = sum(g.get('avg_accuracy', 0) for g in q) / len(q)
         max_kills = max(g.get('max_kills', 0) for g in q)
+        
+        # New action metrics
+        avg_thrust = sum(g.get('avg_thrust_frames', 0) for g in q) / len(q)
+        avg_turn = sum(g.get('avg_turn_frames', 0) for g in q) / len(q)
+        avg_shoot = sum(g.get('avg_shoot_frames', 0) for g in q) / len(q)
 
         results.append({
             'quarter': i,
@@ -103,6 +108,9 @@ def calculate_behavioral_by_quarter(generations_data: List[Dict[str, Any]]) -> L
             'avg_steps': avg_steps,
             'avg_accuracy': avg_acc,
             'max_kills': max_kills,
+            'avg_thrust_frames': avg_thrust,
+            'avg_turn_frames': avg_turn,
+            'avg_shoot_frames': avg_shoot,
         })
 
     return results

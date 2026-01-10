@@ -123,7 +123,7 @@ class VectorEncoder:
     Encode player state in egocentric frame.
 
     Returns:
-      [forward_velocity, lateral_velocity]
+      [forward_velocity, lateral_velocity, shoot_cooldown]
     """
     # Get player's facing direction as unit vector
     angle_rad = math.radians(player.angle)
@@ -139,10 +139,16 @@ class VectorEncoder:
 
     # Project velocity onto right direction (lateral velocity)
     lateral_velocity = player.change_x * right_x + player.change_y * right_y
+    
+    # Encode shoot cooldown (0 = ready to fire, 1 = full cooldown)
+    normalized_cooldown = 0.0
+    if player.shoot_cooldown > 0:
+        normalized_cooldown = self._clamp(player.shoot_timer / player.shoot_cooldown, 0.0, 1.0)
 
     return [
       self._clamp(forward_velocity / self.max_player_velocity, -1.0, 1.0),
       self._clamp(lateral_velocity / self.max_player_velocity, -1.0, 1.0),
+      normalized_cooldown
     ]
 
   def encode_asteroids(self, env_tracker: EnvironmentTracker, player: Player) -> List[float]:
@@ -175,6 +181,14 @@ class VectorEncoder:
     # Calculate relative position (world frame)
     rel_x = ast.center_x - player.center_x
     rel_y = ast.center_y - player.center_y
+
+    # Handle screen wrapping (Toroidal distance)
+    # If distance is more than half the screen, the other way is shorter
+    if abs(rel_x) > self.screen_width / 2:
+        rel_x = -1 * math.copysign(self.screen_width - abs(rel_x), rel_x)
+    
+    if abs(rel_y) > self.screen_height / 2:
+        rel_y = -1 * math.copysign(self.screen_height - abs(rel_y), rel_y)
 
     # Calculate distance (CORRECT calculation)
     distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
@@ -230,7 +244,7 @@ class VectorEncoder:
     Returns:
       Number of features in the encoded state.
     """
-    size = 2  # Player features (forward_velocity, lateral_velocity)
+    size = 3  # Player features (forward_velocity, lateral_velocity, shoot_cooldown)
     size += 4 * self.num_nearest_asteroids  # Asteroid features (distance, angle, closing_speed, size)
     return size
 

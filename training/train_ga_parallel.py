@@ -10,6 +10,7 @@ import sys
 import os
 import math
 import random
+import time
 from typing import Optional, List
 
 # Add project root to path
@@ -23,6 +24,7 @@ from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from interfaces.RewardCalculator import ComposableRewardCalculator
 from interfaces.rewards.SurvivalBonus import SurvivalBonus
+from interfaces.rewards.VelocitySurvivalBonus import VelocitySurvivalBonus
 from interfaces.rewards.KillAsteroid import KillAsteroid
 from interfaces.rewards.ChunkBonus import ChunkBonus
 from interfaces.rewards.NearMiss import NearMiss
@@ -92,6 +94,10 @@ class ParallelGATrainingDriver:
 
         # Phase tracking
         self.phase = "evaluating"  # "evaluating", "displaying_best", "evolving"
+        
+        # Timing and Operator Stats Tracking
+        self.last_evolution_stats = {}
+        self.last_evolution_duration = 0.0
 
         # Adaptive mutation
         self.original_mutation_probability = self.ga_trainer.operators.mutation_probability
@@ -218,6 +224,8 @@ class ParallelGATrainingDriver:
                 print(f"\nGeneration {self.current_generation + 1}: Evaluating {len(self.population)} agents in parallel...")
                 self._update_info_text("Evaluating population in parallel...")
                 
+                eval_start = time.time()
+
                 # PARALLEL EVALUATION - ALL AGENTS AT ONCE
                 # All agents use the SAME random seed for fair comparison within a generation
                 # (seed is used internally but not stored - display uses fresh game)
@@ -229,6 +237,8 @@ class ParallelGATrainingDriver:
                     max_workers=self.max_workers,
                     seeds_per_agent=6  # Increased from 3 for better generalization (50×6 = 300 sims)
                 )
+
+                eval_duration = time.time() - eval_start
 
                 # Find best in current generation
                 best_idx = self.fitnesses.index(max(self.fitnesses))
@@ -255,11 +265,20 @@ class ParallelGATrainingDriver:
                 min_fitness = min(self.fitnesses)
                 max_fitness = max(self.fitnesses)
                 
-                # Record analytics with behavioral metrics
+                # Prepare timing stats
+                timing_stats = {
+                    'evaluation_duration': eval_duration,
+                    'evolution_duration': self.last_evolution_duration,
+                    'total_gen_duration': eval_duration + self.last_evolution_duration
+                }
+
+                # Record analytics with behavioral metrics and timing/operator stats
                 self.analytics.record_generation(
                     generation=self.current_generation + 1,
                     fitness_scores=self.fitnesses,
-                    behavioral_metrics=gen_metrics
+                    behavioral_metrics=gen_metrics,
+                    timing_stats=timing_stats,
+                    operator_stats=self.last_evolution_stats
                 )
 
                 # Record per-agent distributions for Phase 2 analytics
@@ -495,6 +514,10 @@ class ParallelGATrainingDriver:
 
     def _evolve_generation(self):
         """Evolve to next generation using GA operators."""
+        start_time = time.time()
+        crossover_count = 0
+        mutation_count = 0
+        
         # Tournament selection
         parents = self._tournament_selection()
         
@@ -507,6 +530,7 @@ class ParallelGATrainingDriver:
                 
                 if random.random() < self.ga_trainer.crossover_probability:
                     result = self.ga_trainer.operators.crossover_blend(parent1, parent2)
+                    crossover_count += 1
                     if isinstance(result, tuple) and len(result) == 2:
                         child1 = list(result[0]) if isinstance(result[0], (tuple, list)) else result[0]
                         child2 = list(result[1]) if isinstance(result[1], (tuple, list)) else result[1]
@@ -524,6 +548,7 @@ class ParallelGATrainingDriver:
         # Apply mutation to ALL offspring (not probabilistically per-offspring)
         for i, child in enumerate(offspring):
             mutated = self.ga_trainer.operators.mutate_gaussian(child)
+            mutation_count += 1
             if isinstance(mutated, tuple) and len(mutated) > 0:
                 offspring[i] = list(mutated[0]) if isinstance(mutated[0], list) else mutated[0]
         
@@ -553,6 +578,14 @@ class ParallelGATrainingDriver:
         self.population = elite + offspring[:self.ga_trainer.population_size - len(elite)]
         self.population = self.population[:self.ga_trainer.population_size]
         self.fitnesses = []
+        
+        # Store stats
+        self.last_evolution_duration = time.time() - start_time
+        self.last_evolution_stats = {
+            'crossover_events': crossover_count,
+            'mutation_events': mutation_count,
+            'elite_count': len(elite)
+        }
     
     def _tournament_selection(self, tournament_size: int = 3) -> List[List[float]]:
         """Select parents using tournament selection."""
@@ -642,8 +675,8 @@ def create_ga_trainer(game, **kwargs):
     # - Encourage movement/exploration without the broken momentum bonus
     # - Maintain accuracy incentive
 
-    # 1. Survival baseline
-    reward_calculator.add_component(SurvivalBonus(reward_multiplier=3.0))
+    # 1. Survival baseline (Replaced with VelocitySurvivalBonus to discourage camping)
+    reward_calculator.add_component(VelocitySurvivalBonus(reward_multiplier=3.0, max_velocity_cap=15.0))
 
     # 2. Kill rewards - more reward for killing close threats (teaches aiming indirectly)
     reward_calculator.add_component(DistanceBasedKillReward(
@@ -664,8 +697,8 @@ def create_ga_trainer(game, **kwargs):
         bonus_per_cell=10.0  # Low value - just enough to encourage movement
     ))
 
-    # 5. Death penalty
-    reward_calculator.add_component(DeathPenalty(penalty=-75.0))
+    # 5. Death penalty (Increased to -150 to balance risk of high speed)
+    reward_calculator.add_component(DeathPenalty(penalty=-150.0))
 
     # === DISABLED REWARDS FOR REFERENCE ===
     # reward_calculator.add_component(KillAsteroid(reward_per_asteroid=10.0))  # Replaced by DistanceBasedKillReward
@@ -702,11 +735,11 @@ def main():
     # Create GA trainer with parameters tuned for generalization
     ga_trainer = create_ga_trainer(
         game=window,
-        population_size=50,  # Reduced from 100 to allow more seeds per agent (50×6 = 300 sims)
+        population_size=100,  # Increased to 100 for better diversity
         num_generations=500,
-        mutation_probability=0.20,
+        mutation_probability=0.05,  # Reduced from 0.20 to prevent policy destruction (5% of weights)
         crossover_probability=0.7,
-        mutation_gaussian_sigma=0.15,
+        mutation_gaussian_sigma=0.1,  # Reduced noise slightly
         mutation_uniform_low=-1.0,
         mutation_uniform_high=1.0,
         crossover_alpha=0.5

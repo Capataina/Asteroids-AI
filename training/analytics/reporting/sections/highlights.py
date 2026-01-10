@@ -234,3 +234,74 @@ def write_generation_highlights(f, generations_data: List[Dict[str, Any]]):
 
     if not highlights_written:
         f.write("No notable highlights detected.\n\n")
+
+
+def write_best_agent_profile(f, generations_data: List[Dict[str, Any]]):
+    """Write a deep profile of the all-time best agent.
+
+    Args:
+        f: File handle to write to
+        generations_data: List of generation data dictionaries
+    """
+    if not generations_data:
+        return
+
+    # Find the generation with the highest best_fitness
+    best_gen = max(generations_data, key=lambda x: x['best_fitness'])
+    
+    # Check if we have detailed best_agent stats (introduced in later schema versions)
+    if 'best_agent_kills' not in best_gen:
+        return
+
+    f.write("## Best Agent Deep Profile\n\n")
+    f.write(f"The most fit agent appeared in **Generation {best_gen['generation']}** with a fitness of **{best_gen['best_fitness']:.2f}**.\n\n")
+    
+    # Basic Stats
+    kills = best_gen.get('best_agent_kills', 0)
+    steps = best_gen.get('best_agent_steps', 0)
+    accuracy = best_gen.get('best_agent_accuracy', 0)
+    shots = best_gen.get('best_agent_shoot', 0) # This might be frames, not total shots. 
+    # Wait, 'best_agent_shoot' is frames where space was pressed. 
+    # We don't have exact shot count for best agent, but we can infer or use 'avg_shots' as proxy if needed,
+    # OR we rely on accuracy * shots = hits. 
+    # Actually, we rely on the collected data. 
+    # In 'collectors.py', 'best_agent_shoot' stores 'shoot_frames'. 
+    # We DO NOT have 'best_agent_total_shots' explicitly, but 'best_agent_accuracy' is correct.
+    
+    # Let's derive shots from kills and accuracy if possible
+    # Accuracy = Kills / Shots => Shots = Kills / Accuracy
+    derived_shots = int(kills / accuracy) if accuracy > 0 else 0
+    
+    # Efficiency Metrics
+    shots_per_kill = (derived_shots / kills) if kills > 0 else 0
+    steps_per_kill = (steps / kills) if kills > 0 else steps
+    
+    f.write("### Combat Efficiency\n\n")
+    f.write(f"- **Total Kills:** {kills}\n")
+    f.write(f"- **Survival Time:** {steps / 60:.1f} seconds ({steps} steps)\n")
+    f.write(f"- **Accuracy:** {accuracy*100:.1f}%\n")
+    f.write(f"- **Shots per Kill:** {shots_per_kill:.1f}\n")
+    f.write(f"- **Time per Kill:** {steps_per_kill/60:.2f} seconds\n\n")
+    
+    # Behavioral Analysis
+    # We need to import the classifier locally to avoid circular imports if any
+    try:
+        from training.analytics.analysis.action_classification import classify_behavior, get_action_rates
+        
+        # Construct metrics dict for classifier
+        # The classifier expects 'avg_...' or 'best_agent_...' keys
+        behavior_label = classify_behavior(best_gen)
+        rates = get_action_rates(best_gen)
+        
+        f.write("### Behavioral Signature\n\n")
+        f.write(f"**Classification:** `{behavior_label}`\n\n")
+        f.write("| Action | Rate (per step) | Description |\n")
+        f.write("|--------|-----------------|-------------|\n")
+        f.write(f"| **Thrust** | {rates['thrust_rate']*100:.1f}% | Movement frequency |\n")
+        f.write(f"| **Turn** | {rates['turn_rate']*100:.1f}% | Rotation frequency |\n")
+        f.write(f"| **Shoot** | {rates['shoot_rate']*100:.1f}% | Trigger discipline |\n")
+        
+    except ImportError:
+        f.write("*Classifier module not found.*\n")
+    
+    f.write("\n")

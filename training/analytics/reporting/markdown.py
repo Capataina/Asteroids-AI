@@ -29,8 +29,10 @@ from training.analytics.reporting.sections.tables import write_generation_table,
 from training.analytics.reporting.sections.trends import write_trend_analysis
 from training.analytics.reporting.sections.charts import write_ascii_chart
 from training.analytics.reporting.sections.velocity import write_learning_velocity
-from training.analytics.reporting.sections.highlights import write_generation_highlights
+from training.analytics.reporting.sections.highlights import write_generation_highlights, write_best_agent_profile
 from training.analytics.reporting.sections.warnings import write_reward_warnings
+from training.analytics.reporting.sections.performance import write_computational_performance, write_genetic_operator_stats
+from training.analytics.reporting.sections.milestones import write_milestone_timeline
 
 
 class MarkdownReporter:
@@ -71,10 +73,16 @@ class MarkdownReporter:
 
             # Overall Summary
             write_overall_summary(f, summary, has_fresh_game)
+            
+            # Best Agent Deep Profile
+            write_best_agent_profile(f, self.data.generations_data)
 
             # Generation Highlights
             f.write("## Generation Highlights\n\n")
             write_generation_highlights(f, self.data.generations_data)
+            
+            # Milestone Timeline
+            write_milestone_timeline(f, self.data.generations_data)
 
             # Training Progress by Decile
             f.write("## Training Progress by Decile\n\n")
@@ -152,6 +160,11 @@ class MarkdownReporter:
             # ASCII Charts
             f.write("\n## Fitness Progression (ASCII Chart)\n\n")
             write_ascii_chart(f, self.data.generations_data)
+            
+            # Performance Appendix
+            f.write("\n---\n\n# Technical Appendix\n\n")
+            write_computational_performance(f, self.data.generations_data)
+            write_genetic_operator_stats(f, self.data.generations_data)
 
         print(f"\n[OK] Training summary saved to: {output_path}")
         return output_path

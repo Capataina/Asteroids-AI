@@ -86,7 +86,9 @@ class TrainingAnalytics:
 
     def record_generation(self, generation: int, fitness_scores: List[float],
                           behavioral_metrics: Optional[Dict[str, Any]] = None,
-                          best_agent_stats: Optional[Dict[str, Any]] = None):
+                          best_agent_stats: Optional[Dict[str, Any]] = None,
+                          timing_stats: Optional[Dict[str, float]] = None,
+                          operator_stats: Optional[Dict[str, int]] = None):
         """Record metrics for a generation.
 
         Args:
@@ -94,9 +96,12 @@ class TrainingAnalytics:
             fitness_scores: List of fitness scores for all agents
             behavioral_metrics: Optional aggregated behavioral metrics
             best_agent_stats: Optional stats for the best agent
+            timing_stats: Optional timing metrics
+            operator_stats: Optional genetic operator statistics
         """
         _record_generation(self._data, generation, fitness_scores,
-                           behavioral_metrics, best_agent_stats)
+                           behavioral_metrics, best_agent_stats,
+                           timing_stats, operator_stats)
 
     def record_fresh_game(self, generation: int, fresh_game_data: Dict[str, Any],
                           generalization_metrics: Dict[str, Any]):

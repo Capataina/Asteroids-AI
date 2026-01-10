@@ -13,6 +13,7 @@ from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from interfaces.RewardCalculator import ComposableRewardCalculator
 from interfaces.rewards.SurvivalBonus import SurvivalBonus
+from interfaces.rewards.VelocitySurvivalBonus import VelocitySurvivalBonus
 from interfaces.rewards.KillAsteroid import KillAsteroid
 from interfaces.rewards.ChunkBonus import ChunkBonus
 from interfaces.rewards.NearMiss import NearMiss
@@ -68,8 +69,9 @@ def evaluate_single_agent(
     # === REWARD CONFIGURATION V3: Aiming & Threat Prioritization ===
     # MUST MATCH train_ga_parallel.py exactly!
 
-    # 1. Survival baseline
-    reward_calculator.add_component(SurvivalBonus(reward_multiplier=3.0))
+    # 1. Survival baseline (Replaced with VelocitySurvivalBonus to discourage camping)
+    # Reward moving while surviving. Max speed is ~5-10 usually, so cap at 15.
+    reward_calculator.add_component(VelocitySurvivalBonus(reward_multiplier=3.0, max_velocity_cap=15.0))
 
     # 2. Kill rewards - more reward for killing close threats (teaches aiming indirectly)
     reward_calculator.add_component(DistanceBasedKillReward(
@@ -90,8 +92,8 @@ def evaluate_single_agent(
         bonus_per_cell=10.0
     ))
 
-    # 5. Death penalty
-    reward_calculator.add_component(DeathPenalty(penalty=-75.0))
+    # 5. Death penalty (Increased to -150 to balance risk of high speed)
+    reward_calculator.add_component(DeathPenalty(penalty=-150.0))
 
     # Reset reward calculator to ensure clean state
     reward_calculator.reset()
@@ -118,6 +120,11 @@ def evaluate_single_agent(
     # Episode variables
     steps = 0
     total_reward = 0.0
+
+    # Action counters
+    thrust_frames = 0
+    turn_frames = 0
+    shoot_frames = 0
     
     # Episode loop
     while steps < max_steps and game.player in game.player_list:
@@ -139,6 +146,14 @@ def evaluate_single_agent(
         game.right_pressed = game_input["right_pressed"]
         game.up_pressed = game_input["up_pressed"]
         game.space_pressed = game_input["space_pressed"]
+
+        # Track actions
+        if game.up_pressed:
+            thrust_frames += 1
+        if game.left_pressed or game.right_pressed:
+            turn_frames += 1
+        if game.space_pressed:
+            shoot_frames += 1
         
         # Step game
         game.on_update(frame_delay)
@@ -169,6 +184,9 @@ def evaluate_single_agent(
         'accuracy': game.metrics_tracker.get_accuracy(),
         'time_alive': game.metrics_tracker.time_alive,
         'reward_breakdown': reward_calculator.get_reward_breakdown(),
+        'thrust_frames': thrust_frames,
+        'turn_frames': turn_frames,
+        'shoot_frames': shoot_frames,
     }
     return metrics
 
@@ -256,6 +274,9 @@ def evaluate_population_parallel(
             'kills': avg_kills,
             'shots_fired': sum(r['shots_fired'] for r in results) / len(results),
             'accuracy': sum(r['accuracy'] for r in results) / len(results),
+            'thrust_frames': sum(r.get('thrust_frames', 0) for r in results) / len(results),
+            'turn_frames': sum(r.get('turn_frames', 0) for r in results) / len(results),
+            'shoot_frames': sum(r.get('shoot_frames', 0) for r in results) / len(results),
         })
 
         # Aggregate reward breakdown
@@ -279,6 +300,9 @@ def evaluate_population_parallel(
         'avg_kills': sum(r['kills'] for r in averaged_results) / len(averaged_results),
         'avg_shots_fired': sum(r['shots_fired'] for r in averaged_results) / len(averaged_results),
         'avg_accuracy': sum(r['accuracy'] for r in averaged_results) / len(averaged_results),
+        'avg_thrust_frames': sum(r['thrust_frames'] for r in averaged_results) / len(averaged_results),
+        'avg_turn_frames': sum(r['turn_frames'] for r in averaged_results) / len(averaged_results),
+        'avg_shoot_frames': sum(r['shoot_frames'] for r in averaged_results) / len(averaged_results),
         'total_kills': sum(r['kills'] for r in averaged_results),
         'total_shots': sum(r['shots_fired'] for r in averaged_results),
         'max_kills': max(r['kills'] for r in averaged_results),
@@ -287,6 +311,9 @@ def evaluate_population_parallel(
         'best_agent_kills': averaged_results[best_idx]['kills'],
         'best_agent_steps': averaged_results[best_idx]['steps_survived'],
         'best_agent_accuracy': averaged_results[best_idx]['accuracy'],
+        'best_agent_thrust': averaged_results[best_idx]['thrust_frames'],
+        'best_agent_turn': averaged_results[best_idx]['turn_frames'],
+        'best_agent_shoot': averaged_results[best_idx]['shoot_frames'],
         'avg_reward_breakdown': avg_reward_breakdown,
     }
 
