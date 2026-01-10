@@ -30,6 +30,8 @@ from interfaces.rewards.AccuracyBonus import AccuracyBonus
 from interfaces.rewards.KPMBonus import KPMBonus
 from interfaces.rewards.ShootingPenalty import ShootingPenalty
 from interfaces.rewards.FacingAsteroidBonus import FacingAsteroidBonus
+from interfaces.rewards.ProximityFacingBonus import ProximityFacingBonus
+from interfaces.rewards.DistanceBasedKillReward import DistanceBasedKillReward
 from ai_agents.neuroevolution.genetic_algorithm.ga_trainer import GATrainer
 from ai_agents.neuroevolution.genetic_algorithm.nn_ga_agent import NeuralNetworkGAAgent
 from training.parallel_evaluator import evaluate_population_parallel
@@ -225,7 +227,7 @@ class ParallelGATrainingDriver:
                     self.ga_trainer.action_interface,
                     max_steps=1500,  # Increased to give agents more time to learn
                     max_workers=self.max_workers,
-                    seeds_per_agent=3  # Reduced from 6 to allow larger population
+                    seeds_per_agent=6  # Increased from 3 for better generalization (50×6 = 300 sims)
                 )
 
                 # Find best in current generation
@@ -612,7 +614,7 @@ def create_ga_trainer(game, **kwargs):
     state_encoder = VectorEncoder(
         screen_width=SCREEN_WIDTH,
         screen_height=SCREEN_HEIGHT,
-        num_nearest_asteroids=2,
+        num_nearest_asteroids=5,
         include_bullets=False,
         include_global=False
     )
@@ -634,34 +636,44 @@ def create_ga_trainer(game, **kwargs):
     from interfaces.rewards.VelocityKillBonus import VelocityKillBonus
     from interfaces.rewards.ExplorationBonus import ExplorationBonus
 
-    # ### EXPERIMENT: MOVEMENT-ONLY REWARDS (REBALANCED) ###
-    # Goal: Evolve movement behaviors without kill incentives.
-    # Balance: Positive scores achievable with ~5 seconds of good movement.
+    # === REWARD CONFIGURATION V3: Aiming & Threat Prioritization ===
+    # Goals:
+    # - Reward killing CLOSE threats over distant ones (DistanceBasedKillReward)
+    # - Encourage movement/exploration without the broken momentum bonus
+    # - Maintain accuracy incentive
 
-    # 1. Survival baseline - increased to provide steady positive signal
+    # 1. Survival baseline
     reward_calculator.add_component(SurvivalBonus(reward_multiplier=3.0))
 
-    # 2. Movement rewards - core learning signal
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=15.0, penalty_per_second=-5.0))
-    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=10.0, min_safe_distance=200.0))
+    # 2. Kill rewards - more reward for killing close threats (teaches aiming indirectly)
+    reward_calculator.add_component(DistanceBasedKillReward(
+        max_reward_per_kill=15.0,
+        min_distance=50.0,
+        max_distance=400.0
+    ))
 
-    # 3. Reward skillful dodging
-    reward_calculator.add_component(NearMiss(reward_per_near_miss=20.0, safe_distance=60.0))
+    # 3. Accuracy incentive - reward hits, penalize misses
+    reward_calculator.add_component(ConservingAmmoBonus(hit_bonus=12.0, shot_penalty=-5.0))
 
-    # 4. Penalties - reduced to not dominate the signal
-    reward_calculator.add_component(ProximityPenalty(danger_zone_radius=100.0, max_penalty_per_second=-5.0))
-    reward_calculator.add_component(DeathPenalty(penalty=-50.0))
+    # 4. Exploration - small incentive to move around (replaces broken momentum bonus)
+    reward_calculator.add_component(ExplorationBonus(
+        screen_width=SCREEN_WIDTH,
+        screen_height=SCREEN_HEIGHT,
+        grid_rows=3,
+        grid_cols=4,
+        bonus_per_cell=10.0  # Low value - just enough to encourage movement
+    ))
 
-    # === FUTURE/DEACTIVATED REWARDS FOR REFERENCE ===
-    # --- Shooting / Kill based rewards ---
-    # reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
-    # reward_calculator.add_component(ConservingAmmoBonus(hit_bonus=20.0, shot_penalty=-5.0))
+    # 5. Death penalty
+    reward_calculator.add_component(DeathPenalty(penalty=-75.0))
+
+    # === DISABLED REWARDS FOR REFERENCE ===
+    # reward_calculator.add_component(KillAsteroid(reward_per_asteroid=10.0))  # Replaced by DistanceBasedKillReward
+    # reward_calculator.add_component(MaintainingMomentumBonus(...))  # Was teaching bad behavior
+    # reward_calculator.add_component(FacingAsteroidBonus(...))  # Replaced by ProximityFacingBonus
+    # reward_calculator.add_component(NearMiss(reward_per_near_miss=20.0, safe_distance=60.0))
+    # reward_calculator.add_component(ProximityPenalty(danger_zone_radius=100.0, max_penalty_per_second=-5.0))
     # reward_calculator.add_component(VelocityKillBonus(bonus_per_kill=50.0, max_speed_for_full_bonus=10.0))
-
-    # --- Exploration rewards ---
-    # reward_calculator.add_component(ExplorationBonus(screen_width=SCREEN_WIDTH, screen_height=SCREEN_HEIGHT, grid_rows=3, grid_cols=4, bonus_per_cell=50.0))
-    
-    # --- Other disabled rewards ---
     # reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
 
     from training.base.EpisodeRunner import EpisodeRunner
@@ -687,10 +699,10 @@ def main():
     window = AsteroidsGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     window.setup()
     
-    # Create GA trainer with parameters tuned for exploration
+    # Create GA trainer with parameters tuned for generalization
     ga_trainer = create_ga_trainer(
         game=window,
-        population_size=100,  # Increased from 50 for more diversity (100×3 = 300 sims)
+        population_size=50,  # Reduced from 100 to allow more seeds per agent (50×6 = 300 sims)
         num_generations=500,
         mutation_probability=0.20,
         crossover_probability=0.7,

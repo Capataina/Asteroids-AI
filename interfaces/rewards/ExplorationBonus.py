@@ -18,6 +18,7 @@ class ExplorationBonus(RewardComponent):
             grid_cols: How many columns to divide the screen into.
             bonus_per_cell: The one-time bonus for entering a new cell.
         """
+        self.name = "ExplorationBonus"
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.grid_rows = grid_rows

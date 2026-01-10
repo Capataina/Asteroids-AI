@@ -29,6 +29,8 @@ from interfaces.rewards.DeathPenalty import DeathPenalty
 from interfaces.rewards.ProximityPenalty import ProximityPenalty
 from interfaces.rewards.VelocityKillBonus import VelocityKillBonus
 from interfaces.rewards.ExplorationBonus import ExplorationBonus
+from interfaces.rewards.ProximityFacingBonus import ProximityFacingBonus
+from interfaces.rewards.DistanceBasedKillReward import DistanceBasedKillReward
 
 
 def evaluate_single_agent(
@@ -63,35 +65,33 @@ def evaluate_single_agent(
     # Create reward calculator
     reward_calculator = ComposableRewardCalculator()
 
-    # ### EXPERIMENT: MOVEMENT-ONLY REWARDS (REBALANCED) ###
-    # Goal: Evolve movement behaviors without kill incentives.
-    # Balance: Positive scores achievable with ~5 seconds of good movement.
+    # === REWARD CONFIGURATION V3: Aiming & Threat Prioritization ===
+    # MUST MATCH train_ga_parallel.py exactly!
 
-    # 1. Survival baseline - increased to provide steady positive signal
+    # 1. Survival baseline
     reward_calculator.add_component(SurvivalBonus(reward_multiplier=3.0))
 
-    # 2. Movement rewards - core learning signal
-    reward_calculator.add_component(MaintainingMomentumBonus(bonus_per_second=15.0, penalty_per_second=-5.0))
-    reward_calculator.add_component(MovingTowardDangerBonus(bonus_per_second=10.0, min_safe_distance=200.0))
+    # 2. Kill rewards - more reward for killing close threats (teaches aiming indirectly)
+    reward_calculator.add_component(DistanceBasedKillReward(
+        max_reward_per_kill=15.0,
+        min_distance=50.0,
+        max_distance=400.0
+    ))
 
-    # 3. Reward skillful dodging
-    reward_calculator.add_component(NearMiss(reward_per_near_miss=20.0, safe_distance=60.0))
+    # 3. Accuracy incentive - reward hits, penalize misses
+    reward_calculator.add_component(ConservingAmmoBonus(hit_bonus=12.0, shot_penalty=-5.0))
 
-    # 4. Penalties - reduced to not dominate the signal
-    reward_calculator.add_component(ProximityPenalty(danger_zone_radius=100.0, max_penalty_per_second=-5.0))
-    reward_calculator.add_component(DeathPenalty(penalty=-50.0))
+    # 4. Exploration - small incentive to move around
+    reward_calculator.add_component(ExplorationBonus(
+        screen_width=800,
+        screen_height=600,
+        grid_rows=3,
+        grid_cols=4,
+        bonus_per_cell=10.0
+    ))
 
-    # === FUTURE/DEACTIVATED REWARDS FOR REFERENCE ===
-    # --- Shooting / Kill based rewards ---
-    # reward_calculator.add_component(KillAsteroid(reward_per_asteroid=25.0))
-    # reward_calculator.add_component(ConservingAmmoBonus(hit_bonus=20.0, shot_penalty=-5.0))
-    # reward_calculator.add_component(VelocityKillBonus(bonus_per_kill=50.0, max_speed_for_full_bonus=10.0))
-
-    # --- Exploration rewards ---
-    # reward_calculator.add_component(ExplorationBonus(screen_width=800, screen_height=600, grid_rows=3, grid_cols=4, bonus_per_cell=50.0))
-    
-    # --- Other disabled rewards ---
-    # reward_calculator.add_component(SpacingFromWallsBonus(penalty_per_second=-5.0, min_margin=50.0))
+    # 5. Death penalty
+    reward_calculator.add_component(DeathPenalty(penalty=-75.0))
 
     # Reset reward calculator to ensure clean state
     reward_calculator.reset()
@@ -101,10 +101,11 @@ def evaluate_single_agent(
     agent.reset()
 
     # Reset state encoder for this episode (copy all config from original)
+    # Note: num_nearest_asteroids should be 5 to match train_ga_parallel.py
     state_encoder_copy = VectorEncoder(
         screen_width=state_encoder.screen_width,
         screen_height=state_encoder.screen_height,
-        num_nearest_asteroids=state_encoder.num_nearest_asteroids,
+        num_nearest_asteroids=5,  # Must match train_ga_parallel.py
         include_bullets=state_encoder.include_bullets,
         include_global=state_encoder.include_global,
         max_player_velocity=state_encoder.max_player_velocity,
