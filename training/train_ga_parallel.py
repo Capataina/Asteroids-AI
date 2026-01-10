@@ -35,7 +35,7 @@ from interfaces.rewards.DistanceBasedKillReward import DistanceBasedKillReward
 from ai_agents.neuroevolution.genetic_algorithm.ga_trainer import GATrainer
 from ai_agents.neuroevolution.genetic_algorithm.nn_ga_agent import NeuralNetworkGAAgent
 from training.parallel_evaluator import evaluate_population_parallel
-from training.analytics import TrainingAnalytics
+from training.analytics.analytics import TrainingAnalytics
 
 
 class ParallelGATrainingDriver:
