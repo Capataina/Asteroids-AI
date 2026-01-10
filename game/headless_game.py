@@ -7,6 +7,7 @@ Used for fast parallel evaluation of multiple agents.
 
 import math
 import random
+from game import globals
 from game.classes.player import Player
 from game.classes.asteroid import Asteroid
 from interfaces.EnvironmentTracker import EnvironmentTracker
@@ -80,7 +81,7 @@ class HeadlessAsteroidsGame:
         self.auto_reset_on_collision = False  # Controlled by external training
         
         # Asteroid spawning
-        self.asteroid_spawn_interval = 0.75
+        self.asteroid_spawn_interval = globals.ASTEROID_SPAWN_INTERVAL
         self.time_since_last_spawn = 0.0
         
     def reset_game(self):
@@ -111,11 +112,11 @@ class HeadlessAsteroidsGame:
         roll = self.rng.random()
 
         if roll < 0.4:
-            scale = 0.5  # Small
+            scale = globals.ASTEROID_SCALE_SMALL
         elif roll < 0.7:
-            scale = 0.75  # Medium
+            scale = globals.ASTEROID_SCALE_MEDIUM
         else:
-            scale = 1.25  # Large
+            scale = globals.ASTEROID_SCALE_LARGE
 
         # Create asteroid with our isolated RNG for position/velocity
         asteroid = Asteroid(
@@ -145,8 +146,8 @@ class HeadlessAsteroidsGame:
         
         # Bullet-asteroid collisions
         # NOTE: We use explicit collision radii because sprite.width may be 0 in headless mode
-        BULLET_COLLISION_RADIUS = 5  # Bullets are small
-        ASTEROID_BASE_RADIUS = 32  # Base asteroid collision radius
+        BULLET_COLLISION_RADIUS = globals.BULLET_RADIUS
+        ASTEROID_BASE_RADIUS = globals.ASTEROID_BASE_RADIUS
 
         for bullet in self.bullet_list[:]:
             if bullet not in self.bullet_list:
@@ -189,8 +190,8 @@ class HeadlessAsteroidsGame:
         # Player-asteroid collisions
         # NOTE: We use explicit collision radii because sprite.width may be 0 in headless mode
         # (textures don't load properly without arcade window context)
-        PLAYER_COLLISION_RADIUS = 20  # Player at scale 0.5, base ~64px -> ~32px diameter -> 16px radius + margin
-        ASTEROID_BASE_RADIUS = 32  # Base asteroid collision radius (scales with asteroid.this_scale)
+        PLAYER_COLLISION_RADIUS = globals.PLAYER_RADIUS
+        ASTEROID_BASE_RADIUS = globals.ASTEROID_BASE_RADIUS
 
         if self.player in self.player_list:
             for asteroid in self.asteroid_list:

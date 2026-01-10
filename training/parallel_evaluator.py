@@ -103,11 +103,11 @@ def evaluate_single_agent(
     agent.reset()
 
     # Reset state encoder for this episode (copy all config from original)
-    # Note: num_nearest_asteroids should be 5 to match train_ga_parallel.py
+    # Note: num_nearest_asteroids should be 8 to match VectorEncoder default
     state_encoder_copy = VectorEncoder(
         screen_width=state_encoder.screen_width,
         screen_height=state_encoder.screen_height,
-        num_nearest_asteroids=5,  # Must match train_ga_parallel.py
+        num_nearest_asteroids=8,  # Updated to 8
         include_bullets=state_encoder.include_bullets,
         include_global=state_encoder.include_global,
         max_player_velocity=state_encoder.max_player_velocity,
@@ -225,6 +225,8 @@ def evaluate_population_parallel(
     # Base seed for this generation - used to derive unique seeds
     if generation_seed is None:
         generation_seed = random.randint(0, 2**31 - 1)
+        
+    print(f"[DEBUG] Evaluation Generation Seed: {generation_seed}")
 
     # Generate seeds for all evaluations: each agent gets `seeds_per_agent` different seeds
     # Agent i gets seeds: [base + i*seeds_per_agent + 0, base + i*seeds_per_agent + 1, ...]

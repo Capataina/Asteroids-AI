@@ -68,6 +68,20 @@ def write_reward_evolution(f, generations_data: List[Dict[str, Any]]):
         f.write(f"| {comp} | {first_val:+.1f} | {mid_val:+.1f} | {last_val:+.1f} | {trend} {pct_change:+.0f}% | {status} |\n")
 
     f.write("\n")
+    
+    # Exploration Efficiency Analysis
+    if 'ExplorationBonus' in [c for c, _ in sorted_components]:
+        # Calculate for final phase
+        n = len(generations_data)
+        final_phase = generations_data[-max(1, n // 10):]
+        
+        avg_expl_score = sum(g.get('avg_reward_breakdown', {}).get('ExplorationBonus', 0) for g in final_phase) / len(final_phase)
+        avg_steps = sum(g.get('avg_steps', 1) for g in final_phase) / len(final_phase)
+        
+        expl_rate = avg_expl_score / max(1, avg_steps)
+        
+        f.write(f"**Exploration Efficiency (Final Phase):** {expl_rate:.4f} score/step\n")
+        f.write(f"- *Note: A higher rate indicates faster map traversal, independent of survival time.*\n\n")
 
 
 def write_reward_analysis(f, generations_data: List[Dict[str, Any]]):

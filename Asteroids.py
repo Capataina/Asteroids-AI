@@ -1,7 +1,9 @@
 import math
-
 import arcade
 import random
+
+from game import globals
+import game.debug.visuals
 
 from game.classes.player import Player
 from game.classes.asteroid import Asteroid
@@ -15,10 +17,6 @@ from interfaces.rewards.ChunkBonus import ChunkBonus
 from interfaces.rewards.NearMiss import NearMiss
 from interfaces.rewards.AccuracyBonus import AccuracyBonus
 from interfaces.rewards.KPMBonus import KPMBonus
-
-SCREEN_WIDTH  = 800
-SCREEN_HEIGHT = 600
-SCREEN_TITLE  = "Asteroids Basic"
 
 class AsteroidsGame(arcade.Window):
     def __init__(self, width, height, title):
@@ -38,6 +36,9 @@ class AsteroidsGame(arcade.Window):
         self.right_pressed = False
         self.up_pressed = False
         self.space_pressed = False
+        
+        # Debug state
+        self.debug_mode = globals.COLLISION_DEBUG_ENABLED
 
         # Track player's last position to measure travel distance
         self.last_player_x = 0
@@ -70,7 +71,7 @@ class AsteroidsGame(arcade.Window):
         # Manual spawning mode - matches headless game timing for display consistency
         self.manual_spawning = False
         self.time_since_last_spawn = 0.0
-        self.asteroid_spawn_interval = 0.75
+        self.asteroid_spawn_interval = globals.ASTEROID_SPAWN_INTERVAL
 
         # External control mode - when True, on_update does nothing (training loop controls updates)
         # This prevents arcade's automatic on_update from double-counting time
@@ -108,7 +109,7 @@ class AsteroidsGame(arcade.Window):
 
         # Only use arcade.schedule if NOT in manual spawning mode
         if not self.manual_spawning:
-            arcade.schedule(self.spawn_asteroid, 0.75)
+            arcade.schedule(self.spawn_asteroid, self.asteroid_spawn_interval)
 
         # Reset last player position for distance-based reward
         self.last_player_x = self.player.center_x
@@ -128,13 +129,13 @@ class AsteroidsGame(arcade.Window):
 
         if roll < 0.4:
             # 40% => small
-            scale = 0.5
+            scale = globals.ASTEROID_SCALE_SMALL
         elif roll < 0.7:
             # 30% => medium
-            scale = 0.75
+            scale = globals.ASTEROID_SCALE_MEDIUM
         else:
             # 30% => large
-            scale = 1.25
+            scale = globals.ASTEROID_SCALE_LARGE
 
         # Create a new asteroid with this chosen scale
         asteroid = Asteroid(
@@ -152,6 +153,10 @@ class AsteroidsGame(arcade.Window):
 
         # Show score
         self.score_text.draw()
+        
+        # Draw debug overlays
+        if self.debug_mode:
+            game.debug.visuals.draw_debug_overlays(self)
 
     def on_update(self, delta_time):
         # Skip if under external control (training loop calls this explicitly)
@@ -170,32 +175,71 @@ class AsteroidsGame(arcade.Window):
         for asteroid in self.asteroid_list:
             self.wrap_sprite(asteroid)
 
-        # Bullet-asteroid collisions
+        # Bullet-asteroid collisions (Manual distance check for parity with Headless)
+        bullets_to_remove = []
+        asteroids_to_remove = []
+        
         for bullet in self.bullet_list:
-            hit_list = arcade.check_for_collision_with_list(bullet, self.asteroid_list)
-            for asteroid in hit_list:
-                # Remove the bullet
-                bullet.remove_from_sprite_lists()
+            if bullet in bullets_to_remove:
+                continue
+                
+            hit_asteroid = False
+            for asteroid in self.asteroid_list:
+                if asteroid in asteroids_to_remove:
+                    continue
+                
+                # Manual circular collision check
+                dx = bullet.center_x - asteroid.center_x
+                dy = bullet.center_y - asteroid.center_y
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                asteroid_radius = globals.ASTEROID_BASE_RADIUS * asteroid.this_scale
+                collision_threshold = globals.BULLET_RADIUS + asteroid_radius
+                
+                if distance < collision_threshold:
+                    hit_asteroid = True
+                    self.metrics_tracker.total_hits += 1
+                    
+                    # Damage asteroid
+                    asteroid.hp -= 1
+                    
+                    if asteroid.hp <= 0:
+                        asteroids_to_remove.append(asteroid)
+                        self.metrics_tracker.total_kills += 1
+                        
+                        # Break asteroid
+                        new_asteroids = asteroid.break_asteroid()
+                        for child in new_asteroids:
+                            self.asteroid_list.append(child)
+                    
+                    # Bullet hits only one asteroid
+                    break
+            
+            if hit_asteroid:
+                bullets_to_remove.append(bullet)
+        
+        # Apply removals
+        for bullet in bullets_to_remove:
+            bullet.remove_from_sprite_lists()
+        for asteroid in asteroids_to_remove:
+            asteroid.remove_from_sprite_lists()
 
-                self.metrics_tracker.total_hits += 1
-
-                # Decrement asteroid HP
-                asteroid.hp -= 1
-
-                # If the asteroid is now destroyed, break it
-                if asteroid.hp <= 0:
-                    new_asteroids = asteroid.break_asteroid()
-                    asteroid.remove_from_sprite_lists()
-
-                    self.metrics_tracker.total_kills += 1
-
-                    # Add any child asteroids
-                    for child in new_asteroids:
-                        self.asteroid_list.append(child)
-
-        # Player-asteroid collisions
+        # Player-asteroid collisions (Manual distance check)
         if self.player in self.player_list:
-            if arcade.check_for_collision_with_list(self.player, self.asteroid_list):
+            player_hit = False
+            for asteroid in self.asteroid_list:
+                dx = self.player.center_x - asteroid.center_x
+                dy = self.player.center_y - asteroid.center_y
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                asteroid_radius = globals.ASTEROID_BASE_RADIUS * asteroid.this_scale
+                collision_threshold = globals.PLAYER_RADIUS + asteroid_radius
+                
+                if distance < collision_threshold:
+                    player_hit = True
+                    break
+            
+            if player_hit:
                 # Only print and reset if auto-reset is enabled (manual play mode)
                 if self.auto_reset_on_collision:
                     print("Player hit an asteroid! Final Score:", self.reward_calculator.current_score(self.tracker, self.metrics_tracker))
@@ -251,6 +295,8 @@ class AsteroidsGame(arcade.Window):
             self.up_pressed = True
         elif key == arcade.key.SPACE:
             self.space_pressed = True
+        elif key == arcade.key.D:
+            self.debug_mode = not self.debug_mode
 
     def on_key_release(self, key, modifiers):
         if key == arcade.key.LEFT:
@@ -263,7 +309,7 @@ class AsteroidsGame(arcade.Window):
             self.space_pressed = False
 
 def main():
-    window = AsteroidsGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    window = AsteroidsGame(globals.SCREEN_WIDTH, globals.SCREEN_HEIGHT, globals.SCREEN_TITLE)
     window.setup()
     arcade.run()
 

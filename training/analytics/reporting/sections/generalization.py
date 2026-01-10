@@ -23,14 +23,15 @@ def write_generalization_analysis(f, generations_data: List[Dict[str, Any]]):
     recent = fresh_games[-10:] if len(fresh_games) >= 10 else fresh_games
 
     f.write("### Recent Fresh Game Performance\n\n")
-    f.write("| Gen | Training Fit | Fresh Fit | Ratio | Grade | Cause of Death |\n")
-    f.write("|-----|--------------|-----------|-------|-------|----------------|\n")
+    f.write("| Gen | Training Fit | Fresh Fit | Accuracy | Ratio | Grade | Cause of Death |\n")
+    f.write("|-----|--------------|-----------|----------|-------|-------|----------------|\n")
 
     for g in recent[-10:]:
         train_fit = g.get('best_fitness', 0)
         fresh = g.get('fresh_game', {})
         gen_met = g.get('generalization_metrics', {})
         f.write(f"| {g['generation']} | {train_fit:.0f} | {fresh.get('fitness', 0):.0f} | "
+                f"{fresh.get('accuracy', 0)*100:.1f}% | "
                 f"{gen_met.get('fitness_ratio', 0):.2f} | {gen_met.get('generalization_grade', 'N/A')} | "
                 f"{fresh.get('cause_of_death', 'N/A')} |\n")
 

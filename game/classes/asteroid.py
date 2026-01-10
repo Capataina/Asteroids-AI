@@ -1,5 +1,6 @@
 import arcade
 import random
+from game import globals
 
 ASTEROID_TEXTURES = [
     "game/sprites/Asteroid_Large_1.png",
@@ -14,7 +15,7 @@ class Asteroid(arcade.Sprite):
             screen_width,
             screen_height,
             texture=None,
-            scale=1.25,
+            scale=globals.ASTEROID_SCALE_LARGE,
             rng=None  # Optional isolated Random instance for reproducibility
     ):
         # Use provided RNG or fall back to global random module
@@ -28,12 +29,12 @@ class Asteroid(arcade.Sprite):
         self.this_scale = scale
 
         # Determine HP based on scale
-        if self.this_scale > 1.0:
-            self.hp = 3
-        elif self.this_scale > 0.5:
-            self.hp = 2
+        if self.this_scale >= globals.ASTEROID_SCALE_LARGE:
+            self.hp = globals.ASTEROID_HP_LARGE
+        elif self.this_scale >= globals.ASTEROID_SCALE_MEDIUM:
+            self.hp = globals.ASTEROID_HP_MEDIUM
         else:
-            self.hp = 1
+            self.hp = globals.ASTEROID_HP_SMALL
 
         # Randomly choose an edge for initial position
         # (or random positions around any edge)
@@ -41,12 +42,12 @@ class Asteroid(arcade.Sprite):
         self.center_y = self._rng.choice([0, screen_height])
 
         # Speed based on size
-        if self.this_scale >= 1.0:
-            self.max_speed = 1
-        elif self.this_scale > 0.5:
-            self.max_speed = 2
+        if self.this_scale >= globals.ASTEROID_SCALE_LARGE:
+            self.max_speed = globals.ASTEROID_SPEED_LARGE
+        elif self.this_scale >= globals.ASTEROID_SCALE_MEDIUM:
+            self.max_speed = globals.ASTEROID_SPEED_MEDIUM
         else:
-            self.max_speed = 3
+            self.max_speed = globals.ASTEROID_SPEED_SMALL
 
         # Random direction
         self.change_x = self._rng.uniform(-self.max_speed, self.max_speed)
@@ -76,22 +77,22 @@ class Asteroid(arcade.Sprite):
     def break_asteroid(self) -> list:
         """
         Returns a list of new child asteroids when this asteroid is destroyed.
-        - Large (scale > 1.0) spawns 2 medium asteroids (scale=0.75).
-        - Medium (scale > 0.5) spawns 3 small asteroids (scale=0.5).
-        - Small (<= 0.5) spawns no further asteroids.
+        - Large spawns 2 medium.
+        - Medium spawns 3 small.
+        - Small spawns nothing.
         """
         new_asteroids = []
 
-        # Large => spawn children at scale=0.75
-        if self.this_scale > 1.0:
+        # Large => spawn children at scale=MEDIUM
+        if self.this_scale >= globals.ASTEROID_SCALE_LARGE:
             for _ in range(2):
-                child = self._spawn_child(new_scale=0.75)
+                child = self._spawn_child(new_scale=globals.ASTEROID_SCALE_MEDIUM)
                 new_asteroids.append(child)
 
-        # Medium => spawn children at scale=0.5
-        elif self.this_scale > 0.5:
+        # Medium => spawn children at scale=SMALL
+        elif self.this_scale >= globals.ASTEROID_SCALE_MEDIUM:
             for _ in range(3):
-                child = self._spawn_child(new_scale=0.5)
+                child = self._spawn_child(new_scale=globals.ASTEROID_SCALE_SMALL)
                 new_asteroids.append(child)
 
         # Small => no children

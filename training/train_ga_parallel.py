@@ -19,7 +19,8 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 import arcade
-from Asteroids import AsteroidsGame, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
+from game import globals
+from Asteroids import AsteroidsGame
 from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from interfaces.RewardCalculator import ComposableRewardCalculator
@@ -126,7 +127,7 @@ class ParallelGATrainingDriver:
         self.info_text = arcade.Text(
             text="Starting parallel GA training...",
             x=10,
-            y=SCREEN_HEIGHT - 60,
+            y=globals.SCREEN_HEIGHT - 60,
             color=arcade.color.YELLOW,
             font_size=14
         )
@@ -235,7 +236,7 @@ class ParallelGATrainingDriver:
                     self.ga_trainer.action_interface,
                     max_steps=1500,  # Increased to give agents more time to learn
                     max_workers=self.max_workers,
-                    seeds_per_agent=6  # Increased from 3 for better generalization (50×6 = 300 sims)
+                    seeds_per_agent=12  # Increased to 12 for robust generalization
                 )
 
                 eval_duration = time.time() - eval_start
@@ -493,22 +494,13 @@ class ParallelGATrainingDriver:
 
         # Calculate reward using the GAME's metrics tracker (which has actual kill/shot data)
         # Enable debug on every 100th step to see per-component rewards
-        debug_this_step = (self.best_agent_steps % 100 == 99)
         step_reward = self.ga_trainer.episode_runner.reward_calculator.calculate_step_reward(
             self.ga_trainer.episode_runner.env_tracker,
             self.game.metrics_tracker,
-            debug=debug_this_step
+            debug=False
         )
 
         self.best_agent_steps += 1
-
-        # Debug: Print running score and actions every 100 steps
-        if self.best_agent_steps % 100 == 0:
-            current_score = self.ga_trainer.episode_runner.reward_calculator.score
-            kills = self.game.metrics_tracker.total_kills
-            shots = self.game.metrics_tracker.total_shots_fired
-            time_alive = self.game.metrics_tracker.time_alive
-            print(f"  Step {self.best_agent_steps}: Score={current_score:.1f}, Kills={kills}, Shots={shots}, Time={time_alive:.2f}s, StepReward={step_reward:.2f}")
 
         self._update_info_text("Displaying best agent")
 
@@ -645,9 +637,9 @@ class ParallelGATrainingDriver:
 def create_ga_trainer(game, **kwargs):
     """Create GA trainer with all components."""
     state_encoder = VectorEncoder(
-        screen_width=SCREEN_WIDTH,
-        screen_height=SCREEN_HEIGHT,
-        num_nearest_asteroids=5,
+        screen_width=globals.SCREEN_WIDTH,
+        screen_height=globals.SCREEN_HEIGHT,
+        num_nearest_asteroids=8,
         include_bullets=False,
         include_global=False
     )
@@ -690,8 +682,8 @@ def create_ga_trainer(game, **kwargs):
 
     # 4. Exploration - small incentive to move around (replaces broken momentum bonus)
     reward_calculator.add_component(ExplorationBonus(
-        screen_width=SCREEN_WIDTH,
-        screen_height=SCREEN_HEIGHT,
+        screen_width=globals.SCREEN_WIDTH,
+        screen_height=globals.SCREEN_HEIGHT,
         grid_rows=3,
         grid_cols=4,
         bonus_per_cell=10.0  # Low value - just enough to encourage movement
@@ -729,17 +721,17 @@ def create_ga_trainer(game, **kwargs):
 
 def main():
     """Main entry point for parallel GA training."""
-    window = AsteroidsGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    window = AsteroidsGame(globals.SCREEN_WIDTH, globals.SCREEN_HEIGHT, globals.SCREEN_TITLE)
     window.setup()
     
     # Create GA trainer with parameters tuned for generalization
     ga_trainer = create_ga_trainer(
         game=window,
-        population_size=100,  # Increased to 100 for better diversity
+        population_size=25,  # Reduced to 25 for faster iteration with high seeds
         num_generations=500,
-        mutation_probability=0.05,  # Reduced from 0.20 to prevent policy destruction (5% of weights)
+        mutation_probability=0.05,
         crossover_probability=0.7,
-        mutation_gaussian_sigma=0.1,  # Reduced noise slightly
+        mutation_gaussian_sigma=0.1,
         mutation_uniform_low=-1.0,
         mutation_uniform_high=1.0,
         crossover_alpha=0.5

@@ -2,9 +2,10 @@ import arcade
 import math
 
 from game.classes.bullet import Bullet
+from game import globals
 
 class Player(arcade.Sprite):
-    def __init__(self, texture="game/sprites/Player.png", scale=0.5):
+    def __init__(self, texture="game/sprites/Player.png", scale=globals.PLAYER_SCALE):
         super().__init__(texture, scale)
         # Start in the middle of the screen (hard coded leave me alone)
         self.center_x = 400
@@ -13,12 +14,12 @@ class Player(arcade.Sprite):
         # Movement
         self.change_x = 0
         self.change_y = 0
-        self.acceleration = 0.15  # Reduced from 0.3 for more realistic movement
-        self.rotation_speed = 3   # Reduced from 5 for smoother turning
-        self.slowdown = 0.99
+        self.acceleration = globals.PLAYER_ACCELERATION
+        self.rotation_speed = globals.PLAYER_ROTATION_SPEED
+        self.slowdown = globals.PLAYER_FRICTION
 
         # Shooting
-        self.shoot_cooldown = 0.25  # Increased from 0.12 - less spammy shooting
+        self.shoot_cooldown = globals.BULLET_COOLDOWN
         self.shoot_timer = 0        # timer that goes down each frame
 
     def update(self, delta_time: float = 1/60) -> None:

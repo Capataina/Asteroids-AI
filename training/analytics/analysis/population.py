@@ -106,7 +106,21 @@ def assess_population_health(generations_data: List[Dict[str, Any]]) -> Tuple[st
     elite_gap = diversity.get('elite_gap', 1.0)
     floor_trend = trends.get('floor_trend', 0)
 
-    if diversity_index < 0.2:
+    # Calculate stagnation
+    max_fit = float('-inf')
+    last_improvement_gen = 0
+    for g in generations_data:
+        if g['best_fitness'] > max_fit:
+            max_fit = g['best_fitness']
+            last_improvement_gen = g['generation']
+    
+    current_gen = generations_data[-1]['generation']
+    stagnation = current_gen - last_improvement_gen
+
+    if stagnation > 20:
+        health_status = 'Warning'
+        warnings.append(f"High stagnation ({stagnation} gens) - population stuck")
+    elif diversity_index < 0.2:
         health_status = 'Warning'
         warnings.append('Low diversity - population may be prematurely converged')
     elif diversity_index > 1.0:

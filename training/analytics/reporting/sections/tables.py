@@ -20,31 +20,31 @@ def write_generation_table(f, generations_data: List[Dict[str, Any]],
     recent = generations_data[-limit:]
 
     if include_behavior:
-        f.write("| Gen | Best | Avg | StdDev | Kills | Steps | Acc% | Stag |\n")
-        f.write("|-----|------|-----|--------|-------|-------|------|------|\n")
+        f.write("| Gen   | Best   | Avg    | StdDev | Kills  | Steps  | Acc%   | Stag   |\n")
+        f.write("|-------|--------|--------|--------|--------|--------|--------|--------|\n")
 
         for gen_data in recent:
-            f.write(f"| {gen_data['generation']} | ")
-            f.write(f"{gen_data['best_fitness']:.0f} | ")
-            f.write(f"{gen_data['avg_fitness']:.0f} | ")
-            f.write(f"{gen_data['std_dev']:.0f} | ")
-            f.write(f"{gen_data.get('avg_kills', 0):.1f} | ")
-            f.write(f"{gen_data.get('avg_steps', 0):.0f} | ")
-            f.write(f"{gen_data.get('avg_accuracy', 0)*100:.0f} | ")
-            f.write(f"{gen_data.get('generations_since_improvement', 0)} |\n")
+            f.write(f"| {gen_data['generation']:<5} | ")
+            f.write(f"{gen_data['best_fitness']:<6.0f} | ")
+            f.write(f"{gen_data['avg_fitness']:<6.0f} | ")
+            f.write(f"{gen_data['std_dev']:<6.0f} | ")
+            f.write(f"{gen_data.get('avg_kills', 0):<6.1f} | ")
+            f.write(f"{gen_data.get('avg_steps', 0):<6.0f} | ")
+            f.write(f"{gen_data.get('avg_accuracy', 0)*100:<6.0f} | ")
+            f.write(f"{gen_data.get('generations_since_improvement', 0):<6} |\n")
     else:
-        f.write("| Gen | Best | Avg | Min | Median | StdDev | Best D | Avg D |\n")
-        f.write("|-----|------|-----|-----|--------|--------|--------|-------|\n")
+        f.write("| Gen   | Best   | Avg    | Min    | Median | StdDev | Best D | Avg D  |\n")
+        f.write("|-------|--------|--------|--------|--------|--------|--------|--------|\n")
 
         for gen_data in recent:
-            f.write(f"| {gen_data['generation']} | ")
-            f.write(f"{gen_data['best_fitness']:.1f} | ")
-            f.write(f"{gen_data['avg_fitness']:.1f} | ")
-            f.write(f"{gen_data['min_fitness']:.1f} | ")
-            f.write(f"{gen_data['median_fitness']:.1f} | ")
-            f.write(f"{gen_data['std_dev']:.1f} | ")
-            f.write(f"{gen_data['best_improvement']:+.1f} | ")
-            f.write(f"{gen_data['avg_improvement']:+.1f} |\n")
+            f.write(f"| {gen_data['generation']:<5} | ")
+            f.write(f"{gen_data['best_fitness']:<6.1f} | ")
+            f.write(f"{gen_data['avg_fitness']:<6.1f} | ")
+            f.write(f"{gen_data['min_fitness']:<6.1f} | ")
+            f.write(f"{gen_data['median_fitness']:<6.1f} | ")
+            f.write(f"{gen_data['std_dev']:<6.1f} | ")
+            f.write(f"{gen_data['best_improvement']:<+6.1f} | ")
+            f.write(f"{gen_data['avg_improvement']:<+6.1f} |\n")
 
     f.write("\n")
 
@@ -61,24 +61,24 @@ def write_best_generations(f, generations_data: List[Dict[str, Any]],
     sorted_gens = sorted(generations_data, key=lambda x: x['best_fitness'], reverse=True)[:10]
 
     if include_behavior:
-        f.write("| Rank | Gen | Best | Avg | Kills | Steps | Accuracy |\n")
-        f.write("|------|-----|------|-----|-------|-------|----------|\n")
+        f.write("| Rank | Gen   | Best   | Avg    | Kills  | Steps  | Accuracy |\n")
+        f.write("|------|-------|--------|--------|--------|--------|----------|\n")
 
         for i, gen_data in enumerate(sorted_gens, 1):
-            f.write(f"| {i} | {gen_data['generation']} | ")
-            f.write(f"{gen_data['best_fitness']:.0f} | ")
-            f.write(f"{gen_data['avg_fitness']:.0f} | ")
-            f.write(f"{gen_data.get('best_agent_kills', 0)} | ")
-            f.write(f"{gen_data.get('best_agent_steps', 0)} | ")
-            f.write(f"{gen_data.get('best_agent_accuracy', 0)*100:.1f}% |\n")
+            f.write(f"| {i:<4} | {gen_data['generation']:<5} | ")
+            f.write(f"{gen_data['best_fitness']:<6.0f} | ")
+            f.write(f"{gen_data['avg_fitness']:<6.0f} | ")
+            f.write(f"{gen_data.get('best_agent_kills', 0):<6.1f} | ")
+            f.write(f"{gen_data.get('best_agent_steps', 0):<6.0f} | ")
+            f.write(f"{gen_data.get('best_agent_accuracy', 0)*100:<8.1f} |\n")
     else:
-        f.write("| Rank | Gen | Best Fitness | Avg Fitness | Min Fitness |\n")
-        f.write("|------|-----|--------------|-------------|-------------|\n")
+        f.write("| Rank | Gen   | Best Fitness | Avg Fitness  | Min Fitness  |\n")
+        f.write("|------|-------|--------------|--------------|--------------|\n")
 
         for i, gen_data in enumerate(sorted_gens, 1):
-            f.write(f"| {i} | {gen_data['generation']} | ")
-            f.write(f"{gen_data['best_fitness']:.2f} | ")
-            f.write(f"{gen_data['avg_fitness']:.2f} | ")
-            f.write(f"{gen_data['min_fitness']:.2f} |\n")
+            f.write(f"| {i:<4} | {gen_data['generation']:<5} | ")
+            f.write(f"{gen_data['best_fitness']:<12.2f} | ")
+            f.write(f"{gen_data['avg_fitness']:<12.2f} | ")
+            f.write(f"{gen_data['min_fitness']:<12.2f} |\n")
 
     f.write("\n")

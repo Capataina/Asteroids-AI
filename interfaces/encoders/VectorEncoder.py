@@ -5,32 +5,18 @@ from game.classes import player
 from game.classes.player import Player
 from interfaces.EnvironmentTracker import EnvironmentTracker
 
+from game import globals
+
 class VectorEncoder:
   """
   Encodes game state into a fixed-size vector for neural network input.
-
-  Uses EGOCENTRIC (ship-centric) coordinates where:
-  - Forward/backward is relative to player's facing direction
-  - Left/right is relative to player's facing direction
-  - All features are directly actionable without requiring rotation math
-
-  Encoding (10 features total with 2 asteroids):
-    Player (2 features):
-      - forward_velocity: speed in facing direction (+ = forward, - = backward)
-      - lateral_velocity: speed perpendicular to facing (+ = right drift, - = left drift)
-
-    Per asteroid (4 features each):
-      - distance: euclidean distance to asteroid, normalized [0, 1]
-      - angle_to_target: angle to turn to face asteroid, normalized [-1, 1] for [-180, +180] degrees
-      - closing_speed: rate of approach (+ = getting closer, - = receding)
-      - size: asteroid scale, normalized [0, 1]
   """
 
   def __init__(
       self,
-      screen_width: int = 800,
-      screen_height: int = 600,
-      num_nearest_asteroids: int = 2,
+      screen_width: int = globals.SCREEN_WIDTH,
+      screen_height: int = globals.SCREEN_HEIGHT,
+      num_nearest_asteroids: int = 8,
       num_nearest_bullets: int = 8,
       include_bullets: bool = False,
       include_global: bool = False,
@@ -41,18 +27,6 @@ class VectorEncoder:
   ):
     """
     Initialize the VectorEncoder.
-
-    Args:
-      screen_width: The width of the screen.
-      screen_height: The height of the screen.
-      num_nearest_asteroids: The number of nearest asteroids to include.
-      num_nearest_bullets: The number of nearest bullets to include.
-      include_bullets: Whether to include bullets in the state.
-      include_global: Whether to include global state in the state.
-      max_player_velocity: Max player velocity for normalization. If None, uses 15.0.
-      max_asteroid_velocity: Max asteroid velocity for normalization. If None, uses 3.0.
-      max_asteroid_size: Max asteroid size for normalization. If None, uses 1.25.
-      max_asteroid_hp: Max asteroid HP for normalization. If None, uses 3.0.
     """
     self.screen_width = screen_width
     self.screen_height = screen_height
@@ -65,15 +39,18 @@ class VectorEncoder:
     self.max_distance = math.sqrt(screen_width**2 + screen_height**2)
 
     # Velocity bounds for normalization
-    self.max_player_velocity = max_player_velocity if max_player_velocity is not None else 15.0
-    self.max_asteroid_velocity = max_asteroid_velocity if max_asteroid_velocity is not None else 3.0
+    # Terminal velocity = accel / (1 - friction)
+    default_player_max = globals.PLAYER_ACCELERATION / (1 - globals.PLAYER_FRICTION)
+    self.max_player_velocity = max_player_velocity if max_player_velocity is not None else default_player_max
+    
+    self.max_asteroid_velocity = max_asteroid_velocity if max_asteroid_velocity is not None else globals.ASTEROID_SPEED_SMALL
 
     # Max relative velocity (player + asteroid can approach each other)
     self.max_relative_velocity = self.max_player_velocity + self.max_asteroid_velocity
 
     # Asteroid size bounds
-    self.max_asteroid_size = max_asteroid_size if max_asteroid_size is not None else 1.25
-    self.max_asteroid_hp = max_asteroid_hp if max_asteroid_hp is not None else 3.0
+    self.max_asteroid_size = max_asteroid_size if max_asteroid_size is not None else globals.ASTEROID_SCALE_LARGE
+    self.max_asteroid_hp = max_asteroid_hp if max_asteroid_hp is not None else float(globals.ASTEROID_HP_LARGE)
 
     self.validate_parameters()
 
