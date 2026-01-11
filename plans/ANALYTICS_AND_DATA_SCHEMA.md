@@ -16,76 +16,85 @@ A significant portion of the proposed analytics and data schema has already been
 
 The current data schema (`version 2.0`) is defined in `training/analytics/collection/models.py` and captured in `training_data.json`. The following data categories are **fully implemented and collected** during every training run:
 
-| Data Category | Schema Fields | Status | Notes |
-| :--- | :--- | :--- | :--- |
-| **Core Aggregates** | `best_fitness`, `avg_fitness`, `min_fitness`, `median_fitness`, `std_dev`, `percentiles` | ✅ **Implemented** | Basic population statistics per generation. |
-| **Behavioral Aggregates** | `avg_kills`, `avg_steps`, `avg_accuracy`, `avg_shots` | ✅ **Implemented** | Population-wide average behaviors. |
-| **Reward Breakdown** | `avg_reward_breakdown` | ✅ **Implemented** | Per-component reward averages for the population. |
-| **Fresh Game Performance** | `fresh_game` object, `generalization_metrics` object | ✅ **Implemented** | **CRITICAL**: Captures the best agent's performance in an unseeded game to test generalization. |
-| **Population Distributions**| `distributions` object containing arrays for `fitness_values`, `kills_values`, etc. | ✅ **Implemented** | Captures the full data for every agent in a generation, not just averages. Enables deep statistical analysis. |
+| Data Category                | Schema Fields                                                                                        | Status             | Notes                                                                                                                |
+| :--------------------------- | :--------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------- |
+| **Core Aggregates**          | `best_fitness`, `avg_fitness`, `min_fitness`, `median_fitness`, `std_dev`, `percentiles`             | ✅ **Implemented** | Basic population statistics per generation.                                                                          |
+| **Behavioral Aggregates**    | `avg_kills`, `avg_steps`, `avg_accuracy`, `avg_shots`                                                | ✅ **Implemented** | Population-wide average behaviors.                                                                                   |
+| **Action-Level Metrics**     | `avg_thrust_frames`, `avg_turn_frames`, `avg_shoot_frames`                                           | ✅ **Implemented** | Direct observation of input behavior (frequencies).                                                                  |
+| **Reward Breakdown**         | `avg_reward_breakdown`                                                                               | ✅ **Implemented** | Per-component reward averages for the population.                                                                    |
+| **Fresh Game Performance**   | `fresh_game` object, `generalization_metrics` object                                                 | ✅ **Implemented** | **CRITICAL**: Captures the best agent's performance in an unseeded game to test generalization. Includes `accuracy`. |
+| **Population Distributions** | `distributions` object containing arrays for `fitness_values`, `kills_values`, `thrust_values`, etc. | ✅ **Implemented** | Captures the full data for every agent in a generation, not just averages. Enables deep statistical analysis.        |
+| **Computational Metadata**   | `timing_stats` object (`evaluation_duration`, `evolution_duration`)                                  | ✅ **Implemented** | Performance profiling for the training loop.                                                                         |
+| **Genetic Operator Stats**   | `operator_stats` object (`crossover_events`, `mutation_events`)                                      | ✅ **Implemented** | Tracking of GA internal mechanics.                                                                                   |
 
 ### 2.2. Implemented Analytics Report
 
 The `training_summary.md` report is automatically generated and already includes the majority of the proposed analytics sections. The following features are **fully implemented**:
 
--   **Quick Trend Overview**: ASCII sparklines for at-a-glance trend visualization.
--   **Overall Summary**: High-level training outcomes, including generalization performance.
--   **Generation Highlights**: Tables of the best-performing generations.
--   **Temporal Analysis (Deciles/Trends)**: Multiple views breaking down the training run into phases to show how performance and behavior evolved over time.
--   **Kill Efficiency Analysis**: Metrics like "Kills per 100 Steps" and "Shots per Kill" to distinguish skillful from lucky agents.
--   **Learning Velocity**: Analysis of the rate of improvement.
--   **Reward Component Evolution**: A table showing how the agent's sources of reward changed over the course of training.
--   **Reward Balance Warnings**: Automated checks for potential issues in the reward structure (e.g., one component dominating all others).
--   **Population Health & Convergence**: Analysis of population diversity (`std_dev`) and convergence status.
--   **Stagnation Analysis**: Detection of learning plateaus.
--   **Generalization Analysis**: A dedicated section analyzing the `fresh_game` data to assess how well the agent's skills transfer to new scenarios.
--   **Correlation Analysis**: A matrix showing the statistical correlation between various metrics and fitness.
--   **Survival Distribution**: Analysis of when and how often agents die.
--   **Detailed Tables**: Breakdowns of the most recent and all-time best generations.
--   **ASCII Fitness Chart**: A simple plot of fitness progression.
+- **Quick Trend Overview**: ASCII sparklines for at-a-glance trend visualization.
+- **Overall Summary**: High-level training outcomes, including generalization performance.
+- **Best Agent Deep Profile**: Detailed stats of the all-time best agent, including efficiency metrics and **Behavioral Classification** (e.g., "Sniper", "Berzerker").
+- **Generation Highlights**: Tables of the best-performing generations.
+- **Milestone Timeline**: A chronological list of key achievements (e.g., "First 10-kill agent").
+- **Temporal Analysis (Deciles/Trends)**: Multiple views breaking down the training run into phases to show how performance and behavior evolved over time.
+- **Behavioral Trends**: Includes a table of **Action Distribution** (Thrust/Turn/Shoot frequencies) and dominant strategy per quarter.
+- **Kill Efficiency Analysis**: Metrics like "Kills per 100 Steps" and "Shots per Kill".
+- **Learning Velocity**: Analysis of the rate of improvement.
+- **Reward Component Evolution**: A table showing how the agent's sources of reward changed over the course of training, including **Exploration Efficiency**.
+- **Reward Balance Warnings**: Automated checks for potential issues in the reward structure (e.g., one component dominating all others).
+- **Population Health & Convergence**: Analysis of population diversity (`std_dev`) and convergence status, including **Stagnation Warnings**.
+- **Stagnation Analysis**: Detection of learning plateaus.
+- **Generalization Analysis**: A dedicated section analyzing the `fresh_game` data (including **Accuracy**) to assess how well the agent's skills transfer to new scenarios.
+- **Correlation Analysis**: A matrix showing the statistical correlation between various metrics and fitness.
+- **Survival Distribution**: Analysis of when and how often agents die.
+- **Detailed Tables**: Breakdowns of the most recent and all-time best generations (aligned for raw viewing).
+- **ASCII Fitness Chart**: A simple plot of fitness progression.
+- **Technical Appendix**: Performance timings and Genetic Operator statistics.
 
 ---
 
 ## 3. Planned Enhancements
 
-This section details the features and data structures that have **not yet been implemented**. It provides a clear, prioritized roadmap for future development.
+This section details the features and data structures that have **not yet been implemented**. These enhancements focus on finer-grained behavioral analysis, spatial reasoning, and neural network diagnostics.
 
-### 3.1. Planned Data Schema Expansions
+### 3.1. Visuals & Formatting (Polishing the Report)
 
-The following data types need to be added to the data collection pipeline. They are prerequisites for several of the most valuable planned analytics features.
+| Priority | Enhancement                | Description                                                                                        | Rationale                                                |
+| :------- | :------------------------- | :------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
+| **P2**   | **Global Table Alignment** | Update remaining tables (`behavioral`, `rewards`, `generalization`) to use fixed-width formatting. | Improves readability when viewing the raw Markdown file. |
+| **P3**   | **Table of Contents**      | Add an auto-generated, clickable link index at the top of the report.                              | Improves navigation for long reports.                    |
 
-| Priority | Data Category | Proposed Fields | Status | Rationale |
-| :--- | :--- | :--- | :--- | :--- |
-| **P1** | **Action-Level Metrics** | `action_metrics` object with fields like `avg_thrust_frequency`, `avg_turn_frequency`, etc. | ❌ **Not Implemented** | Moves from *inferring* agent behavior to *observing* it directly. Essential for accurate behavioral classification. |
-| **P2** | **Computational Metadata**| `timing` object with `generation_duration`, `evaluation_duration`, etc. | ❌ **Not Implemented** | Provides data for performance profiling and identifying bottlenecks in the training pipeline. |
-| **P3** | **Genetic Operator Stats** | `operator_stats` object with `crossovers_performed`, `mutation_impact`, etc. | ❌ **Not Implemented** | Helps in debugging the GA itself and tuning hyperparameters like mutation and crossover rates. |
+### 3.2. Intra-Episode Analysis (The "Micro" View)
 
-### 3.2. Planned Analytics Report Enhancements
+| Priority | Enhancement                    | Description                                                                                        | Rationale                                                                         |
+| :------- | :----------------------------- | :------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
+| **P1**   | **Quarterly Score Breakdown**  | Analyze _when_ the agent earns points (e.g., First 25% of episode vs. Last 25%).                   | Distinguishes aggressive "sprinters" from slow-burn survivalists.                 |
+| **P2**   | **Action Duration Histograms** | Measure the average _duration_ of button presses (e.g., tap thrust vs. hold thrust).               | Reveals control style (fine control vs. crude movement).                          |
+| **P2**   | **Reaction Time Metric**       | Measure the time delta between an asteroid entering "Danger Radius" and the agent changing inputs. | Quantifies reflexes and processing speed.                                         |
+| **P2**   | **Idle Rate Analysis**         | Track percentage of frames where the agent inputs `[0, 0, 0, 0]`.                                  | Distinguishes "efficient" agents from "spastic" ones that constantly spam inputs. |
 
-The implementation of the features below is blocked by the missing data collection described above.
+### 3.3. Spatial & Physics Analytics
 
-| Priority | Enhancement | Description | Status | **Prerequisite** |
-| :--- | :--- | :--- | :--- | :--- |
-| **P1** | **Behavioral Classification** | Automatically classify the agent's emergent strategy (e.g., "Camper", "Hunter", "Sniper") based on its actions. | ❌ **Not Implemented** | **Action-Level Metrics** |
-| **P2** | **Best Agent Deep Profile** | An expanded profile of the all-time best agent, including its action profile and a more detailed dominance analysis. | ⚠️ **Partially Implemented** | **Action-Level Metrics** |
-| **P3** | **Milestone Timeline** | A timeline showing when the training run first achieved key milestones (e.g., "First 10-kill agent at Gen 12"). | ❌ **Not Implemented** | **Computational Metadata** (for timestamps) |
-| **P4** | **Action Distribution Estimates**| A more accurate estimation of agent action patterns. | ❌ **Not Implemented** | **Action-Level Metrics** |
+| Priority | Enhancement                     | Description                                                                         | Rationale                                                                           |
+| :------- | :------------------------------ | :---------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+| **P1**   | **Position Heatmap**            | A 10x10 ASCII grid showing where the agent spends the most time (Center vs. Edges). | Identifies camping behavior or map coverage issues.                                 |
+| **P1**   | **Kill Zone Heatmap**           | A grid showing where kills happen relative to the player.                           | Differentiates "Sniping" (long-range kills) from "Dogfighting" (point-blank kills). |
+| **P1**   | **Average Engagement Distance** | Calculate the average distance between Player and Asteroid at the moment of a Kill. | Quantitative measure of engagement style.                                           |
+| **P2**   | **Screen Wrap Usage**           | Count how many times the agent successfully crosses the screen boundary.            | Proves the agent understands the toroidal topology of the world.                    |
+| **P2**   | **"Safe Space" Analysis**       | Measure the average distance to the nearest asteroid throughout the episode.        | Indicates if the agent is actively maintaining safety or scraping by.               |
 
-### 3.3. Implementation Roadmap
+### 3.4. Neural Network Diagnostics
 
-Development should proceed in the following order to satisfy dependencies.
+| Priority | Enhancement                       | Description                                                                 | Rationale                                                          |
+| :------- | :-------------------------------- | :-------------------------------------------------------------------------- | :----------------------------------------------------------------- |
+| **P3**   | **Neuron Saturation Check**       | Report the % of time hidden neurons are stuck at -1 or 1 (tanh saturation). | Diagnoses "dead" networks or potential learning issues.            |
+| **P3**   | **Input Feature Importance**      | Correlate specific inputs (e.g., "Bullet Cooldown") with action intensity.  | Reveals what the agent is actually "looking at" to make decisions. |
+| **P3**   | **Weight Magnitude Distribution** | Histogram of network weights.                                               | Detects exploding weights that might require regularization.       |
 
-#### **Phase 1: Implement Action Metrics Collection**
+### 3.5. Evolutionary Metrics & Robustness
 
-1.  **Modify `parallel_evaluator.py`**: In the `evaluate_single_agent` loop, add counters for each action type (`thrust`, `turn`, `shoot`, `idle`).
-2.  **Return Action Data**: Have the evaluation function return these action counts along with other metrics.
-3.  **Update `AnalyticsData` Model**: Add the `action_metrics` dictionary to the schema in `models.py`.
-4.  **Update `record_generation`**: The collector function needs to accept and store this new data.
-5.  **Implement Analytics**: Once the data is flowing, implement the **Behavioral Classification** and enhance the **Best Agent Profile** sections in the `MarkdownReporter`.
-
-#### **Phase 2: Implement Computational & Operator Metadata Collection**
-
-1.  **Modify `train_ga_parallel.py`**: Add `time()` captures around the evaluation, evolution, and display phases within the main `update` loop. Count the applications of crossover and mutation.
-2.  **Update `AnalyticsData` Model**: Add the `timing` and `operator_stats` dictionaries to the schema.
-3.  **Update `record_generation`**: Pass the new data to the collector.
-4.  **Implement Analytics**: Implement the **Milestone Timeline** section in the `MarkdownReporter`.
+| Priority | Enhancement                    | Description                                                             | Rationale                                                                   |
+| :------- | :----------------------------- | :---------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
+| **P2**   | **Lineage/Ancestry Tracking**  | Track "Parent ID" to visualize genetic drift and identify "Eve" agents. | Helps understand diversity loss and the genealogy of successful traits.     |
+| **P2**   | **Crossover Efficiency**       | Measure if Children fitness > Parent fitness on average.                | Validates if the crossover operator is actually constructive.               |
+| **P2**   | **Generalization Grade Trend** | Plot the "Fresh Game Grade" (A-F) over time, not just for the last 10.  | Visualizes if the agent is becoming more robust or just overfitting harder. |
