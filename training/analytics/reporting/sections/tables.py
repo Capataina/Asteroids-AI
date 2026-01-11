@@ -19,6 +19,8 @@ def write_generation_table(f, generations_data: List[Dict[str, Any]],
     """
     recent = generations_data[-limit:]
 
+    f.write("<details>\n<summary>Click to expand Recent Generations table</summary>\n\n")
+
     if include_behavior:
         f.write("| Gen   | Best   | Avg    | StdDev | Kills  | Steps  | Acc%   | Stag   |\n")
         f.write("|-------|--------|--------|--------|--------|--------|--------|--------|\n")
@@ -46,7 +48,7 @@ def write_generation_table(f, generations_data: List[Dict[str, Any]],
             f.write(f"{gen_data['best_improvement']:<+6.1f} | ")
             f.write(f"{gen_data['avg_improvement']:<+6.1f} |\n")
 
-    f.write("\n")
+    f.write("\n</details>\n\n")
 
 
 def write_best_generations(f, generations_data: List[Dict[str, Any]],
@@ -59,6 +61,8 @@ def write_best_generations(f, generations_data: List[Dict[str, Any]],
         include_behavior: Whether to include behavioral metrics
     """
     sorted_gens = sorted(generations_data, key=lambda x: x['best_fitness'], reverse=True)[:10]
+
+    f.write("<details>\n<summary>Click to expand Top 10 Best Generations table</summary>\n\n")
 
     if include_behavior:
         f.write("| Rank | Gen   | Best   | Avg    | Kills  | Steps  | Accuracy |\n")
@@ -81,4 +85,4 @@ def write_best_generations(f, generations_data: List[Dict[str, Any]],
             f.write(f"{gen_data['avg_fitness']:<12.2f} | ")
             f.write(f"{gen_data['min_fitness']:<12.2f} |\n")
 
-    f.write("\n")
+    f.write("\n</details>\n\n")

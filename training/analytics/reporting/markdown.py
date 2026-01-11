@@ -24,15 +24,18 @@ from training.analytics.reporting.sections.correlation import write_correlation_
 from training.analytics.reporting.sections.survival import write_survival_distribution
 from training.analytics.reporting.sections.learning import write_learning_progress
 from training.analytics.reporting.sections.convergence import write_convergence_analysis
-from training.analytics.reporting.sections.behavioral import write_behavioral_trends
+from training.analytics.reporting.sections.behavioral import write_behavioral_trends, write_intra_episode_analysis
 from training.analytics.reporting.sections.tables import write_generation_table, write_best_generations
 from training.analytics.reporting.sections.trends import write_trend_analysis
 from training.analytics.reporting.sections.charts import write_ascii_chart
 from training.analytics.reporting.sections.velocity import write_learning_velocity
 from training.analytics.reporting.sections.highlights import write_generation_highlights, write_best_agent_profile
+from game import globals
 from training.analytics.reporting.sections.warnings import write_reward_warnings
 from training.analytics.reporting.sections.performance import write_computational_performance, write_genetic_operator_stats
 from training.analytics.reporting.sections.milestones import write_milestone_timeline
+from training.analytics.reporting.sections.toc import write_table_of_contents
+from training.analytics.reporting.sections.heatmaps import write_heatmaps
 
 
 class MarkdownReporter:
@@ -63,6 +66,9 @@ class MarkdownReporter:
             f.write("# Training Summary Report\n\n")
             f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"**Schema Version:** {self.data.SCHEMA_VERSION}\n\n")
+            
+            # Table of Contents
+            write_table_of_contents(f, has_behavior, has_fresh_game)
 
             # Quick Trend Overview (Sparklines)
             f.write("## Quick Trend Overview\n\n")
@@ -76,6 +82,9 @@ class MarkdownReporter:
             
             # Best Agent Deep Profile
             write_best_agent_profile(f, self.data.generations_data)
+            
+            # Heatmaps (New)
+            write_heatmaps(f, self.data.generations_data, globals.SCREEN_WIDTH, globals.SCREEN_HEIGHT)
 
             # Generation Highlights
             f.write("## Generation Highlights\n\n")
@@ -142,6 +151,7 @@ class MarkdownReporter:
             if has_behavior:
                 f.write("## Behavioral Trends\n\n")
                 write_behavioral_trends(f, self.data.generations_data)
+                write_intra_episode_analysis(f, self.data.generations_data)
 
             # Recent Generations Table
             f.write("## Recent Generations (Last 30)\n\n")

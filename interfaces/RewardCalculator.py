@@ -20,6 +20,7 @@ class ComposableRewardCalculator:
     self.components = {}
     self.enabled_components = set()
     self.component_scores = {}  # Tracks score per component
+    self.score_history = []     # Tracks reward per step
   
   def add_component(self, component: RewardComponent):
     self.components[component.name] = component
@@ -46,6 +47,7 @@ class ComposableRewardCalculator:
       self.component_scores[name] += component_reward
 
     self.score += reward
+    self.score_history.append(reward)
 
     return reward
 
@@ -60,12 +62,30 @@ class ComposableRewardCalculator:
         self.component_scores[name] += component_reward
 
     self.score += reward
+    # Episode rewards are technically "end of game" so append to last step or new step?
+    # Appending as a final step makes sense for timeline
+    self.score_history.append(reward)
 
     return reward
   
   def get_reward_breakdown(self) -> dict:
     """Returns a dictionary of rewards contributed by each component."""
     return self.component_scores.copy()
+    
+  def get_quarterly_scores(self) -> list:
+    """Returns the total score accumulated in each quarter of the episode."""
+    total_steps = len(self.score_history)
+    if total_steps == 0:
+        return [0.0, 0.0, 0.0, 0.0]
+        
+    quarter_len = total_steps / 4
+    quarters = [0.0, 0.0, 0.0, 0.0]
+    
+    for i, reward in enumerate(self.score_history):
+        q_idx = min(int(i / quarter_len), 3)
+        quarters[q_idx] += reward
+        
+    return quarters
 
   def current_score(self, env_tracker: EnvironmentTracker, metrics_tracker: MetricsTracker) -> float:
     return self.score
@@ -74,6 +94,7 @@ class ComposableRewardCalculator:
     for name in self.enabled_components:
       self.components[name].reset()
     self.score = 0.0
+    self.score_history = []
     # Also reset the component scores
     for name in self.component_scores:
         self.component_scores[name] = 0.0

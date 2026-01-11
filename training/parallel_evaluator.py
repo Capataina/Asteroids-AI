@@ -126,6 +126,22 @@ def evaluate_single_agent(
     turn_frames = 0
     shoot_frames = 0
     
+    # Spatial tracking
+    position_history = []
+    kill_data = []
+    prev_kills = 0
+    total_asteroid_distance = 0.0
+    distance_samples = 0
+    
+    # Input analysis tracking
+    input_history = []  # List of (up, left, right, space) tuples
+    idle_frames = 0
+    
+    # Physics tracking
+    screen_wraps = 0
+    last_x = game.player.center_x
+    last_y = game.player.center_y
+    
     # Episode loop
     while steps < max_steps and game.player in game.player_list:
         # Encode state
@@ -148,6 +164,12 @@ def evaluate_single_agent(
         game.space_pressed = game_input["space_pressed"]
 
         # Track actions
+        current_inputs = (game.up_pressed, game.left_pressed, game.right_pressed, game.space_pressed)
+        input_history.append(current_inputs)
+        
+        if not any(current_inputs):
+            idle_frames += 1
+
         if game.up_pressed:
             thrust_frames += 1
         if game.left_pressed or game.right_pressed:
@@ -158,9 +180,39 @@ def evaluate_single_agent(
         # Step game
         game.on_update(frame_delay)
         
+        # Track screen wraps
+        # If position jumped by more than half screen, it wrapped
+        curr_x = game.player.center_x
+        curr_y = game.player.center_y
+        
+        if abs(curr_x - last_x) > game.width / 2:
+            screen_wraps += 1
+        if abs(curr_y - last_y) > game.height / 2:
+            screen_wraps += 1
+            
+        last_x = curr_x
+        last_y = curr_y
+        
         # Update trackers
         game.tracker.update(game)
         game.metrics_tracker.update(game)
+        
+        # Track spatial data (subsampled every 60 frames / 1s)
+        if steps % 60 == 0:
+            position_history.append((int(game.player.center_x), int(game.player.center_y)))
+            
+        # Track kills
+        if game.metrics_tracker.total_kills > prev_kills:
+            # Record kill event (approximate location is player's location since we lack target ID)
+            # ideally we'd want target location but this is a good proxy for "where the action is"
+            kill_data.append((int(game.player.center_x), int(game.player.center_y)))
+            prev_kills = game.metrics_tracker.total_kills
+            
+        # Track distance to nearest threat (for Safe Space analysis)
+        dist = game.tracker.get_distance_to_nearest_asteroid()
+        if dist is not None:
+            total_asteroid_distance += dist
+            distance_samples += 1
         
         # Calculate step reward
         step_reward = reward_calculator.calculate_step_reward(
@@ -170,6 +222,26 @@ def evaluate_single_agent(
         total_reward += step_reward
         steps += 1
     
+    # Calculate action durations
+    def _avg_duration(history, indices):
+        durations = []
+        current_run = 0
+        for step_inputs in history:
+            # Check if ANY of the tracked indices are active (e.g. left OR right for turn)
+            is_active = any(step_inputs[i] for i in indices)
+            if is_active:
+                current_run += 1
+            elif current_run > 0:
+                durations.append(current_run)
+                current_run = 0
+        if current_run > 0: durations.append(current_run)
+        return sum(durations) / len(durations) if durations else 0.0
+
+    avg_thrust_duration = _avg_duration(input_history, [0]) # Up
+    avg_turn_duration = _avg_duration(input_history, [1, 2]) # Left or Right
+    avg_shoot_duration = _avg_duration(input_history, [3]) # Space
+    idle_rate = idle_frames / steps if steps > 0 else 0.0
+
     # Calculate final episode reward
     episode_reward = reward_calculator.calculate_episode_reward(game.metrics_tracker)
     total_reward += episode_reward
@@ -183,10 +255,19 @@ def evaluate_single_agent(
         'hits': game.metrics_tracker.total_hits,
         'accuracy': game.metrics_tracker.get_accuracy(),
         'time_alive': game.metrics_tracker.time_alive,
+        'avg_asteroid_dist': total_asteroid_distance / distance_samples if distance_samples > 0 else 0.0,
         'reward_breakdown': reward_calculator.get_reward_breakdown(),
+        'quarterly_scores': reward_calculator.get_quarterly_scores(),
         'thrust_frames': thrust_frames,
         'turn_frames': turn_frames,
         'shoot_frames': shoot_frames,
+        'avg_thrust_duration': avg_thrust_duration,
+        'avg_turn_duration': avg_turn_duration,
+        'avg_shoot_duration': avg_shoot_duration,
+        'idle_rate': idle_rate,
+        'screen_wraps': screen_wraps,
+        'position_history': position_history,
+        'kill_data': kill_data
     }
     return metrics
 
@@ -291,10 +372,27 @@ def evaluate_population_parallel(
     # Average the collected reward breakdowns across all evaluations
     num_evals = len(all_results)
     avg_reward_breakdown = {k: v / num_evals for k, v in pop_reward_breakdown.items()}
+    
+    # Average quarterly scores across all evaluations
+    # Each result has [q1, q2, q3, q4]
+    avg_quarterly = [0.0, 0.0, 0.0, 0.0]
+    for r in all_results:
+        q_scores = r.get('quarterly_scores', [0,0,0,0])
+        for i in range(4):
+            avg_quarterly[i] += q_scores[i]
+            
+    avg_quarterly = [s / num_evals for s in avg_quarterly]
 
 
     # Find best agent (by averaged fitness)
     best_idx = fitnesses.index(max(fitnesses))
+    
+    # Aggregate spatial data for the best agent across all their seeds
+    best_agent_positions = []
+    best_agent_kill_events = []
+    for r in agent_results[best_idx]:
+        best_agent_positions.extend(r.get('position_history', []))
+        best_agent_kill_events.extend(r.get('kill_data', []))
 
     # Aggregate behavioral metrics across population (using averaged per-agent metrics)
     aggregated_metrics = {
@@ -316,7 +414,16 @@ def evaluate_population_parallel(
         'best_agent_thrust': averaged_results[best_idx]['thrust_frames'],
         'best_agent_turn': averaged_results[best_idx]['turn_frames'],
         'best_agent_shoot': averaged_results[best_idx]['shoot_frames'],
+        'avg_asteroid_dist': sum(r.get('avg_asteroid_dist', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_thrust_duration': sum(r.get('avg_thrust_duration', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_turn_duration': sum(r.get('avg_turn_duration', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_shoot_duration': sum(r.get('avg_shoot_duration', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_idle_rate': sum(r.get('idle_rate', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_screen_wraps': sum(r.get('screen_wraps', 0) for r in averaged_results) / len(averaged_results),
+        'best_agent_positions': best_agent_positions,
+        'best_agent_kill_events': best_agent_kill_events,
         'avg_reward_breakdown': avg_reward_breakdown,
+        'avg_quarterly_scores': avg_quarterly,
     }
 
     # Return per-agent metrics list for distribution tracking

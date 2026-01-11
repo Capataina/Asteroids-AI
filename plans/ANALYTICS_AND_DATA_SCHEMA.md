@@ -21,7 +21,9 @@ The current data schema (`version 2.0`) is defined in `training/analytics/collec
 | **Core Aggregates**          | `best_fitness`, `avg_fitness`, `min_fitness`, `median_fitness`, `std_dev`, `percentiles`             | ✅ **Implemented** | Basic population statistics per generation.                                                                          |
 | **Behavioral Aggregates**    | `avg_kills`, `avg_steps`, `avg_accuracy`, `avg_shots`                                                | ✅ **Implemented** | Population-wide average behaviors.                                                                                   |
 | **Action-Level Metrics**     | `avg_thrust_frames`, `avg_turn_frames`, `avg_shoot_frames`                                           | ✅ **Implemented** | Direct observation of input behavior (frequencies).                                                                  |
-| **Reward Breakdown**         | `avg_reward_breakdown`                                                                               | ✅ **Implemented** | Per-component reward averages for the population.                                                                    |
+| **Input Style Metrics**      | `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`, `avg_idle_rate`                    | ✅ **Implemented** | Tracks how long buttons are held (control finesse) and idle time.                                                    |
+| **Spatial Metrics**          | `avg_asteroid_dist`, `avg_screen_wraps`, `best_agent_positions`, `best_agent_kill_events`            | ✅ **Implemented** | Safety margin tracking, screen usage, and heatmap data points.                                                       |
+| **Reward Breakdown**         | `avg_reward_breakdown`, `avg_quarterly_scores`                                                       | ✅ **Implemented** | Per-component reward averages and intra-episode scoring timeline.                                                    |
 | **Fresh Game Performance**   | `fresh_game` object, `generalization_metrics` object                                                 | ✅ **Implemented** | **CRITICAL**: Captures the best agent's performance in an unseeded game to test generalization. Includes `accuracy`. |
 | **Population Distributions** | `distributions` object containing arrays for `fitness_values`, `kills_values`, `thrust_values`, etc. | ✅ **Implemented** | Captures the full data for every agent in a generation, not just averages. Enables deep statistical analysis.        |
 | **Computational Metadata**   | `timing_stats` object (`evaluation_duration`, `evolution_duration`)                                  | ✅ **Implemented** | Performance profiling for the training loop.                                                                         |
@@ -31,23 +33,25 @@ The current data schema (`version 2.0`) is defined in `training/analytics/collec
 
 The `training_summary.md` report is automatically generated and already includes the majority of the proposed analytics sections. The following features are **fully implemented**:
 
+- **Table of Contents**: Auto-generated clickable index.
 - **Quick Trend Overview**: ASCII sparklines for at-a-glance trend visualization.
 - **Overall Summary**: High-level training outcomes, including generalization performance.
 - **Best Agent Deep Profile**: Detailed stats of the all-time best agent, including efficiency metrics and **Behavioral Classification** (e.g., "Sniper", "Berzerker").
+- **Spatial Heatmaps**: ASCII grids showing **Position Density** and **Kill Zones** for the best agent.
 - **Generation Highlights**: Tables of the best-performing generations.
 - **Milestone Timeline**: A chronological list of key achievements (e.g., "First 10-kill agent").
 - **Temporal Analysis (Deciles/Trends)**: Multiple views breaking down the training run into phases to show how performance and behavior evolved over time.
-- **Behavioral Trends**: Includes a table of **Action Distribution** (Thrust/Turn/Shoot frequencies) and dominant strategy per quarter.
+- **Behavioral Trends**: Includes a table of **Action Distribution** (Thrust/Turn/Shoot frequencies), **Safe Distance**, and dominant strategy per quarter. Includes **Intra-Episode Score Breakdown** (Early vs Late game scoring) and **Input Control Style**.
 - **Kill Efficiency Analysis**: Metrics like "Kills per 100 Steps" and "Shots per Kill".
 - **Learning Velocity**: Analysis of the rate of improvement.
 - **Reward Component Evolution**: A table showing how the agent's sources of reward changed over the course of training, including **Exploration Efficiency**.
 - **Reward Balance Warnings**: Automated checks for potential issues in the reward structure (e.g., one component dominating all others).
-- **Population Health & Convergence**: Analysis of population diversity (`std_dev`) and convergence status, including **Stagnation Warnings**.
+- **Population Health & Convergence**: Analysis of population diversity (`std_dev`) and convergence status, including **Stagnation Warnings** (>20 gens).
 - **Stagnation Analysis**: Detection of learning plateaus.
 - **Generalization Analysis**: A dedicated section analyzing the `fresh_game` data (including **Accuracy**) to assess how well the agent's skills transfer to new scenarios.
 - **Correlation Analysis**: A matrix showing the statistical correlation between various metrics and fitness.
 - **Survival Distribution**: Analysis of when and how often agents die.
-- **Detailed Tables**: Breakdowns of the most recent and all-time best generations (aligned for raw viewing).
+- **Detailed Tables**: Breakdowns of the most recent and all-time best generations (aligned for raw viewing, collapsible).
 - **ASCII Fitness Chart**: A simple plot of fitness progression.
 - **Technical Appendix**: Performance timings and Genetic Operator statistics.
 
@@ -59,29 +63,21 @@ This section details the features and data structures that have **not yet been i
 
 ### 3.1. Visuals & Formatting (Polishing the Report)
 
-| Priority | Enhancement                | Description                                                                                        | Rationale                                                |
-| :------- | :------------------------- | :------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
-| **P2**   | **Global Table Alignment** | Update remaining tables (`behavioral`, `rewards`, `generalization`) to use fixed-width formatting. | Improves readability when viewing the raw Markdown file. |
-| **P3**   | **Table of Contents**      | Add an auto-generated, clickable link index at the top of the report.                              | Improves navigation for long reports.                    |
+| Priority | Enhancement                     | Description                                                 | Rationale                   |
+| :------- | :------------------------------ | :---------------------------------------------------------- | :-------------------------- |
+| **P3**   | **Trend Indicators in Headers** | Add arrows (↑/↓) to section headers based on recent trends. | Provides immediate context. |
 
 ### 3.2. Intra-Episode Analysis (The "Micro" View)
 
-| Priority | Enhancement                    | Description                                                                                        | Rationale                                                                         |
-| :------- | :----------------------------- | :------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
-| **P1**   | **Quarterly Score Breakdown**  | Analyze _when_ the agent earns points (e.g., First 25% of episode vs. Last 25%).                   | Distinguishes aggressive "sprinters" from slow-burn survivalists.                 |
-| **P2**   | **Action Duration Histograms** | Measure the average _duration_ of button presses (e.g., tap thrust vs. hold thrust).               | Reveals control style (fine control vs. crude movement).                          |
-| **P2**   | **Reaction Time Metric**       | Measure the time delta between an asteroid entering "Danger Radius" and the agent changing inputs. | Quantifies reflexes and processing speed.                                         |
-| **P2**   | **Idle Rate Analysis**         | Track percentage of frames where the agent inputs `[0, 0, 0, 0]`.                                  | Distinguishes "efficient" agents from "spastic" ones that constantly spam inputs. |
+| Priority | Enhancement              | Description                                                                                        | Rationale                                 |
+| :------- | :----------------------- | :------------------------------------------------------------------------------------------------- | :---------------------------------------- |
+| **P2**   | **Reaction Time Metric** | Measure the time delta between an asteroid entering "Danger Radius" and the agent changing inputs. | Quantifies reflexes and processing speed. |
 
 ### 3.3. Spatial & Physics Analytics
 
-| Priority | Enhancement                     | Description                                                                         | Rationale                                                                           |
-| :------- | :------------------------------ | :---------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
-| **P1**   | **Position Heatmap**            | A 10x10 ASCII grid showing where the agent spends the most time (Center vs. Edges). | Identifies camping behavior or map coverage issues.                                 |
-| **P1**   | **Kill Zone Heatmap**           | A grid showing where kills happen relative to the player.                           | Differentiates "Sniping" (long-range kills) from "Dogfighting" (point-blank kills). |
-| **P1**   | **Average Engagement Distance** | Calculate the average distance between Player and Asteroid at the moment of a Kill. | Quantitative measure of engagement style.                                           |
-| **P2**   | **Screen Wrap Usage**           | Count how many times the agent successfully crosses the screen boundary.            | Proves the agent understands the toroidal topology of the world.                    |
-| **P2**   | **"Safe Space" Analysis**       | Measure the average distance to the nearest asteroid throughout the episode.        | Indicates if the agent is actively maintaining safety or scraping by.               |
+| Priority | Enhancement                     | Description                                                                         | Rationale                                 |
+| :------- | :------------------------------ | :---------------------------------------------------------------------------------- | :---------------------------------------- |
+| **P1**   | **Average Engagement Distance** | Calculate the average distance between Player and Asteroid at the moment of a Kill. | Quantitative measure of engagement style. |
 
 ### 3.4. Neural Network Diagnostics
 

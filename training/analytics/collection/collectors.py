@@ -84,6 +84,16 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         gen_data['avg_turn_frames'] = behavioral_metrics.get('avg_turn_frames', 0)
         gen_data['avg_shoot_frames'] = behavioral_metrics.get('avg_shoot_frames', 0)
         
+        # Input style metrics
+        gen_data['avg_thrust_duration'] = behavioral_metrics.get('avg_thrust_duration', 0.0)
+        gen_data['avg_turn_duration'] = behavioral_metrics.get('avg_turn_duration', 0.0)
+        gen_data['avg_shoot_duration'] = behavioral_metrics.get('avg_shoot_duration', 0.0)
+        gen_data['avg_idle_rate'] = behavioral_metrics.get('avg_idle_rate', 0.0)
+        
+        # Engagement metrics
+        gen_data['avg_asteroid_dist'] = behavioral_metrics.get('avg_asteroid_dist', 0.0)
+        gen_data['avg_screen_wraps'] = behavioral_metrics.get('avg_screen_wraps', 0.0)
+        
         gen_data['total_kills'] = behavioral_metrics.get('total_kills', 0)
         gen_data['max_kills'] = behavioral_metrics.get('max_kills', 0)
         gen_data['max_steps'] = behavioral_metrics.get('max_steps', 0)
@@ -97,6 +107,11 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         gen_data['best_agent_shoot'] = behavioral_metrics.get('best_agent_shoot', 0)
         
         gen_data['avg_reward_breakdown'] = behavioral_metrics.get('avg_reward_breakdown', {})
+        gen_data['avg_quarterly_scores'] = behavioral_metrics.get('avg_quarterly_scores', [])
+        
+        # Spatial data
+        gen_data['best_agent_positions'] = behavioral_metrics.get('best_agent_positions', [])
+        gen_data['best_agent_kill_events'] = behavioral_metrics.get('best_agent_kill_events', [])
 
     # Add best agent stats if available
     if best_agent_stats:

@@ -101,6 +101,14 @@ def calculate_behavioral_by_quarter(generations_data: List[Dict[str, Any]]) -> L
         avg_thrust = sum(g.get('avg_thrust_frames', 0) for g in q) / len(q)
         avg_turn = sum(g.get('avg_turn_frames', 0) for g in q) / len(q)
         avg_shoot = sum(g.get('avg_shoot_frames', 0) for g in q) / len(q)
+        avg_dist = sum(g.get('avg_asteroid_dist', 0) for g in q) / len(q)
+        
+        # Input style metrics
+        thrust_dur = sum(g.get('avg_thrust_duration', 0) for g in q) / len(q)
+        turn_dur = sum(g.get('avg_turn_duration', 0) for g in q) / len(q)
+        shoot_dur = sum(g.get('avg_shoot_duration', 0) for g in q) / len(q)
+        idle_rate = sum(g.get('avg_idle_rate', 0) for g in q) / len(q)
+        screen_wraps = sum(g.get('avg_screen_wraps', 0) for g in q) / len(q)
 
         results.append({
             'quarter': i,
@@ -111,6 +119,12 @@ def calculate_behavioral_by_quarter(generations_data: List[Dict[str, Any]]) -> L
             'avg_thrust_frames': avg_thrust,
             'avg_turn_frames': avg_turn,
             'avg_shoot_frames': avg_shoot,
+            'avg_asteroid_dist': avg_dist,
+            'avg_thrust_duration': thrust_dur,
+            'avg_turn_duration': turn_dur,
+            'avg_shoot_duration': shoot_dur,
+            'avg_idle_rate': idle_rate,
+            'avg_screen_wraps': screen_wraps,
         })
 
     return results
