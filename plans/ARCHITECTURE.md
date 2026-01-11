@@ -8,27 +8,27 @@ This document provides a top-down view of the AsteroidsAI codebase structure and
 Asteroids AI/
 ├── Asteroids.py                  # Main visual game (arcade.Window)
 ├── game/
+│   ├── globals.py                # SINGLE SOURCE OF TRUTH for physics & game constants
 │   ├── classes/                  # Game entity classes (Player, Asteroid, Bullet)
 │   ├── headless_game.py          # Fast, non-visual game for parallel evaluation
+│   ├── debug/                    # Debug visualizers
+│   │   └── visuals.py            # Overlays for hitboxes and vectors
 │   └── sprites/                  # Image assets
 ├── ai_agents/
 │   ├── neuroevolution/
 │   │   └── genetic_algorithm/
 │   │       ├── nn_ga_agent.py    # CURRENT: Agent with a neural network policy
 │   │       ├── operators.py      # Mutation and crossover operators
-│   │       ├── ga_agent.py       # LEGACY: Agent with a simple linear policy
-│   │       ├── ga_trainer.py     # LEGACY: Unused GA component container
-│   │       └── ga_fitness.py     # LEGACY: Broken and unused
-│   └── reinforcement_learning/
-│       └── gnn_and_sac/          # PLANNED: Future home for GNN+SAC agent
+│   │       └── ...               # Legacy agent files
+│   └── reinforcement_learning/   # PLANNED: Future home for GNN+SAC agent
 ├── interfaces/
 │   ├── EnvironmentTracker.py     # Provides a clean API to the current game state
 │   ├── MetricsTracker.py         # Aggregates episode statistics (kills, accuracy, etc.)
 │   ├── RewardCalculator.py       # Composable, component-based reward system
 │   ├── StateEncoder.py           # Abstract base class for state encoders
 │   ├── ActionInterface.py        # Validates and normalizes agent actions
-│   ├── encoders/                 # State encoder implementations
-│   └── rewards/                  # Individual reward components
+│   ├── encoders/                 # State encoder implementations (VectorEncoder)
+│   └── rewards/                  # Individual reward components (VelocitySurvivalBonus, etc.)
 ├── training/
 │   ├── base/                     # Base classes for all training pipelines
 │   │   ├── BaseAgent.py          # Abstract agent interface for all AIs
@@ -37,53 +37,70 @@ Asteroids AI/
 │   ├── analytics/                # Analytics and reporting subsystem
 │   │   ├── analytics.py          # Facade for the analytics system
 │   │   ├── collection/           # Data collection models and functions
+│   │   ├── analysis/             # Analysis logic (population, behavioral, etc.)
 │   │   └── reporting/            # Report generation (Markdown, JSON)
 │   ├── train_ga_parallel.py      # PRIMARY training script for the GA
-│   ├── parallel_evaluator.py     # Logic for parallel fitness evaluation
-│   ├── train_ga.py               # LEGACY: Original, sequential GA training script
-│   └── train_agent.py            # LEGACY: Original, pre-GA training script
+│   └── parallel_evaluator.py     # Logic for parallel fitness evaluation
 └── plans/                        # Project documentation
 ```
 
 ## Core Subsystems
 
-### 1. Game Core
-- **`Asteroids.py`**: The main visual game window, powered by Arcade. During training, this is used **only** to display the best-performing agent of a generation in a fresh, unseeded game.
-- **`headless_game.py`**: A high-speed, non-visual version of the game simulation. Its sole purpose is to run in parallel threads for the fast evaluation of the agent population.
+### 1. Game Core & Parity
+
+- **`globals.py`**: The **Single Source of Truth** for all game constants (screen size, physics, hitboxes). Both the visual game and headless simulation import from here to ensure 100% parity.
+- **`Asteroids.py`**: The visual game. Uses a custom collision loop that mirrors the headless math exactly, rather than Arcade's default sprite collision. Includes a Debug Mode ('D' key) to visualize the actual hitboxes used by the AI.
+- **`headless_game.py`**: High-speed simulation logic. Identical to `Asteroids.py` but strips all rendering and inputs.
 
 ### 2. AI Interface Layer (`interfaces/`)
-This layer decouples the AI from the game. It provides a stable set of contracts that all agents and training pipelines use.
-- **`EnvironmentTracker` & `MetricsTracker`**: Provide read-only access to game state and performance statistics.
-- **`RewardCalculator`**: A flexible system that computes agent fitness from a collection of individual reward components.
-- **`StateEncoder` & `ActionInterface`**: Standardize the "input" (what the agent sees) and "output" (what the agent does) for all AI models.
 
-### 3. GA Implementation (`ai_agents/neuroevolution/genetic_algorithm/`)
-- **`NeuralNetworkGAAgent`**: The current agent policy. It is a feedforward neural network whose weights and biases are evolved by the GA. The default architecture is `Input(16) -> Hidden(24, tanh) -> Output(4, sigmoid)`.
-- **`operators.py`**: Contains the genetic operators (e.g., `mutate_gaussian`, `crossover_blend`) used in the evolutionary process.
+Decouples the AI from the game logic.
+
+- **`EnvironmentTracker`**: Provides a safe API for the AI to query game state (e.g., `get_nearest_asteroid`).
+- **`VectorEncoder`**: Converts the game state into a neural network-friendly vector. Uses **Toroidal Distance** math to correctly perceive objects wrapping around the screen.
+- **`RewardCalculator`**: Modular system for calculating fitness. Current composition:
+  - `VelocitySurvivalBonus`: Rewards moving fast while staying alive.
+  - `DistanceBasedKillReward`: Higher points for close-range kills.
+  - `ConservingAmmoBonus`: Rewards accuracy.
+  - `DeathPenalty`: Significant penalty for crashing.
+
+### 3. GA Implementation (`ai_agents/neuroevolution/`)
+
+- **`NeuralNetworkGAAgent`**: Feedforward neural network policy.
+  - **Inputs (11):** Player velocity (2), Shoot cooldown (1), Nearest 2 Asteroids (4 features each: dist, angle, closing speed, size).
+  - **Outputs (4):** Thrust, Turn Left, Turn Right, Shoot.
+- **`operators.py`**: Genetic operators. Current configuration uses a low mutation rate (0.05) to preserve learned behaviors.
 
 ### 4. Parallel Training Pipeline (`training/`)
-This is the heart of the current GA implementation.
-- **`train_ga_parallel.py`**: The main entry point. The `ParallelGATrainingDriver` class within this file manages the primary training loop (population, evolution, visualization).
-- **`parallel_evaluator.py`**: Contains the `evaluate_population_parallel` function. This powerful component uses a `ThreadPoolExecutor` to run the entire population's fitness evaluations simultaneously in headless game instances.
-- **`EpisodeRunner`**: A simpler, single-episode runner. In the parallel pipeline, its role is limited to running the single best agent in the visual game window for generalization testing.
+
+- **`train_ga_parallel.py`**: Orchestrates the evolutionary loop (Selection -> Crossover -> Mutation -> Evaluation).
+- **`parallel_evaluator.py`**: Uses `ThreadPoolExecutor` to evaluate 25-50 agents in parallel. Each agent is tested on **12 different random seeds** to force generalization and prevent overfitting.
 
 ### 5. Analytics Subsystem (`training/analytics/`)
-- **`analytics.py`**: Acts as a facade for the analytics system, providing a simple API for recording data and generating reports.
-- **`collection/`**: Contains the data models (`AnalyticsData`) that define the schema for `training_data.json` and the functions that collect metrics.
-- **`reporting/`**: Contains the logic for generating the final `training_summary.md` report and `training_data.json` file.
+
+A comprehensive suite for monitoring training health.
+
+- **Collection**: Tracks fitness, kills, accuracy, action frequencies, and timing metadata.
+- **Analysis**:
+  - **Behavioral Classification**: Tags agents as "Sniper", "Dogfighter", "Turret", etc.
+  - **Population Health**: Detects stagnation and diversity collapse.
+  - **Generalization**: Compares training performance vs. performance on a fresh, unseen seed.
+- **Reporting**: Generates a detailed `training_summary.md` with ASCII charts, trend tables, and efficiency metrics.
 
 ## Data Flow: Parallel Training Loop
 
-1.  **Initialization**: `ParallelGATrainingDriver` creates an initial population of random parameter vectors, each representing a `NeuralNetworkGAAgent`.
-2.  **Parallel Evaluation**: `evaluate_population_parallel` is called. It spawns a thread for each agent, each with its own `HeadlessAsteroidsGame` instance, and calculates its fitness.
-3.  **Data Collection**: The results are passed to the `TrainingAnalytics` instance, which records all statistics for the generation.
-4.  **Display Phase**: The best agent from the generation is instantiated and run in the visual `Asteroids.py` game with **new, random asteroid positions** to test its generalization capability. The results of this "fresh game" test are also recorded by the analytics system.
-5.  **Evolution**: `ParallelGATrainingDriver` creates the next generation's population using tournament selection, crossover, mutation, and elitism.
-6.  **Loop**: The process repeats from Step 2 for the specified number of generations.
-7.  **Termination**: On exit, the `TrainingAnalytics` instance saves all collected data to `training_data.json` and generates the final `training_summary.md` report.
+1.  **Initialization**: Population of neural networks created with random weights.
+2.  **Parallel Evaluation**: Each agent plays 12 games on 12 unique seeds in `headless_game.py`. Fitness is averaged.
+3.  **Data Collection**: Metrics (accuracy, kills, inputs) are aggregated and sent to Analytics.
+4.  **Display Phase**: The single best agent plays ONE game in the visual `Asteroids.py` window on a **fresh seed** to demonstrate true capability (generalization test).
+5.  **Evolution**: The top agents are selected to breed. Offspring are mutated.
+6.  **Loop**: Repeats for 500+ generations.
+7.  **Termination**: Final report and JSON data saved.
 
-## Implementation Status & Known Issues
+## Implementation Status
 
-- **Primary Implementation Complete**: The parallel GA training pipeline with a neural network agent is fully functional. All core interfaces are integrated.
-- **Known Issue: Hardcoded Configuration**: Many key hyperparameters (hidden layer size, population size, mutation rates) are hardcoded in `train_ga_parallel.py`. A dedicated configuration system is the next major planned feature.
-- **Legacy Code**: Several files, such as `ga_agent.py` and `ga_trainer.py`, are now considered legacy and are not used by the primary training pipeline. They are kept for historical reference.
+- ✅ **Sim-to-Real Parity**: Visual and Headless games use identical physics/hitboxes via `globals.py`.
+- ✅ **Toroidal Vision**: AI correctly sees across screen boundaries.
+- ✅ **Generalization Focus**: Training on 12 seeds/agent forces robust policy learning.
+- ✅ **Deep Analytics**: Full behavioral profiling and health monitoring active.
+- 🚧 **Configuration**: Hyperparameters are still hardcoded in `train_ga_parallel.py` (planned move to YAML/JSON).
