@@ -76,27 +76,43 @@ def write_heatmaps(f, generations_data: List[Dict[str, Any]], width: int, height
     """
     if not generations_data:
         return
-        
-    last_gen = generations_data[-1]
-    positions = last_gen.get('best_agent_positions', [])
-    kills = last_gen.get('best_agent_kill_events', [])
+
+    # Determine how many generations to aggregate (up to 10)
+    num_gens = min(len(generations_data), 10)
+    recent_gens = generations_data[-num_gens:]
     
-    if not positions:
+    # Aggregate data
+    agg_best_positions = []
+    agg_best_kills = []
+    agg_pop_positions = []
+    agg_pop_kills = []
+
+    for gen in recent_gens:
+        agg_best_positions.extend(gen.get('best_agent_positions', []))
+        agg_best_kills.extend(gen.get('best_agent_kill_events', []))
+        agg_pop_positions.extend(gen.get('population_positions', []))
+        agg_pop_kills.extend(gen.get('population_kill_events', []))
+    
+    start_gen = recent_gens[0]['generation']
+    end_gen = recent_gens[-1]['generation']
+    range_str = f"Generations {start_gen}-{end_gen}" if start_gen != end_gen else f"Generation {start_gen}"
+
+    if not agg_best_positions:
         return
         
-    f.write("### Spatial Analytics (Best Agent)\n\n")
+    f.write(f"### Spatial Analytics (Best Agent - {range_str})\n\n")
     
     f.write("**Position Heatmap (Where does it fly?)**\n")
     f.write("```\n")
-    lines = generate_ascii_heatmap(positions, width, height)
+    lines = generate_ascii_heatmap(agg_best_positions, width, height)
     for line in lines:
         f.write(line + "\n")
     f.write("```\n\n")
     
-    if kills:
+    if agg_best_kills:
         f.write("**Kill Zone Heatmap (Where does it kill?)**\n")
         f.write("```\n")
-        lines = generate_ascii_heatmap(kills, width, height)
+        lines = generate_ascii_heatmap(agg_best_kills, width, height)
         for line in lines:
             f.write(line + "\n")
         f.write("```\n\n")
@@ -104,25 +120,23 @@ def write_heatmaps(f, generations_data: List[Dict[str, Any]], width: int, height
         f.write("**Kill Zone Heatmap:** (No kills recorded)\n\n")
 
     # --- Population Average Heatmaps ---
-    pop_positions = last_gen.get('population_positions', [])
-    pop_kills = last_gen.get('population_kill_events', [])
     
-    if not pop_positions:
+    if not agg_pop_positions:
         return
         
-    f.write("### Spatial Analytics (Population Average - Sample of 30)\n\n")
+    f.write(f"### Spatial Analytics (Population Average - {range_str})\n\n")
     
     f.write("**Position Heatmap (Where do they fly?)**\n")
     f.write("```\n")
-    lines = generate_ascii_heatmap(pop_positions, width, height)
+    lines = generate_ascii_heatmap(agg_pop_positions, width, height)
     for line in lines:
         f.write(line + "\n")
     f.write("```\n\n")
     
-    if pop_kills:
+    if agg_pop_kills:
         f.write("**Kill Zone Heatmap (Where do they kill?)**\n")
         f.write("```\n")
-        lines = generate_ascii_heatmap(pop_kills, width, height)
+        lines = generate_ascii_heatmap(agg_pop_kills, width, height)
         for line in lines:
             f.write(line + "\n")
         f.write("```\n\n")

@@ -136,6 +136,10 @@ class HeadlessAsteroidsGame:
             sprite.update()
         for sprite in self.bullet_list:
             sprite.update()
+
+        # Remove expired bullets and asteroids (arcade's remove_from_sprite_lists() doesn't work for plain lists)
+        self.bullet_list = [b for b in self.bullet_list if b.lifetime > 0]
+        self.asteroid_list = [a for a in self.asteroid_list if a.lifetime > 0]
         
         # Wrap all sprites
         self.wrap_sprite(self.player)

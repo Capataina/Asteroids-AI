@@ -1,6 +1,6 @@
 # Training Summary Report
 
-**Generated:** 2026-01-13 02:02:06
+**Generated:** 2026-01-13 16:21:35
 **Schema Version:** 2.0
 
 ## Table of Contents
@@ -36,12 +36,12 @@
 ## Quick Trend Overview
 
 ```
-Best Fitness: 292 → 482   [▁▃▄▅▅█▅▅▇▄] +65%
-Avg Fitness:  81 → 305   [▁▃▅▄▆▆▆▇█▇] +277%
-Avg Kills:    4.9 → 16.4   [▁▃▄▄▅▆▅▇█▇] +234%
-Avg Accuracy: 49% → 72%   [▁▃▆▆▆▆▆▇█▇] +49%
-Avg Steps:    362 → 619   [▁▂▅▄▅▅▅▇█▇] +71%
-Diversity:    105 → 116   [▂▅▁█▅▇▅▇▄▃] +11%
+Best Fitness: 590 → 745   [▁▇▆▅▂▂▄█▂▃] +26%
+Avg Fitness:  160 → 535   [▁▆▇▇▆▇▇█▇▇] +234%
+Avg Kills:    2.6 → 7.0   [▁▆▇▇▆▇▇█▇▇] +165%
+Avg Accuracy: 27% → 35%   [▁▆▇▇▆█▇▆▆▆] +28%
+Avg Steps:    464 → 708   [▁▆▇▇▆▇▆█▇▇] +53%
+Diversity:    199 → 111   [█▆▄▄▂▁▄▆▂▃] -44%
 ```
 
 ## Training Configuration
@@ -55,47 +55,45 @@ max_workers: 16
 
 ## Overall Summary
 
-- **Total Generations:** 10
-- **Training Duration:** 0:11:59.254070
-- **All-Time Best Fitness:** 656.47
-- **Best Generation:** 6
-- **Final Best Fitness:** 482.45
-- **Final Average Fitness:** 304.98
-- **Avg Improvement (Early->Late):** 0.00
-- **Stagnation:** 4 generations since improvement
+- **Total Generations:** 55
+- **Training Duration:** 1:13:41.309163
+- **All-Time Best Fitness:** 1017.01
+- **Best Generation:** 28
+- **Final Best Fitness:** 744.59
+- **Final Average Fitness:** 535.01
+- **Avg Improvement (Early->Late):** 119.03
+- **Stagnation:** 27 generations since improvement
 
 **Generalization (Fresh Game Performance):**
-
-- Avg Generalization Ratio: 0.40
-- Best Fresh Fitness: 456.25 (Gen 2)
-- Episode Completion Rate: 22.2%
+- Avg Generalization Ratio: 0.85
+- Best Fresh Fitness: 1580.56 (Gen 38)
+- Episode Completion Rate: 1.9%
 
 ## Best Agent Deep Profile
 
-The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
+The most fit agent appeared in **Generation 28** with a fitness of **1017.01**.
 
 ### Combat Efficiency
 
-- **Total Kills:** 28.05
-- **Survival Time:** 14.4 seconds (862.4 steps)
-- **Accuracy:** 84.9%
-- **Shots per Kill:** 1.2
-- **Time per Kill:** 0.51 seconds
+- **Total Kills:** 11.4
+- **Survival Time:** 15.0 seconds (900.3 steps)
+- **Accuracy:** 40.5%
+- **Shots per Kill:** 2.5
+- **Time per Kill:** 1.32 seconds
 
 ### Behavioral Signature
 
-**Classification:** `Dogfighter`
+**Classification:** `Spinner`
 
-| Action     | Rate (per step) | Description        |
-| ---------- | --------------- | ------------------ |
-| **Thrust** | 22.1%           | Movement frequency |
-| **Turn**   | 63.5%           | Rotation frequency |
-| **Shoot**  | 93.4%           | Trigger discipline |
+| Action | Rate (per step) | Description |
+|--------|-----------------|-------------|
+| **Thrust** | 4.3% | Movement frequency |
+| **Turn** | 58.4% | Rotation frequency |
+| **Shoot** | 94.2% | Trigger discipline |
 
 ### Spatial Analytics (Best Agent)
 
 **Position Heatmap (Where does it fly?)**
-
 ```
 |                                                                                                                        |
 |                                                                                                                        |
@@ -130,7 +128,6 @@ The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
 ```
 
 **Kill Zone Heatmap (Where does it kill?)**
-
 ```
 |                                                                                                                        |
 |                                                                                                                        |
@@ -145,7 +142,7 @@ The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
 |                                                                                                                        |
 |                                                                                                                        |
 |                                                                                                                        |
-|                                                                                                                        |
+|                                     .                                                                                  |
 |                                                            @                                                           |
 |                                                                                                                        |
 |                                                                                                                        |
@@ -167,7 +164,6 @@ The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
 ### Spatial Analytics (Population Average - Sample of 30)
 
 **Position Heatmap (Where do they fly?)**
-
 ```
 |                                                                                                                        |
 |                                                                                                                        |
@@ -202,7 +198,6 @@ The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
 ```
 
 **Kill Zone Heatmap (Where do they kill?)**
-
 ```
 |                                                                                                                        |
 |                                                                                                                        |
@@ -240,24 +235,22 @@ The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
 
 ### Best Improvement
 
-**Generation 6**: Best fitness jumped +149.1 (+29.4%)
-
-- New best fitness: 656.5
+**Generation 52**: Best fitness jumped +250.4 (+34.9%)
+- New best fitness: 967.4
 
 ### Worst Regression
 
-**Generation 10**: Best fitness dropped -148.4 (-23.5%)
-
-- New best fitness: 482.4
-- _Note: This may be normal variation after a lucky outlier_
+**Generation 29**: Best fitness dropped -283.2 (-27.9%)
+- New best fitness: 733.8
+- *Note: This may be normal variation after a lucky outlier*
 
 ### Most Accurate Generation
 
-**Generation 9**: Population accuracy reached 72.8%
+**Generation 43**: Population accuracy reached 35.7%
 
 ### Most Kills (Single Agent)
 
-**Generation 6**: An agent achieved 28 kills
+**Generation 36**: An agent achieved 12 kills
 
 ### First Viable Population
 
@@ -265,115 +258,111 @@ The most fit agent appeared in **Generation 6** with a fitness of **656.47**.
 
 ### Most Diverse Generation
 
-**Generation 1**: Diversity index 1.29
+**Generation 1**: Diversity index 1.24
 
 ### Most Converged Generation
 
-**Generation 9**: Diversity index 0.37
+**Generation 26**: Diversity index 0.16
 
 ## Milestone Timeline
 
-| Generation | Category | Value | Description                     |
-| ---------- | -------- | ----- | ------------------------------- |
-| 1          | Fitness  | 292   | Best fitness crossed 100        |
-| 1          | Kills    | 15.75 | First agent to achieve 1 kills  |
-| 1          | Kills    | 15.75 | First agent to achieve 5 kills  |
-| 1          | Kills    | 15.75 | First agent to achieve 10 kills |
-| 4          | Fitness  | 530   | Best fitness crossed 500        |
-| 4          | Kills    | 24.9  | First agent to achieve 20 kills |
+| Generation | Category | Value | Description |
+|------------|----------|-------|-------------|
+| 1 | Fitness | 590 | Best fitness crossed 100 |
+| 1 | Fitness | 590 | Best fitness crossed 500 |
+| 1 | Kills | 7.35 | First agent to achieve 1 kills |
+| 1 | Kills | 7.35 | First agent to achieve 5 kills |
+| 6 | Kills | 10.9 | First agent to achieve 10 kills |
+| 28 | Fitness | 1017 | Best fitness crossed 1000 |
 
 ## Training Progress by Decile
 
-| Phase   | Gens  | Best Fit | Avg Fit | Avg Kills | Avg Acc | Avg Steps | Diversity |
-| ------- | ----- | -------- | ------- | --------- | ------- | --------- | --------- |
-| 0-10%   | 1-1   | 292      | 81      | 4.9       | 49%     | 362       | 105       |
-| 10-20%  | 2-2   | 434      | 182     | 8.7       | 58%     | 443       | 130       |
-| 20-30%  | 3-3   | 449      | 248     | 11.9      | 68%     | 535       | 97        |
-| 30-40%  | 4-4   | 530      | 205     | 10.4      | 66%     | 507       | 146       |
-| 40-50%  | 5-5   | 507      | 269     | 13.1      | 69%     | 550       | 130       |
-| 50-60%  | 6-6   | 656      | 285     | 14.2      | 69%     | 551       | 140       |
-| 60-70%  | 7-7   | 522      | 275     | 13.4      | 68%     | 539       | 127       |
-| 70-80%  | 8-8   | 526      | 300     | 16.4      | 72%     | 622       | 140       |
-| 80-90%  | 9-9   | 631      | 337     | 17.3      | 73%     | 647       | 125       |
-| 90-100% | 10-10 | 482      | 305     | 16.4      | 72%     | 619       | 116       |
+| Phase | Gens | Best Fit | Avg Fit | Avg Kills | Avg Acc | Avg Steps | Diversity |
+|-------|------|----------|---------|-----------|---------|-----------|----------|
+| 0-10% | 1-5 | 812 | 369 | 5.0 | 31% | 606 | 191 |
+| 10-20% | 6-10 | 949 | 459 | 6.1 | 34% | 669 | 167 |
+| 20-30% | 11-15 | 894 | 514 | 6.8 | 35% | 705 | 122 |
+| 30-40% | 16-20 | 859 | 508 | 6.7 | 34% | 694 | 138 |
+| 40-50% | 21-25 | 830 | 505 | 6.7 | 34% | 681 | 138 |
+| 50-60% | 26-30 | 1017 | 513 | 6.8 | 35% | 698 | 124 |
+| 60-70% | 31-35 | 868 | 502 | 6.7 | 34% | 680 | 135 |
+| 70-80% | 36-40 | 993 | 534 | 7.1 | 34% | 705 | 139 |
+| 80-90% | 41-45 | 872 | 531 | 7.0 | 35% | 705 | 129 |
+| 90-100% | 46-55 | 967 | 533 | 7.0 | 35% | 709 | 127 |
 
 ## Kill Efficiency Analysis
 
 ### Current Performance (Final Phase)
 
-- **Kills per 100 Steps:** 2.66 (up from 1.36 in Phase 1)
-- **Shots per Kill:** 2.25 (down from 3.09 in Phase 1)
-- **Kill Conversion Rate:** 44.5% (up from 32.4% in Phase 1)
-- **Average Kills per Episode:** 16.4
+- **Kills per 100 Steps:** 0.97 (up from 0.83 in Phase 1)
+- **Shots per Kill:** 6.38 (down from 6.70 in Phase 1)
+- **Kill Conversion Rate:** 15.7% (up from 14.9% in Phase 1)
+- **Average Kills per Episode:** 6.9
 
 ### Efficiency Trend
 
-| Phase   | Kills/100 Steps | Shots/Kill | Conversion Rate |
-| ------- | --------------- | ---------- | --------------- |
-| Phase 1 | 1.69            | 2.78       | 36.0%           |
-| Phase 2 | 2.14            | 2.50       | 40.1%           |
-| Phase 3 | 2.47            | 2.40       | 41.7%           |
-| Phase 4 | 2.56            | 2.30       | 43.6%           |
-| Phase 5 | 2.66            | 2.22       | 45.0%           |
+| Phase | Kills/100 Steps | Shots/Kill | Conversion Rate |
+|-------|-----------------|------------|----------------|
+| Phase 1 | 0.88 | 6.60 | 15.2% |
+| Phase 2 | 0.97 | 6.39 | 15.6% |
+| Phase 3 | 0.98 | 6.28 | 15.9% |
+| Phase 4 | 1.01 | 6.23 | 16.0% |
+| Phase 5 | 0.98 | 6.38 | 15.7% |
 
-**Assessment:** Agent has improved efficiency moderately. Shots per kill dropped 27%.
+**Assessment:** Agent shows slight efficiency improvement. Shots per kill dropped 5%.
 
 ## Learning Velocity
 
 ### Velocity by Phase
 
-| Phase   | Fitness Delta | Delta/Gen | Velocity | Trend          |
-| ------- | ------------- | --------- | -------- | -------------- |
-| Phase 1 | +142          | +70.8     | Fast     |                |
-| Phase 2 | +81           | +40.7     | Fast     | ↓ Slowing      |
-| Phase 3 | +149          | +74.5     | Fast     | ↑ Accelerating |
-| Phase 4 | +5            | +2.4      | Slow     | ↓ Slowing      |
-| Phase 5 | -148          | -74.2     | Stalled  | ↓ Slowing      |
+| Phase | Fitness Delta | Delta/Gen | Velocity | Trend |
+|-------|---------------|-----------|----------|-------|
+| Phase 1 | +304 | +27.6 | Fast |  |
+| Phase 2 | +119 | +10.8 | Moderate | ↓ Slowing |
+| Phase 3 | +90 | +8.2 | Moderate | ↓ Slowing |
+| Phase 4 | -32 | -2.9 | Stalled | ↓ Slowing |
+| Phase 5 | -10 | -0.9 | Stalled | ↑ Accelerating |
 
 ### Current Velocity
 
-- **Recent Improvement Rate:** -74.2 fitness/generation
-- **Acceleration:** -54.8 (learning slowing down)
+- **Recent Improvement Rate:** -0.9 fitness/generation
+- **Acceleration:** -17.8 (learning slowing down)
 - **Projected Generations to +50% Fitness:** N/A (not improving)
 
 ### Velocity Assessment
 
 Learning has stalled. Fitness is no longer improving. Consider:
-
 - Stopping training (may have converged)
 - Restarting with different hyperparameters
 - Reviewing reward structure
 
 ## Reward Component Evolution
 
-| Component               | Phase 1 | Mid    | Final  | Trend     | Status    |
-| ----------------------- | ------- | ------ | ------ | --------- | --------- |
-| DistanceBasedKillReward | +62.9   | +179.9 | +208.4 | ↑↑↑ +231% | Learned   |
-| ConservingAmmoBonus     | +48.3   | +155.3 | +184.2 | ↑↑↑ +281% | Learned   |
-| DeathPenalty            | -149.7  | -146.7 | -146.1 | → +2%     | Improving |
-| ExplorationBonus        | +62.6   | +53.1  | +34.8  | ↓ -44%    | Stable    |
-| VelocitySurvivalBonus   | +56.7   | +43.4  | +23.6  | ↓↓ -58%   | Stable    |
+| Component | Phase 1 | Mid | Final | Trend | Status |
+|-----------|---------|-----|-------|-------|--------|
+| DistanceBasedKillReward | +319.5 | +428.1 | +434.5 | ↑ +36% | Learned |
+| ConservingAmmoBonus | +149.5 | +201.6 | +208.8 | ↑ +40% | Learned |
+| DeathPenalty | -142.6 | -140.1 | -138.3 | → +3% | Improving |
+| ExplorationBonus | +23.3 | +13.4 | +13.9 | ↓ -41% | Stable |
+| VelocitySurvivalBonus | +19.8 | +7.2 | +7.7 | ↓↓ -61% | Stable |
 
-**Exploration Efficiency (Final Phase):** 0.0563 score/step
-
-- _Note: A higher rate indicates faster map traversal, independent of survival time._
+**Exploration Efficiency (Final Phase):** 0.0197 score/step
+- *Note: A higher rate indicates faster map traversal, independent of survival time.*
 
 ## Reward Balance Analysis
 
 ### Warnings
 
-- **DeathPenalty consistently negative** - This component has been negative throughout training, averaging -146.1/episode. The intended behavior may not be incentivized strongly enough, or there may be a conflict with other rewards.
+- **DeathPenalty consistently negative** - This component has been negative throughout training, averaging -138.3/episode. The intended behavior may not be incentivized strongly enough, or there may be a conflict with other rewards.
 
-- **DistanceBasedKillReward is dominant (46%)** - This component accounts for a large portion of positive reward. Consider if this is intentional.
+- **DistanceBasedKillReward dominates reward (65%)** - This single component accounts for most of all positive reward. Other behaviors may be under-incentivized.
 
-- **ConservingAmmoBonus is dominant (41%)** - This component accounts for a large portion of positive reward. Consider if this is intentional.
-
-- **VelocitySurvivalBonus declining** - This component dropped from 56.7 to 23.6. The agent may be trading off this behavior for others.
+- **VelocitySurvivalBonus declining** - This component dropped from 19.8 to 7.7. The agent may be trading off this behavior for others.
 
 ### Confirmations
 
-- **Reward reasonably balanced** - No single component >60%
 - **VelocitySurvivalBonus positive** - Agents are learning to stay alive
+- **Penalty ratio healthy** - Negative rewards are not overwhelming positive
 
 ### Recommendations
 
@@ -384,104 +373,109 @@ Learning has stalled. Fitness is no longer improving. Consider:
 
 ## Population Health Dashboard
 
-### Current Status: 🟢 Healthy
+### Current Status: 🔴 Warning
 
-| Metric            | Value | Trend (Recent) | Status   |
-| ----------------- | ----- | -------------- | -------- |
-| Diversity Index   | 0.50  | → Stable       | 🟢 Good  |
-| Elite Gap         | 1.02  | →              | 🟢 Good  |
-| Min Fitness Trend | +0.0  | ↓              | 🟢 Good  |
-| Max Fitness Trend | +0.0  | ↓              | 🟡 Watch |
-| IQR (p75-p25)     | 188   | ↑ 0            | 🟢       |
+| Metric | Value | Trend (Recent) | Status |
+|--------|-------|----------------|--------|
+| Diversity Index | 0.24 | ↓ Decreasing | 🟡 Watch |
+| Elite Gap | 0.50 | → | 🟢 Good |
+| Min Fitness Trend | +246.6 | ↑ | 🟢 Good |
+| Max Fitness Trend | +48.0 | ↑ | 🟢 Good |
+| IQR (p75-p25) | 167 | ↓ 90 | 🟢 |
+
+### Warnings
+
+- ⚠️ High stagnation (27 gens) - population stuck
 
 ## Stagnation Analysis
 
-- **Current Stagnation:** 4 generations
-- **Average Stagnation Period:** 2.5 generations
-- **Longest Stagnation:** 4 generations
-- **Number of Stagnation Periods:** 2
+- **Current Stagnation:** 27 generations
+- **Average Stagnation Period:** 16.7 generations
+- **Longest Stagnation:** 27 generations
+- **Number of Stagnation Periods:** 3
 
 ## Generalization Analysis (Fresh Game)
 
 ### Recent Fresh Game Performance
 
-| Gen | Training Fit | Fresh Fit | Accuracy | Ratio | Grade | Cause of Death     |
-| --- | ------------ | --------- | -------- | ----- | ----- | ------------------ |
-| 1   | 292          | 101       | 16.1%    | 0.35  | D     | asteroid_collision |
-| 2   | 434          | 456       | 24.0%    | 1.05  | A     | completed_episode  |
-| 3   | 449          | -42       | 9.5%     | -0.09 | F     | asteroid_collision |
-| 4   | 530          | 62        | 12.8%    | 0.12  | F     | asteroid_collision |
-| 5   | 507          | 75        | 16.0%    | 0.15  | F     | asteroid_collision |
-| 6   | 656          | 94        | 18.7%    | 0.14  | F     | asteroid_collision |
-| 7   | 522          | -45       | 9.7%     | -0.09 | F     | asteroid_collision |
-| 8   | 526          | 320       | 17.0%    | 0.61  | C     | completed_episode  |
-| 9   | 631          | -199      | 5.9%     | -0.32 | F     | asteroid_collision |
+| Gen | Training Fit | Fresh Fit | Accuracy | Ratio | Grade | Cause of Death |
+|-----|--------------|-----------|----------|-------|-------|----------------|
+| 45 | 755 | 995 | 13.4% | 1.32 | A | asteroid_collision |
+| 46 | 713 | 1161 | 18.2% | 1.63 | A | asteroid_collision |
+| 47 | 890 | 185 | 10.7% | 0.21 | F | asteroid_collision |
+| 48 | 747 | 193 | 11.1% | 0.26 | F | asteroid_collision |
+| 49 | 733 | 319 | 9.3% | 0.44 | D | asteroid_collision |
+| 50 | 869 | 888 | 12.3% | 1.02 | A | asteroid_collision |
+| 51 | 717 | 236 | 12.0% | 0.33 | D | asteroid_collision |
+| 52 | 967 | 49 | 8.7% | 0.05 | F | asteroid_collision |
+| 53 | 807 | 84 | 5.7% | 0.10 | F | asteroid_collision |
+| 54 | 821 | 967 | 22.4% | 1.18 | A | asteroid_collision |
 
 ### Generalization Summary
 
-- **Average Fitness Ratio:** 0.40
-- **Best Ratio:** 1.05
-- **Worst Ratio:** 0.12
+- **Average Fitness Ratio:** 0.85
+- **Best Ratio:** 2.18
+- **Worst Ratio:** 0.00
 
-**Grade Distribution:** A:1 C:1 D:1 F:6
+**Grade Distribution:** A:20 B:4 C:4 D:5 F:21 
 
 ## Correlation Analysis
 
 ### Fitness Correlations
 
-| Metric         | Correlation | Strength |
-| -------------- | ----------- | -------- |
-| Kills          | +0.98       | Strong   |
-| Steps Survived | +0.97       | Strong   |
-| Accuracy       | +0.89       | Strong   |
+| Metric | Correlation | Strength |
+|--------|-------------|----------|
+| Kills | +0.99 | Strong |
+| Steps Survived | +0.97 | Strong |
+| Accuracy | +0.93 | Strong |
 
 ### Interpretation
 
-Fitness is most strongly predicted by kills (r=0.98).
+Fitness is most strongly predicted by kills (r=0.99).
 
 ## Survival Distribution
 
 ### Survival Statistics (Final Phase)
 
-- **Mean Survival:** 619 steps (41.3% of max)
-- **Max Survival:** 814 steps
+- **Mean Survival:** 705 steps (47.0% of max)
+- **Max Survival:** 934 steps
 
 ### Survival Progression
 
-| Phase   | Mean Steps | Change |
-| ------- | ---------- | ------ |
-| Phase 1 | 402        |        |
-| Phase 2 | 521        | +118   |
-| Phase 3 | 551        | +30    |
-| Phase 4 | 581        | +30    |
-| Phase 5 | 633        | +52    |
+| Phase | Mean Steps | Change |
+|-------|------------|--------|
+| Phase 1 | 644 |  |
+| Phase 2 | 694 | +50 |
+| Phase 3 | 687 | -7 |
+| Phase 4 | 705 | +18 |
+| Phase 5 | 707 | +2 |
 
 ## Behavioral Summary (Last 10 Generations)
 
-- **Avg Kills per Agent:** 12.66
-- **Avg Steps Survived:** 537
-- **Avg Accuracy:** 66.2%
-- **Max Kills (Any Agent Ever):** 28.05
-- **Max Steps (Any Agent Ever):** 873.7
+- **Avg Kills per Agent:** 6.95
+- **Avg Steps Survived:** 709
+- **Avg Accuracy:** 34.6%
+- **Max Kills (Any Agent Ever):** 11.65
+- **Max Steps (Any Agent Ever):** 1042.5
 
 ## Learning Progress
 
-**Comparing First 1 vs Last 1 Generations:**
+**Comparing First 5 vs Last 5 Generations:**
 
-| Metric       | Early | Late  | Change  |
-| ------------ | ----- | ----- | ------- |
-| Best Fitness | 292.4 | 482.4 | +65.0%  |
-| Avg Fitness  | 80.8  | 305.0 | +277.3% |
+| Metric | Early | Late | Change |
+|--------|-------|------|--------|
+| Best Fitness | 739.7 | 811.6 | +9.7% |
+| Avg Fitness | 369.4 | 526.6 | +42.5% |
 
-**Verdict:** Strong learning - both best and average fitness improved significantly.
+**Verdict:** Moderate learning - some improvement but room for more training.
 
 ## Convergence Analysis
 
 **Recent 20 Generations Analysis:**
 
-- Average Standard Deviation: 125.58
-- Average Range (Best-Min): 472.70
-- Diversity Change: +0.0%
+- Average Standard Deviation: 130.37
+- Average Range (Best-Min): 519.80
+- Diversity Change: -29.0%
 - **Status:** Population is converging (low diversity)
 
 ## Behavioral Trends
@@ -489,116 +483,140 @@ Fitness is most strongly predicted by kills (r=0.98).
 ### Performance Metrics by Quarter
 
 | Period | Avg Kills | Avg Steps | Avg Accuracy | Safe Dist | Max Kills |
-| ------ | --------- | --------- | ------------ | --------- | --------- |
-| Q1     | 6.79      | 402       | 53.2%        | 0.0px     | 18.95     |
-| Q2     | 11.14     | 521       | 67.1%        | 0.0px     | 24.9      |
-| Q3     | 13.63     | 551       | 68.6%        | 0.0px     | 28.05     |
-| Q4     | 15.87     | 607       | 71.1%        | 0.0px     | 27.9      |
+|--------|-----------|-----------|--------------|-----------|----------|
+| Q1 | 5.80 | 652 | 33.0% | 169.2px | 10.9 |
+| Q2 | 6.76 | 692 | 34.5% | 164.5px | 10.2 |
+| Q3 | 6.84 | 693 | 34.0% | 165.4px | 11.65 |
+| Q4 | 7.00 | 708 | 34.6% | 163.8px | 11.15 |
 
 ### Action Distribution & Strategy Evolution
 
 Analysis of how the population's physical behavior has changed over time.
 
 | Period | Thrust % | Turn % | Shoot % | Dominant Strategy |
-| ------ | -------- | ------ | ------- | ----------------- |
-| Q1     | 40.4%    | 72.4%  | 61.0%   | **Dogfighter**    |
-| Q2     | 23.9%    | 76.4%  | 73.8%   | **Dogfighter**    |
-| Q3     | 22.9%    | 69.0%  | 89.5%   | **Dogfighter**    |
-| Q4     | 12.7%    | 57.0%  | 88.6%   | **Dogfighter**    |
+|--------|----------|--------|---------|-------------------|
+| Q1 | 8.2% | 78.5% | 87.8% | **Spinner** |
+| Q2 | 3.6% | 70.7% | 95.4% | **Spinner** |
+| Q3 | 3.4% | 49.8% | 96.5% | **Spinner** |
+| Q4 | 2.8% | 65.7% | 98.9% | **Spinner** |
 
 ### Input Control Style
 
 | Period | Thrust Dur | Turn Dur | Shoot Dur | Idle Rate | Wraps |
-| ------ | ---------- | -------- | --------- | --------- | ----- |
-| Q1     | 0.0f       | 0.0f     | 0.0f      | 0.0%      | 0.0   |
-| Q2     | 0.0f       | 0.0f     | 0.0f      | 0.0%      | 0.0   |
-| Q3     | 0.0f       | 0.0f     | 0.0f      | 0.0%      | 0.0   |
-| Q4     | 0.0f       | 0.0f     | 0.0f      | 0.0%      | 0.0   |
+|--------|------------|----------|-----------|-----------|-------|
+| Q1 | 0.0f | 0.0f | 0.0f | 2.8% | 0.5 |
+| Q2 | 0.0f | 0.0f | 0.0f | 1.1% | 0.2 |
+| Q3 | 0.0f | 0.0f | 0.0f | 0.7% | 0.1 |
+| Q4 | 0.0f | 0.0f | 0.0f | 0.2% | 0.1 |
 
 ### Intra-Episode Score Breakdown
 
 Analysis of when agents earn their reward during an episode (Early vs Late game).
 
-| Quarter            | Avg Score | Share of Total | Play Style |
-| ------------------ | --------- | -------------- | ---------- |
-| Start (0-25%)      | 19.0      | 6.2%           | Balanced   |
-| Mid-Game (25-50%)  | 111.6     | 36.6%          | Balanced   |
-| Late-Game (50-75%) | 152.2     | 49.9%          | Balanced   |
-| End-Game (75-100%) | 22.2      | 7.3%           | Balanced   |
+| Quarter | Avg Score | Share of Total | Play Style |
+|---------|-----------|----------------|------------|
+| Start (0-25%) | 59.4 | 11.1% | Balanced |
+| Mid-Game (25-50%) | 157.4 | 29.4% | Balanced |
+| Late-Game (50-75%) | 211.1 | 39.4% | Balanced |
+| End-Game (75-100%) | 107.1 | 20.0% | Balanced |
 
 ## Recent Generations (Last 30)
 
 <details>
 <summary>Click to expand Recent Generations table</summary>
 
-| Gen | Best | Avg | StdDev | Kills | Steps | Acc% | Stag |
-| --- | ---- | --- | ------ | ----- | ----- | ---- | ---- |
-| 1   | 292  | 81  | 105    | 4.9   | 362   | 49   | 0    |
-| 2   | 434  | 182 | 130    | 8.7   | 443   | 58   | 0    |
-| 3   | 449  | 248 | 97     | 11.9  | 535   | 68   | 0    |
-| 4   | 530  | 205 | 146    | 10.4  | 507   | 66   | 0    |
-| 5   | 507  | 269 | 130    | 13.1  | 550   | 69   | 1    |
-| 6   | 656  | 285 | 140    | 14.2  | 551   | 69   | 0    |
-| 7   | 522  | 275 | 127    | 13.4  | 539   | 68   | 1    |
-| 8   | 526  | 300 | 140    | 16.4  | 622   | 72   | 2    |
-| 9   | 631  | 337 | 125    | 17.3  | 647   | 73   | 3    |
-| 10  | 482  | 305 | 116    | 16.4  | 619   | 72   | 4    |
+| Gen   | Best   | Avg    | StdDev | Kills  | Steps  | Acc%   | Stag   |
+|-------|--------|--------|--------|--------|--------|--------|--------|
+| 26    | 688    | 517    | 81     | 6.9    | 692    | 36     | 20     |
+| 27    | 855    | 526    | 141    | 6.9    | 712    | 35     | 21     |
+| 28    | 1017   | 499    | 169    | 6.6    | 683    | 35     | 0      |
+| 29    | 734    | 499    | 111    | 6.7    | 700    | 34     | 1      |
+| 30    | 861    | 526    | 120    | 6.9    | 705    | 34     | 2      |
+| 31    | 818    | 493    | 133    | 6.5    | 682    | 35     | 3      |
+| 32    | 868    | 476    | 132    | 6.5    | 658    | 33     | 4      |
+| 33    | 840    | 490    | 143    | 6.6    | 663    | 34     | 5      |
+| 34    | 810    | 528    | 123    | 7.1    | 695    | 33     | 6      |
+| 35    | 799    | 524    | 144    | 7.0    | 701    | 34     | 7      |
+| 36    | 993    | 540    | 169    | 7.1    | 719    | 34     | 8      |
+| 37    | 763    | 495    | 134    | 6.7    | 674    | 34     | 9      |
+| 38    | 859    | 556    | 130    | 7.4    | 713    | 34     | 10     |
+| 39    | 817    | 522    | 138    | 7.0    | 700    | 34     | 11     |
+| 40    | 765    | 560    | 122    | 7.3    | 721    | 34     | 12     |
+| 41    | 703    | 522    | 115    | 7.0    | 692    | 34     | 13     |
+| 42    | 758    | 519    | 122    | 6.9    | 697    | 34     | 14     |
+| 43    | 872    | 586    | 150    | 7.5    | 739    | 36     | 15     |
+| 44    | 778    | 527    | 124    | 7.0    | 703    | 35     | 16     |
+| 45    | 755    | 502    | 135    | 6.7    | 694    | 34     | 17     |
+| 46    | 713    | 508    | 131    | 6.8    | 685    | 34     | 18     |
+| 47    | 890    | 564    | 142    | 7.2    | 722    | 35     | 19     |
+| 48    | 747    | 557    | 136    | 7.2    | 727    | 35     | 20     |
+| 49    | 733    | 506    | 103    | 6.7    | 697    | 34     | 21     |
+| 50    | 869    | 564    | 128    | 7.2    | 728    | 35     | 22     |
+| 51    | 717    | 523    | 104    | 6.8    | 709    | 35     | 23     |
+| 52    | 967    | 549    | 160    | 7.0    | 714    | 35     | 24     |
+| 53    | 807    | 512    | 132    | 6.8    | 699    | 34     | 25     |
+| 54    | 821    | 514    | 120    | 6.8    | 696    | 35     | 26     |
+| 55    | 745    | 535    | 111    | 7.0    | 708    | 35     | 27     |
 
 </details>
+
 
 ## Top 10 Best Generations
 
 <details>
 <summary>Click to expand Top 10 Best Generations table</summary>
 
-| Rank | Gen | Best | Avg | Kills | Steps | Accuracy |
-| ---- | --- | ---- | --- | ----- | ----- | -------- |
-| 1    | 6   | 656  | 285 | 28.1  | 862   | 84.9     |
-| 2    | 9   | 631  | 337 | 27.9  | 874   | 81.4     |
-| 3    | 4   | 530  | 205 | 22.3  | 749   | 80.1     |
-| 4    | 8   | 526  | 300 | 26.0  | 812   | 81.2     |
-| 5    | 7   | 522  | 275 | 22.2  | 715   | 80.3     |
-| 6    | 5   | 507  | 269 | 20.6  | 768   | 85.5     |
-| 7    | 10  | 482  | 305 | 25.8  | 814   | 79.6     |
-| 8    | 3   | 449  | 248 | 19.1  | 772   | 82.2     |
-| 9    | 2   | 434  | 182 | 18.9  | 758   | 75.6     |
-| 10   | 1   | 292  | 81  | 13.1  | 528   | 74.2     |
+| Rank | Gen   | Best   | Avg    | Kills  | Steps  | Accuracy |
+|------|-------|--------|--------|--------|--------|----------|
+| 1    | 28    | 1017   | 499    | 11.4   | 900    | 40.5     |
+| 2    | 36    | 993    | 540    | 11.7   | 1018   | 41.1     |
+| 3    | 52    | 967    | 549    | 11.2   | 887    | 41.7     |
+| 4    | 6     | 949    | 455    | 10.9   | 1042   | 41.6     |
+| 5    | 11    | 894    | 511    | 10.6   | 911    | 41.9     |
+| 6    | 47    | 890    | 564    | 10.2   | 886    | 40.8     |
+| 7    | 43    | 872    | 586    | 10.3   | 918    | 37.4     |
+| 8    | 50    | 869    | 564    | 10.2   | 868    | 38.6     |
+| 9    | 32    | 868    | 476    | 10.7   | 855    | 34.7     |
+| 10   | 30    | 861    | 526    | 10.3   | 901    | 38.2     |
 
 </details>
+
 
 ## Trend Analysis
 
 | Period | Avg Best | Avg Mean | Avg Min | Improvement |
-| ------ | -------- | -------- | ------- | ----------- |
-| Q1     | 363.2    | 131.5    | -47.2   |             |
-| Q2     | 489.3    | 226.5    | 38.9    | +126.1      |
-| Q3     | 581.9    | 276.9    | 44.2    | +92.6       |
-| Q4     | 540.3    | 304.2    | 57.9    | -41.6       |
+|--------|----------|----------|---------|-------------|
+| Q1 | 761.9 | 433.9 | 94.1 |  |
+| Q2 | 775.8 | 511.4 | 257.9 | +13.9 |
+| Q3 | 848.8 | 513.4 | 266.2 | +73.0 |
+| Q4 | 790.1 | 534.2 | 289.9 | -58.7 |
+
 
 ## Fitness Progression (ASCII Chart)
 
 ```
 Best Fitness (*) vs Avg Fitness (o) Over Generations
 
-     656 |     *
-     613 |        *
-     569 |
-     525 |   *   *
-     481 |    * *  *
-     438 |  *
-     394 | *
-     350 |
-     306 |        o
-     263 |*   oooo o
-     219 |  o
-     175 | o o
-     131 |
-      88 |
-      44 |o
-       0 |
-         ----------
-         Gen 1Gen 10
+    1017 |                           *                           
+     949 |                                   *               *   
+     881 |     *    *                                   *        
+     814 |               * *   * *  *  ****    **   *      *   * 
+     746 | ***     *  * *   **  * *        ** *  * * **  *    *  
+     678 |    * ***  * *  *   *    *  *           *    *  * *   *
+     610 |                                                       
+     542 |*                o                   o o  o   oo o o   
+     475 |    o  o oo ooooo  o oooooooooooooooo o oo ooo  o o ooo
+     407 |  oo o  o  o      o o                                  
+     339 |      o                                                
+     271 | o                                                     
+     203 |                                                       
+     136 |o                                                      
+      68 |                                                       
+       0 |                                                       
+         -------------------------------------------------------
+         Gen 1                                        Gen 55
 ```
+
 
 ---
 
@@ -607,27 +625,27 @@ Best Fitness (*) vs Avg Fitness (o) Over Generations
 ## System Performance
 
 **Average Duration (Last 10 Generations):** 0.00s
-
-- **Evaluation (Simulation):** 58.41s (0.0%)
-- **Evolution (GA Operators):** 0.0089s (0.0%)
+- **Evaluation (Simulation):** 70.93s (0.0%)
+- **Evolution (GA Operators):** 0.0150s (0.0%)
 
 | Gen Range | Avg Eval Time | Avg Evol Time | Total Time |
-| --------- | ------------- | ------------- | ---------- |
-| 1-1       | 32.75s        | 0.0000s       | 0.00s      |
-| 2-2       | 44.59s        | 0.0071s       | 0.00s      |
-| 3-3       | 56.88s        | 0.0069s       | 0.00s      |
-| 4-4       | 56.18s        | 0.0111s       | 0.00s      |
-| 5-5       | 62.59s        | 0.0090s       | 0.00s      |
-| 6-6       | 61.11s        | 0.0163s       | 0.00s      |
-| 7-7       | 58.73s        | 0.0107s       | 0.00s      |
-| 8-8       | 68.58s        | 0.0105s       | 0.00s      |
-| 9-9       | 73.91s        | 0.0085s       | 0.00s      |
-| 10-10     | 68.81s        | 0.0090s       | 0.00s      |
+|-----------|---------------|---------------|------------|
+| 1-5 | 57.46s | 0.0075s | 0.00s |
+| 6-10 | 65.28s | 0.0114s | 0.00s |
+| 11-15 | 70.10s | 0.0128s | 0.00s |
+| 16-20 | 69.25s | 0.0156s | 0.00s |
+| 21-25 | 67.16s | 0.0165s | 0.00s |
+| 26-30 | 68.71s | 0.0119s | 0.00s |
+| 31-35 | 68.58s | 0.0132s | 0.00s |
+| 36-40 | 70.12s | 0.0128s | 0.00s |
+| 41-45 | 70.09s | 0.0140s | 0.00s |
+| 46-50 | 71.10s | 0.0140s | 0.00s |
+| 51-55 | 70.76s | 0.0160s | 0.00s |
 
 ## Genetic Operator Statistics
 
 **Recent Averages (Population: 25)**
+- **Crossovers:** 9.1 (36.4%)
+- **Mutations:** 25.0 (100.0%)
+- **Elites Preserved:** 2.0
 
-- **Crossovers:** 8.7 (34.8%)
-- **Mutations:** 22.5 (90.0%)
-- **Elites Preserved:** 1.8

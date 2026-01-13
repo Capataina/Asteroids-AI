@@ -126,8 +126,9 @@ From `training/config/genetic_algorithm.py:GAConfig`:
 
 ## Notes / Design Considerations
 
-- The action space is currently boolean-thresholded; “continuous” mode exists in `ActionInterface` but behaves identically to boolean thresholding.
-- The windowed game’s internal reward calculator differs from the training reward preset; training fitness should be interpreted using `training/config/rewards.py`.
+- The action space is currently boolean-thresholded; "continuous" mode exists in `ActionInterface` but behaves identically to boolean thresholding.
+- The windowed game's internal reward calculator differs from the training reward preset; training fitness should be interpreted using `training/config/rewards.py`.
+- **Training data before the headless bullet-lifetime fix is invalid**: A bug caused bullets to never expire in headless mode, inflating training accuracy (70-80%) vs real gameplay (10-20%). Agents learned to exploit "zombie bullets" that wrap infinitely. Previous training runs should be discarded and rerun with the fixed headless game.
 
 ## Discarded / Obsolete / No Longer Relevant
 

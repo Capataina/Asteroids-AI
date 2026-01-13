@@ -65,7 +65,8 @@ Asteroids AI\
 │  ├─ GENETIC_ALGORITHM.md
 │  ├─ ANALYTICS.md
 │  ├─ EVOLUTION_STRATEGIES.md
-│  └─ NEAT.md
+│  ├─ NEAT.md
+│  └─ SHARED_COMPONENTS.md               # Novelty/diversity systems for all methods
 ├─ training_data.json                    # Training metrics export (generated)
 └─ training_summary.md                   # Training report (generated)
 ```
@@ -79,6 +80,7 @@ Asteroids AI\
 | **Agents** (`ai_agents/`)             | Defines the `BaseAgent` contract and provides a GA-used neural policy wrapper (`NNAgent`).                                  |
 | **Training** (`training/`)            | Orchestrates GA evolution, parallel rollouts, best-agent playback, and analytics recording.                                 |
 | **Analytics** (`training/analytics/`) | Stores metrics, computes summaries, and outputs reports/exports.                                                            |
+| **Shared Components** (planned)       | Behavior novelty and reward diversity systems shared across all optimization methods to encourage human-like play patterns. |
 
 ### Dependency Direction & Data Flow (Implemented)
 

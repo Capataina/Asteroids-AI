@@ -73,7 +73,11 @@ Key constants live in `game/globals.py` (selected examples):
 ## In Progress / Partially Implemented
 
 - [ ] Deterministic parity (windowed vs. headless RNG): Headless rollouts can be seeded via an isolated RNG; the windowed game uses global `random` without explicit seeding.
-- [ ] True frame-rate independence: Entity motion is currently “per update step” rather than scaled by `delta_time`; training and playback rely on fixed stepping for consistency.
+- [ ] True frame-rate independence: Entity motion is currently "per update step" rather than scaled by `delta_time`; training and playback rely on fixed stepping for consistency.
+
+## Recently Fixed
+
+- [x] **Bullet/asteroid lifetime expiration in headless mode**: `Bullet.update()` and `Asteroid.update()` call `remove_from_sprite_lists()` when lifetime expires, but this arcade method does nothing for plain Python lists used in headless mode. Bullets and asteroids would never expire, wrapping around the screen indefinitely. This caused agents to exploit "zombie bullets" that don't exist in windowed mode, inflating training accuracy (70-80%) vs fresh game accuracy (10-20%). Fixed by adding explicit lifetime filtering in `HeadlessAsteroidsGame.on_update()`.
 
 ## Planned / Missing / To Be Changed
 

@@ -13,6 +13,8 @@ from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from training.config.rewards import create_reward_calculator
 from training.config.genetic_algorithm import GAConfig
+from training.components.novelty import compute_behavior_vector
+from training.components.diversity import compute_reward_diversity
 
 
 def evaluate_single_agent(
@@ -307,15 +309,53 @@ def evaluate_population_parallel(
 
         # Also average the behavioral metrics for this agent
         avg_kills = sum(r['kills'] for r in results) / len(results)
+        avg_steps = sum(r['steps_survived'] for r in results) / len(results)
+        avg_idle_rate = sum(r.get('idle_rate', 0.0) for r in results) / len(results)
+        avg_asteroid_dist = sum(r.get('avg_asteroid_dist', 0.0) for r in results) / len(results)
+        avg_screen_wraps = sum(r.get('screen_wraps', 0) for r in results) / len(results)
+        avg_thrust = sum(r.get('thrust_frames', 0) for r in results) / len(results)
+        avg_turn = sum(r.get('turn_frames', 0) for r in results) / len(results)
+        avg_shoot = sum(r.get('shoot_frames', 0) for r in results) / len(results)
+        avg_accuracy = sum(r['accuracy'] for r in results) / len(results)
+
+        # Average reward breakdown for this agent
+        agent_reward_breakdown = {}
+        for r in results:
+            for comp, val in r['reward_breakdown'].items():
+                if comp not in agent_reward_breakdown:
+                    agent_reward_breakdown[comp] = 0.0
+                agent_reward_breakdown[comp] += val / len(results)
+
+        # Compute behavior vector for novelty calculation
+        agent_metrics_for_behavior = {
+            'thrust_frames': avg_thrust,
+            'turn_frames': avg_turn,
+            'shoot_frames': avg_shoot,
+            'accuracy': avg_accuracy,
+            'idle_rate': avg_idle_rate,
+            'avg_asteroid_dist': avg_asteroid_dist,
+            'screen_wraps': avg_screen_wraps,
+        }
+        behavior_vector = compute_behavior_vector(agent_metrics_for_behavior, avg_steps)
+
+        # Compute reward diversity score
+        reward_diversity = compute_reward_diversity(agent_reward_breakdown)
+
         averaged_results.append({
             'fitness': avg_fitness,
-            'steps_survived': sum(r['steps_survived'] for r in results) / len(results),
+            'steps_survived': avg_steps,
             'kills': avg_kills,
             'shots_fired': sum(r['shots_fired'] for r in results) / len(results),
-            'accuracy': sum(r['accuracy'] for r in results) / len(results),
-            'thrust_frames': sum(r.get('thrust_frames', 0) for r in results) / len(results),
-            'turn_frames': sum(r.get('turn_frames', 0) for r in results) / len(results),
-            'shoot_frames': sum(r.get('shoot_frames', 0) for r in results) / len(results),
+            'accuracy': avg_accuracy,
+            'thrust_frames': avg_thrust,
+            'turn_frames': avg_turn,
+            'shoot_frames': avg_shoot,
+            'idle_rate': avg_idle_rate,
+            'avg_asteroid_dist': avg_asteroid_dist,
+            'screen_wraps': avg_screen_wraps,
+            'reward_breakdown': agent_reward_breakdown,
+            'behavior_vector': behavior_vector,
+            'reward_diversity': reward_diversity,
         })
 
         # Aggregate reward breakdown

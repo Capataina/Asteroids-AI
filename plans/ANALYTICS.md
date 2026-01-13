@@ -78,6 +78,25 @@ Stored in `AnalyticsData.distributions_data[generation]`:
 
 ## Planned / Missing / To Be Changed
 
+- [ ] **Centralized Analytics Configuration**:
+  - Create `training/config/analytics.py` to control report generation.
+  - Configurable options:
+    - Enabled/disabled report sections (e.g., `ENABLE_HEATMAPS`, `ENABLE_DISTRIBUTIONS`).
+    - Sliding window sizes (e.g., `RECENT_GENERATIONS_WINDOW = 10`).
+    - Chart widths and formatting options.
+  - Allows easy toggling of expensive analysis or adjusting detail levels for different benchmark runs.
+- [ ] **Distribution Visualization (Mean ± StdDev)**:
+  - Add ASCII charts for key metrics (Accuracy, Kills, Lifespan) showing the Mean ± 1 Standard Deviation over the last 10 generations.
+  - Visualize population consistency (narrow bands) vs. chaos (wide bands) to identify convergence or instability.
+- [ ] **Risk vs. Reward Profiling**:
+  - Implement "Minimum Proximity" metric (closest an asteroid ever got to the player).
+  - Correlate with fitness to distinguish "Snipers" (high fitness, low risk) from "Daredevils" (high fitness, high risk).
+- [ ] **Neural Network Health (Saturation)**:
+  - Track "Output Saturation": percentage of time neurons are stuck at hard limits (>0.9 or <0.1) vs. active ranges.
+  - Identify "bang-bang" binary control behavior vs. smooth analog control.
+- [ ] **Action Entropy (Behavioral Complexity)**:
+  - Calculate Shannon entropy of input sequences.
+  - Distinguish between simplistic repetition (low entropy), random button mashing (high entropy), and complex intentional control (balanced entropy).
 - [ ] Reaction-time metrics: Record delay between a threat entering a danger zone and the agent producing a corrective action.
 - [ ] Feature-importance tooling: Attribute fitness/behavior outcomes to parts of the state vector (currently `VectorEncoder`).
 - [ ] Lineage/ancestry graphs: Track parentage across generations to visualize genetic drift and “founder effects”.
@@ -92,4 +111,3 @@ Stored in `AnalyticsData.distributions_data[generation]`:
 ## Discarded / Obsolete / No Longer Relevant
 
 - No analytics features have been formally removed; items not currently implemented should live under "Planned / Missing / To Be Changed".
-

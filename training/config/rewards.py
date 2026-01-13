@@ -23,10 +23,20 @@ from game import globals
 
 REWARD_PRESETS = {
     "default": [
-        (VelocitySurvivalBonus, {"reward_multiplier": 3.0, "max_velocity_cap": 15.0}),
-        (DistanceBasedKillReward, {"max_reward_per_kill": 15.0, "min_distance": 50.0, "max_distance": 400.0}),
-        (ConservingAmmoBonus, {"hit_bonus": 12.0, "shot_penalty": -5.0}),
-        (ExplorationBonus, {"screen_width": globals.SCREEN_WIDTH, "screen_height": globals.SCREEN_HEIGHT, "grid_rows": 3, "grid_cols": 4, "bonus_per_cell": 10.0}),
+        # Survival - reduced slightly to balance with kills
+        (VelocitySurvivalBonus, {"reward_multiplier": 2.0, "max_velocity_cap": 15.0}),
+
+        # Kills - significantly increased now that bullets properly expire
+        # Close-range kills worth more than long-range
+        (DistanceBasedKillReward, {"max_reward_per_kill": 75.0, "min_distance": 50.0, "max_distance": 400.0}),
+
+        # Accuracy - higher hit bonus to encourage aimed shots
+        (ConservingAmmoBonus, {"hit_bonus": 20.0, "shot_penalty": -3.0}),
+
+        # Exploration - reduced slightly to balance with kills
+        (ExplorationBonus, {"screen_width": globals.SCREEN_WIDTH, "screen_height": globals.SCREEN_HEIGHT, "grid_rows": 3, "grid_cols": 4, "bonus_per_cell": 6.0}),
+
+        # Death penalty - keeps agents from being too reckless
         (DeathPenalty, {"penalty": -150.0}),
     ]
 }

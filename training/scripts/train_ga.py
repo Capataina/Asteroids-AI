@@ -82,6 +82,7 @@ class GATrainingScript:
         self.best_individual = None
         self.phase = "evaluating"
         self.current_fitnesses = []
+        self.current_per_agent_metrics = []
         
         # Hook draw
         original_draw = self.game.on_draw
@@ -128,6 +129,7 @@ class GATrainingScript:
                     seeds_per_agent=GAConfig.SEEDS_PER_AGENT
                 )
                 self.current_fitnesses = fitnesses
+                self.current_per_agent_metrics = per_agent_metrics
                 
                 # Update best
                 best_idx = fitnesses.index(max(fitnesses))
@@ -186,7 +188,7 @@ class GATrainingScript:
                 if self.analytics.generations_data:
                     stagnation = self.analytics.generations_data[-1].get('generations_since_improvement', 0)
                 
-                self.driver.evolve(self.current_fitnesses, self.best_individual, stagnation)
+                self.driver.evolve(self.current_fitnesses, self.best_individual, stagnation, self.current_per_agent_metrics)
                 self.current_generation += 1
                 self.phase = "evaluating"
                 return
