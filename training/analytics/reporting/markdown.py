@@ -7,6 +7,7 @@ Orchestrates the generation of comprehensive markdown training reports.
 from datetime import datetime
 from typing import Dict, Any
 
+from training.config.analytics import AnalyticsConfig
 from training.analytics.collection.models import AnalyticsData
 from training.analytics.reporting.sections.sparklines import write_sparklines
 from training.analytics.reporting.sections.summary import (
@@ -36,6 +37,9 @@ from training.analytics.reporting.sections.performance import write_computationa
 from training.analytics.reporting.sections.milestones import write_milestone_timeline
 from training.analytics.reporting.sections.toc import write_table_of_contents
 from training.analytics.reporting.sections.heatmaps import write_heatmaps
+from training.analytics.reporting.sections.distribution import write_distribution_charts
+from training.analytics.reporting.sections.neural import write_neural_analysis
+from training.analytics.reporting.sections.risk import write_risk_analysis
 
 
 class MarkdownReporter:
@@ -71,8 +75,9 @@ class MarkdownReporter:
             write_table_of_contents(f, has_behavior, has_fresh_game)
 
             # Quick Trend Overview (Sparklines)
-            f.write("## Quick Trend Overview\n\n")
-            write_sparklines(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_QUICK_TRENDS:
+                f.write("## Quick Trend Overview\n\n")
+                write_sparklines(f, self.data.generations_data)
 
             # Training Configuration
             write_config(f, self.data.config)
@@ -81,95 +86,122 @@ class MarkdownReporter:
             write_overall_summary(f, summary, has_fresh_game)
             
             # Best Agent Deep Profile
-            write_best_agent_profile(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_BEST_AGENT_PROFILE:
+                write_best_agent_profile(f, self.data.generations_data)
             
             # Heatmaps (New)
-            write_heatmaps(f, self.data.generations_data, globals.SCREEN_WIDTH, globals.SCREEN_HEIGHT)
+            if AnalyticsConfig.ENABLE_HEATMAPS:
+                write_heatmaps(f, self.data.generations_data, globals.SCREEN_WIDTH, globals.SCREEN_HEIGHT)
 
             # Generation Highlights
-            f.write("## Generation Highlights\n\n")
-            write_generation_highlights(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_GENERATION_HIGHLIGHTS:
+                f.write("## Generation Highlights\n\n")
+                write_generation_highlights(f, self.data.generations_data)
             
             # Milestone Timeline
             write_milestone_timeline(f, self.data.generations_data)
 
             # Training Progress by Decile
-            f.write("## Training Progress by Decile\n\n")
-            write_decile_breakdown(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_PROGRESS_DECILES:
+                f.write("## Training Progress by Decile\n\n")
+                write_decile_breakdown(f, self.data.generations_data)
+
+            # Distribution Charts (New)
+            if AnalyticsConfig.ENABLE_DISTRIBUTIONS:
+                write_distribution_charts(f, self.data.generations_data)
 
             # Kill Efficiency Analysis
-            f.write("## Kill Efficiency Analysis\n\n")
-            write_kill_efficiency(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_KILL_EFFICIENCY:
+                f.write("## Kill Efficiency Analysis\n\n")
+                write_kill_efficiency(f, self.data.generations_data)
 
             # Learning Velocity
-            f.write("## Learning Velocity\n\n")
-            write_learning_velocity(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_LEARNING_VELOCITY:
+                f.write("## Learning Velocity\n\n")
+                write_learning_velocity(f, self.data.generations_data)
 
             # Reward Component Evolution
-            f.write("## Reward Component Evolution\n\n")
-            write_reward_evolution(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_REWARD_EVOLUTION:
+                f.write("## Reward Component Evolution\n\n")
+                write_reward_evolution(f, self.data.generations_data)
 
             # Reward Balance Warnings
             f.write("## Reward Balance Analysis\n\n")
             write_reward_warnings(f, self.data.generations_data)
 
             # Population Health Dashboard
-            f.write("## Population Health Dashboard\n\n")
-            write_population_health(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_POPULATION_HEALTH:
+                f.write("## Population Health Dashboard\n\n")
+                write_population_health(f, self.data.generations_data)
 
             # Stagnation Analysis
-            f.write("## Stagnation Analysis\n\n")
-            write_stagnation_analysis(f, self.data.generations_data,
-                                      self.data.generations_since_improvement)
+            if AnalyticsConfig.ENABLE_STAGNATION_ANALYSIS:
+                f.write("## Stagnation Analysis\n\n")
+                write_stagnation_analysis(f, self.data.generations_data,
+                                          self.data.generations_since_improvement)
 
             # Generalization Analysis (Fresh Game)
-            if has_fresh_game:
+            if has_fresh_game and AnalyticsConfig.ENABLE_FRESH_GAME_ANALYSIS:
                 f.write("## Generalization Analysis (Fresh Game)\n\n")
                 write_generalization_analysis(f, self.data.generations_data)
 
             # Correlation Matrix
-            f.write("## Correlation Analysis\n\n")
-            write_correlation_matrix(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_CORRELATIONS:
+                f.write("## Correlation Analysis\n\n")
+                write_correlation_matrix(f, self.data.generations_data)
 
             # Survival Distribution
-            f.write("## Survival Distribution\n\n")
-            write_survival_distribution(f, self.data.generations_data, self.data.config)
+            if AnalyticsConfig.ENABLE_SURVIVAL_DISTRIBUTION:
+                f.write("## Survival Distribution\n\n")
+                write_survival_distribution(f, self.data.generations_data, self.data.config)
 
             # Behavioral Summary (if available)
-            if has_behavior:
+            if has_behavior and AnalyticsConfig.ENABLE_BEHAVIORAL_SUMMARY:
                 write_behavioral_summary(f, summary)
 
             # Learning Progress
             f.write("## Learning Progress\n\n")
             write_learning_progress(f, self.data.generations_data)
 
+            # Neural Analysis (New)
+            if AnalyticsConfig.ENABLE_NEURAL_ANALYSIS:
+                write_neural_analysis(f, self.data.generations_data)
+
+            # Risk Analysis (New)
+            if AnalyticsConfig.ENABLE_RISK_ANALYSIS:
+                write_risk_analysis(f, self.data.generations_data)
+
             # Convergence Analysis
-            f.write("## Convergence Analysis\n\n")
-            write_convergence_analysis(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_CONVERGENCE_ANALYSIS:
+                f.write("## Convergence Analysis\n\n")
+                write_convergence_analysis(f, self.data.generations_data)
 
             # Behavioral Trends (if available)
-            if has_behavior:
+            if has_behavior and AnalyticsConfig.ENABLE_BEHAVIORAL_TRENDS:
                 f.write("## Behavioral Trends\n\n")
                 write_behavioral_trends(f, self.data.generations_data)
                 write_intra_episode_analysis(f, self.data.generations_data)
 
             # Recent Generations Table
-            f.write("## Recent Generations (Last 30)\n\n")
-            write_generation_table(f, self.data.generations_data, limit=30,
-                                   include_behavior=has_behavior)
+            if AnalyticsConfig.ENABLE_RECENT_TABLE:
+                f.write(f"## Recent Generations (Last {AnalyticsConfig.RECENT_TABLE_WINDOW})\n\n")
+                write_generation_table(f, self.data.generations_data, limit=AnalyticsConfig.RECENT_TABLE_WINDOW,
+                                       include_behavior=has_behavior)
 
             # Best Generations
-            f.write("\n## Top 10 Best Generations\n\n")
-            write_best_generations(f, self.data.generations_data,
-                                   include_behavior=has_behavior)
+            if AnalyticsConfig.ENABLE_TOP_GENERATIONS:
+                f.write("\n## Top 10 Best Generations\n\n")
+                write_best_generations(f, self.data.generations_data,
+                                       include_behavior=has_behavior)
 
             # Trend Analysis
             f.write("\n## Trend Analysis\n\n")
             write_trend_analysis(f, self.data.generations_data)
 
             # ASCII Charts
-            f.write("\n## Fitness Progression (ASCII Chart)\n\n")
-            write_ascii_chart(f, self.data.generations_data)
+            if AnalyticsConfig.ENABLE_ASCII_CHARTS:
+                f.write("\n## Fitness Progression (ASCII Chart)\n\n")
+                write_ascii_chart(f, self.data.generations_data)
             
             # Performance Appendix
             f.write("\n---\n\n# Technical Appendix\n\n")

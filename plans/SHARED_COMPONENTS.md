@@ -98,6 +98,18 @@ Located in `training/config/novelty.py`:
 
 ## Planned / Missing / To Be Changed
 
+### Advanced State Encoders
+
+- [ ] **Temporal Awareness (Frame Stacking)**:
+  - **Concept**: Feed the network a sequence of previous frames (e.g., last 4 states) instead of just the current instant.
+  - **Goal**: Allow agents to perceive acceleration, jerk, and relative motion history, enabling complex maneuvers and timing-based strategies (e.g., lead pursuit) that are impossible with amnesic inputs.
+  - **Implementation**: A wrapper Encoder that buffers previous outputs and concatenates them.
+
+- [ ] **Raycasting (Lidar) Sensors**:
+  - **Concept**: Replace or augment the "Nearest Objects" list with a set of raycast sensors (e.g., 16 rays in a circle) that return distance/type of the first hit.
+  - **Goal**: Provide a stable, egocentric view of the world that doesn't "flicker" when object indices swap. Explicitly punishes "Spinner" strategies (spinning blurs the sensor input) and favors stable tracking.
+  - **Implementation**: A new `RaycastEncoder` class in `interfaces/encoders/`.
+
 ### Future Enhancements
 
 - [ ] **Analytics integration**: Add novelty/diversity metrics to markdown reports and visualizations.

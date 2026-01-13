@@ -130,6 +130,18 @@ From `training/config/genetic_algorithm.py:GAConfig`:
 - The windowed game's internal reward calculator differs from the training reward preset; training fitness should be interpreted using `training/config/rewards.py`.
 - **Training data before the headless bullet-lifetime fix is invalid**: A bug caused bullets to never expire in headless mode, inflating training accuracy (70-80%) vs real gameplay (10-20%). Agents learned to exploit "zombie bullets" that wrap infinitely. Previous training runs should be discarded and rerun with the fixed headless game.
 
+## Future Considerations
+
+### Dynamic Difficulty Adjustment (Curriculum)
+
+- **Concept**: Scale the difficulty of the training environment as the population's fitness improves.
+- **Goal**: Prevent agents from converging to "safe" local optima (like the Turret strategy) early on by forcing them to master fundamental skills first.
+- **Implementation Strategy**:
+  - **Stage 1 (Pilot License)**: Empty world. Reward only velocity and displacement. Survival is easy, but "winning" requires movement.
+  - **Stage 2 (Target Practice)**: Stationary asteroids. Reward accuracy. Puts the "Pilot" skills to use.
+  - **Stage 3 (Full Game)**: Standard Asteroids.
+- **Challenges**: Defining robust transition thresholds (when to switch stages) and managing the "fitness shock" when rules change.
+
 ## Discarded / Obsolete / No Longer Relevant
 
 - No GA features have been formally removed; unused-but-present components should remain listed under "In Progress / Partially Implemented" until adopted or deleted.

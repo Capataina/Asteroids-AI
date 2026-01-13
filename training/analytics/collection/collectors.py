@@ -94,6 +94,11 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         gen_data['avg_asteroid_dist'] = behavioral_metrics.get('avg_asteroid_dist', 0.0)
         gen_data['avg_screen_wraps'] = behavioral_metrics.get('avg_screen_wraps', 0.0)
         
+        # New Metrics (Risk, Neural, Entropy)
+        gen_data['avg_min_dist'] = behavioral_metrics.get('avg_min_dist', 0.0)
+        gen_data['avg_output_saturation'] = behavioral_metrics.get('avg_output_saturation', 0.0)
+        gen_data['avg_action_entropy'] = behavioral_metrics.get('avg_action_entropy', 0.0)
+        
         gen_data['total_kills'] = behavioral_metrics.get('total_kills', 0)
         gen_data['max_kills'] = behavioral_metrics.get('max_kills', 0)
         gen_data['max_steps'] = behavioral_metrics.get('max_steps', 0)
@@ -195,9 +200,19 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
         'distribution_stats': distribution_stats
     }
 
+    # Calculate additional standard deviations for reporting
+    std_kills = std_dev([m.get('kills', 0) for m in per_agent_metrics])
+    std_steps = std_dev([m.get('steps_survived', 0) for m in per_agent_metrics])
+    std_accuracy = std_dev([m.get('accuracy', 0) for m in per_agent_metrics])
+
     # Also attach to generation data if it exists
     for gen_data in data.generations_data:
         if gen_data['generation'] == generation:
             gen_data['distributions'] = distributions
             gen_data['distribution_stats'] = distribution_stats
+            
+            # Store std devs for distribution charts
+            gen_data['std_dev_kills'] = std_kills
+            gen_data['std_dev_steps'] = std_steps
+            gen_data['std_dev_accuracy'] = std_accuracy
             break

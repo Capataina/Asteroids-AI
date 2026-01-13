@@ -6,6 +6,8 @@ Evaluates multiple agents simultaneously using threading for massive speedup.
 
 import concurrent.futures
 import random
+import math
+from collections import defaultdict
 from typing import List, Tuple, Dict
 from game.headless_game import HeadlessAsteroidsGame
 from ai_agents.neuroevolution.nn_agent import NNAgent
@@ -84,10 +86,16 @@ def evaluate_single_agent(
     prev_kills = 0
     total_asteroid_distance = 0.0
     distance_samples = 0
+    min_asteroid_dist = float('inf') # Risk profiling
     
     # Input analysis tracking
     input_history = []  # List of (up, left, right, space) tuples
     idle_frames = 0
+    action_counts = defaultdict(int) # For entropy
+    
+    # Neural health tracking
+    total_outputs = 0
+    saturated_outputs = 0
     
     # Physics tracking
     screen_wraps = 0
@@ -100,14 +108,21 @@ def evaluate_single_agent(
         state = state_encoder_copy.encode(game.tracker)
         
         # Get action from agent
-        action = agent.get_action(state)
+        action_vector = agent.get_action(state)
+        
+        # Check output saturation (values >0.9 or <0.1)
+        # NNAgent returns raw sigmoid outputs (0-1)
+        for val in action_vector:
+            total_outputs += 1
+            if val > 0.9 or val < 0.1:
+                saturated_outputs += 1
         
         # Validate and normalize
-        action_interface.validate(action)
-        action = action_interface.normalize(action)
+        action_interface.validate(action_vector)
+        action_norm = action_interface.normalize(action_vector)
         
         # Convert to game input
-        game_input = action_interface.to_game_input(action)
+        game_input = action_interface.to_game_input(action_norm)
         
         # Apply to game
         game.left_pressed = game_input["left_pressed"]
@@ -118,6 +133,11 @@ def evaluate_single_agent(
         # Track actions
         current_inputs = (game.up_pressed, game.left_pressed, game.right_pressed, game.space_pressed)
         input_history.append(current_inputs)
+        
+        # Update entropy counter
+        # Use a string key for the action combination: "0101" -> Up:False, Left:True, Right:False, Space:True
+        action_key = "".join(["1" if x else "0" for x in current_inputs])
+        action_counts[action_key] += 1
         
         if not any(current_inputs):
             idle_frames += 1
@@ -165,6 +185,8 @@ def evaluate_single_agent(
         if dist is not None:
             total_asteroid_distance += dist
             distance_samples += 1
+            if dist < min_asteroid_dist:
+                min_asteroid_dist = dist
         
         # Calculate step reward
         step_reward = reward_calculator.calculate_step_reward(
@@ -191,7 +213,8 @@ def evaluate_single_agent(
         # DEBUG: Trace why this might be 0.0 if thrust_frames > 0
         if not durations and indices == [0] and thrust_frames > 0:
              # Just checking the first few items to see what's wrong
-             print(f"[DEBUG] Thrust frames: {thrust_frames}, History len: {len(history)}, First 10: {history[:10]}")
+             # print(f"[DEBUG] Thrust frames: {thrust_frames}, History len: {len(history)}, First 10: {history[:10]}")
+             pass
              
         return sum(durations) / len(durations) if durations else 0.0
 
@@ -199,6 +222,20 @@ def evaluate_single_agent(
     avg_turn_duration = _avg_duration(input_history, [1, 2]) # Left or Right
     avg_shoot_duration = _avg_duration(input_history, [3]) # Space
     idle_rate = idle_frames / steps if steps > 0 else 0.0
+    
+    # Metrics: Risk
+    if min_asteroid_dist == float('inf'): min_asteroid_dist = 0.0
+    
+    # Metrics: Neural Saturation
+    saturation_rate = saturated_outputs / total_outputs if total_outputs > 0 else 0.0
+    
+    # Metrics: Action Entropy
+    action_entropy = 0.0
+    if steps > 0:
+        for count in action_counts.values():
+            p = count / steps
+            if p > 0:
+                action_entropy -= p * math.log2(p)
 
     # Calculate final episode reward
     episode_reward = reward_calculator.calculate_episode_reward(game.metrics_tracker)
@@ -214,6 +251,7 @@ def evaluate_single_agent(
         'accuracy': game.metrics_tracker.get_accuracy(),
         'time_alive': game.metrics_tracker.time_alive,
         'avg_asteroid_dist': total_asteroid_distance / distance_samples if distance_samples > 0 else 0.0,
+        'min_asteroid_dist': min_asteroid_dist,
         'reward_breakdown': reward_calculator.get_reward_breakdown(),
         'quarterly_scores': reward_calculator.get_quarterly_scores(),
         'thrust_frames': thrust_frames,
@@ -225,7 +263,9 @@ def evaluate_single_agent(
         'idle_rate': idle_rate,
         'screen_wraps': screen_wraps,
         'position_history': position_history,
-        'kill_data': kill_data
+        'kill_data': kill_data,
+        'output_saturation': saturation_rate,
+        'action_entropy': action_entropy
     }
     return metrics
 
@@ -317,6 +357,11 @@ def evaluate_population_parallel(
         avg_turn = sum(r.get('turn_frames', 0) for r in results) / len(results)
         avg_shoot = sum(r.get('shoot_frames', 0) for r in results) / len(results)
         avg_accuracy = sum(r['accuracy'] for r in results) / len(results)
+        
+        # New metrics averaging
+        avg_min_dist = sum(r.get('min_asteroid_dist', 0.0) for r in results) / len(results)
+        avg_saturation = sum(r.get('output_saturation', 0.0) for r in results) / len(results)
+        avg_entropy = sum(r.get('action_entropy', 0.0) for r in results) / len(results)
 
         # Average reward breakdown for this agent
         agent_reward_breakdown = {}
@@ -352,10 +397,13 @@ def evaluate_population_parallel(
             'shoot_frames': avg_shoot,
             'idle_rate': avg_idle_rate,
             'avg_asteroid_dist': avg_asteroid_dist,
+            'min_asteroid_dist': avg_min_dist,
             'screen_wraps': avg_screen_wraps,
             'reward_breakdown': agent_reward_breakdown,
             'behavior_vector': behavior_vector,
             'reward_diversity': reward_diversity,
+            'output_saturation': avg_saturation,
+            'action_entropy': avg_entropy,
         })
 
         # Aggregate reward breakdown
@@ -424,11 +472,14 @@ def evaluate_population_parallel(
         'best_agent_turn': averaged_results[best_idx]['turn_frames'],
         'best_agent_shoot': averaged_results[best_idx]['shoot_frames'],
         'avg_asteroid_dist': sum(r.get('avg_asteroid_dist', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_min_dist': sum(r.get('min_asteroid_dist', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_thrust_duration': sum(r.get('avg_thrust_duration', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_turn_duration': sum(r.get('avg_turn_duration', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_shoot_duration': sum(r.get('avg_shoot_duration', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_idle_rate': sum(r.get('idle_rate', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_screen_wraps': sum(r.get('screen_wraps', 0) for r in averaged_results) / len(averaged_results),
+        'avg_output_saturation': sum(r.get('output_saturation', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_action_entropy': sum(r.get('action_entropy', 0.0) for r in averaged_results) / len(averaged_results),
         'best_agent_positions': best_agent_positions,
         'best_agent_kill_events': best_agent_kill_events,
         'population_positions': population_positions,

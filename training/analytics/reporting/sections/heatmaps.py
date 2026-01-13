@@ -2,7 +2,9 @@
 Heatmap generator for spatial analytics.
 """
 
+import math
 from typing import List, Tuple, Dict, Any
+from training.config.analytics import AnalyticsConfig
 
 def generate_ascii_heatmap(points: List[Tuple[int, int]], width: int = 800, height: int = 600, rows: int = 30, cols: int = 120) -> List[str]:
     """Generate an ASCII heatmap from a list of points.
@@ -33,12 +35,6 @@ def generate_ascii_heatmap(points: List[Tuple[int, int]], width: int = 800, heig
         c = int(x / cell_w)
         r = int(y / cell_h)
         
-        # Invert row because Y is usually up in Cartesian but down in grids? 
-        # Arcade Y=0 is bottom. Grid row 0 is top.
-        # So y=600 is row 0. y=0 is row 9.
-        # r = rows - 1 - r
-        # Actually let's keep it Cartesian: Row 0 = Bottom.
-        
         c = min(max(c, 0), cols - 1)
         r = min(max(r, 0), rows - 1)
         grid[r][c] += 1
@@ -51,13 +47,18 @@ def generate_ascii_heatmap(points: List[Tuple[int, int]], width: int = 800, heig
     # ASCII gradient
     chars = " .:-=+*#%@"
     
+    # Precompute log max for scaling
+    log_max = math.log1p(max_val)
+    if log_max == 0: log_max = 1.0
+    
     lines = []
     # Print top to bottom (Row 9 down to 0)
     for r in range(rows - 1, -1, -1):
         line = "|"
         for c in range(cols):
             val = grid[r][c]
-            norm = val / max_val
+            # Logarithmic scaling to show trails against high-density start points
+            norm = math.log1p(val) / log_max
             char_idx = int(norm * (len(chars) - 1))
             line += chars[char_idx]
         line += "|"
@@ -77,8 +78,9 @@ def write_heatmaps(f, generations_data: List[Dict[str, Any]], width: int, height
     if not generations_data:
         return
 
-    # Determine how many generations to aggregate (up to 10)
-    num_gens = min(len(generations_data), 10)
+    # Determine how many generations to aggregate
+    window_size = AnalyticsConfig.HEATMAP_WINDOW
+    num_gens = min(len(generations_data), window_size)
     recent_gens = generations_data[-num_gens:]
     
     # Aggregate data
