@@ -17,7 +17,7 @@ def get_action_rates(metrics: Dict[str, Any]) -> Dict[str, float]:
         Dictionary with 'thrust_rate', 'turn_rate', 'shoot_rate'
     """
     # Handle both population average keys and best agent keys
-    steps = metrics.get('avg_steps_survived') or metrics.get('best_agent_steps', 1)
+    steps = metrics.get('avg_steps') or metrics.get('best_agent_steps', 1)
     if steps == 0: steps = 1
     
     thrust = metrics.get('avg_thrust_frames') or metrics.get('best_agent_thrust', 0)

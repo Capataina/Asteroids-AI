@@ -112,6 +112,8 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         # Spatial data
         gen_data['best_agent_positions'] = behavioral_metrics.get('best_agent_positions', [])
         gen_data['best_agent_kill_events'] = behavioral_metrics.get('best_agent_kill_events', [])
+        gen_data['population_positions'] = behavioral_metrics.get('population_positions', [])
+        gen_data['population_kill_events'] = behavioral_metrics.get('population_kill_events', [])
 
     # Add best agent stats if available
     if best_agent_stats:

@@ -15,12 +15,12 @@ Asteroids AI/
 │   │   └── visuals.py            # Overlays for hitboxes and vectors
 │   └── sprites/                  # Image assets
 ├── ai_agents/
-│   ├── neuroevolution/
-│   │   └── genetic_algorithm/
-│   │       ├── nn_ga_agent.py    # CURRENT: Agent with a neural network policy
-│   │       ├── operators.py      # Mutation and crossover operators
-│   │       └── ...               # Legacy agent files
-│   └── reinforcement_learning/   # PLANNED: Future home for GNN+SAC agent
+│   ├── base_agent.py             # Abstract base class for all agents
+│   ├── policies/                 # Neural network architectures (stateless)
+│   │   ├── feedforward.py        # MLP implementation
+│   │   └── linear.py             # Linear policy implementation
+│   └── neuroevolution/           # Evolutionary agents
+│       └── nn_agent.py           # Agent wrapper for feedforward policy
 ├── interfaces/
 │   ├── EnvironmentTracker.py     # Provides a clean API to the current game state
 │   ├── MetricsTracker.py         # Aggregates episode statistics (kills, accuracy, etc.)
@@ -30,17 +30,26 @@ Asteroids AI/
 │   ├── encoders/                 # State encoder implementations (VectorEncoder)
 │   └── rewards/                  # Individual reward components (VelocitySurvivalBonus, etc.)
 ├── training/
-│   ├── base/                     # Base classes for all training pipelines
-│   │   ├── BaseAgent.py          # Abstract agent interface for all AIs
-│   │   ├── EpisodeRunner.py      # Runs a single agent episode (used for visual display)
-│   │   └── EpisodeResult.py      # Dataclass for storing episode results
+│   ├── config/                   # Centralized configuration
+│   │   ├── rewards.py            # Reward presets and composition
+│   │   └── genetic_algorithm.py  # GA hyperparameters (Pop size, mutation rates, etc.)
+│   ├── core/                     # Shared training infrastructure
+│   │   ├── episode_runner.py     # Runs a single episode (visual or headless)
+│   │   ├── episode_result.py     # Data class for episode outcomes
+│   │   ├── population_evaluator.py # Parallel evaluation logic
+│   │   └── display_manager.py    # Visual display orchestration
+│   ├── methods/                  # Training algorithms
+│   │   └── genetic_algorithm/    # GA implementation details
+│   │       ├── driver.py         # Main evolution loop logic
+│   │       ├── operators.py      # Mutation and crossover functions
+│   │       └── selection.py      # Tournament selection
 │   ├── analytics/                # Analytics and reporting subsystem
 │   │   ├── analytics.py          # Facade for the analytics system
 │   │   ├── collection/           # Data collection models and functions
 │   │   ├── analysis/             # Analysis logic (population, behavioral, etc.)
 │   │   └── reporting/            # Report generation (Markdown, JSON)
-│   ├── train_ga_parallel.py      # PRIMARY training script for the GA
-│   └── parallel_evaluator.py     # Logic for parallel fitness evaluation
+│   └── scripts/                  # Entry points
+│       └── train_ga.py           # Primary GA training script
 └── plans/                        # Project documentation
 ```
 
@@ -58,23 +67,21 @@ Decouples the AI from the game logic.
 
 - **`EnvironmentTracker`**: Provides a safe API for the AI to query game state (e.g., `get_nearest_asteroid`).
 - **`VectorEncoder`**: Converts the game state into a neural network-friendly vector. Uses **Toroidal Distance** math to correctly perceive objects wrapping around the screen.
-- **`RewardCalculator`**: Modular system for calculating fitness. Current composition:
-  - `VelocitySurvivalBonus`: Rewards moving fast while staying alive.
-  - `DistanceBasedKillReward`: Higher points for close-range kills.
-  - `ConservingAmmoBonus`: Rewards accuracy.
-  - `DeathPenalty`: Significant penalty for crashing.
+- **`RewardCalculator`**: Modular system for calculating fitness. Components are configured in `training/config/rewards.py`.
 
-### 3. GA Implementation (`ai_agents/neuroevolution/`)
+### 3. Agent & Policy Layer (`ai_agents/`)
 
-- **`NeuralNetworkGAAgent`**: Feedforward neural network policy.
-  - **Inputs (11):** Player velocity (2), Shoot cooldown (1), Nearest 2 Asteroids (4 features each: dist, angle, closing speed, size).
-  - **Outputs (4):** Thrust, Turn Left, Turn Right, Shoot.
-- **`operators.py`**: Genetic operators. Current configuration uses a low mutation rate (0.05) to preserve learned behaviors.
+Separates the "Brain" (Policy) from the "Body" (Agent).
 
-### 4. Parallel Training Pipeline (`training/`)
+- **`policies/`**: Contains pure mathematical models (e.g., `FeedforwardPolicy`). These classes compute `f(state) -> action` and know nothing about the game or training method.
+- **`neuroevolution/nn_agent.py`**: Wraps a policy to implement the `BaseAgent` interface. This is what interacts with the environment.
 
-- **`train_ga_parallel.py`**: Orchestrates the evolutionary loop (Selection -> Crossover -> Mutation -> Evaluation).
-- **`parallel_evaluator.py`**: Uses `ThreadPoolExecutor` to evaluate 25-50 agents in parallel. Each agent is tested on **12 different random seeds** to force generalization and prevent overfitting.
+### 4. Training Infrastructure (`training/`)
+
+- **`config/`**: Centralized settings. `genetic_algorithm.py` controls population size, mutation rates, and network architecture sizes.
+- **`core/`**: Reusable components. `EpisodeRunner` executes games. `PopulationEvaluator` handles multithreaded evaluation on headless games. `DisplayManager` handles the visualization of the best agent.
+- **`methods/`**: Implementation of specific training algorithms. The GA logic (Selection -> Crossover -> Mutation) resides here, separated from the agent code.
+- **`scripts/`**: The executable entry points (e.g., `train_ga.py`) that wire everything together.
 
 ### 5. Analytics Subsystem (`training/analytics/`)
 
@@ -85,22 +92,24 @@ A comprehensive suite for monitoring training health.
   - **Behavioral Classification**: Tags agents as "Sniper", "Dogfighter", "Turret", etc.
   - **Population Health**: Detects stagnation and diversity collapse.
   - **Generalization**: Compares training performance vs. performance on a fresh, unseen seed.
+  - **Heatmaps**: Generates spatial heatmaps for best agents and population averages.
 - **Reporting**: Generates a detailed `training_summary.md` with ASCII charts, trend tables, and efficiency metrics.
 
 ## Data Flow: Parallel Training Loop
 
-1.  **Initialization**: Population of neural networks created with random weights.
-2.  **Parallel Evaluation**: Each agent plays 12 games on 12 unique seeds in `headless_game.py`. Fitness is averaged.
-3.  **Data Collection**: Metrics (accuracy, kills, inputs) are aggregated and sent to Analytics.
-4.  **Display Phase**: The single best agent plays ONE game in the visual `Asteroids.py` window on a **fresh seed** to demonstrate true capability (generalization test).
-5.  **Evolution**: The top agents are selected to breed. Offspring are mutated.
-6.  **Loop**: Repeats for 500+ generations.
+1.  **Initialization**: `train_ga.py` initializes the `GADriver`, which creates a population of random parameter vectors.
+2.  **Parallel Evaluation**: `PopulationEvaluator` runs 12 games per agent (on different seeds) in parallel `headless_game.py` instances.
+3.  **Data Collection**: Metrics are aggregated and sent to `TrainingAnalytics`.
+4.  **Display Phase**: `DisplayManager` visually renders the best agent of the generation on a **fresh seed** to test generalization.
+5.  **Evolution**: `GADriver` selects parents and applies operators (`training/methods/genetic_algorithm/operators.py`) to create the next generation.
+6.  **Loop**: Repeats for `NUM_GENERATIONS` (defined in config).
 7.  **Termination**: Final report and JSON data saved.
 
 ## Implementation Status
 
+- ✅ **Modular Architecture**: Clean separation of Policy, Agent, Training, and Config.
 - ✅ **Sim-to-Real Parity**: Visual and Headless games use identical physics/hitboxes via `globals.py`.
 - ✅ **Toroidal Vision**: AI correctly sees across screen boundaries.
-- ✅ **Generalization Focus**: Training on 12 seeds/agent forces robust policy learning.
-- ✅ **Deep Analytics**: Full behavioral profiling and health monitoring active.
-- 🚧 **Configuration**: Hyperparameters are still hardcoded in `train_ga_parallel.py` (planned move to YAML/JSON).
+- ✅ **Generalization Focus**: Training on 20 seeds/agent forces robust policy learning.
+- ✅ **Deep Analytics**: Full behavioral profiling, heatmaps, and health monitoring.
+- ✅ **Centralized Config**: Hyperparameters and rewards managed in `training/config/`.

@@ -127,8 +127,16 @@ class EnvironmentTracker:
 
     # Helper Functions
     def get_distance(self, x1: float, y1: float, x2: float, y2: float) -> float:
-        """Calculate Euclidean distance between two points."""
-        return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+        """Calculate Euclidean distance between two points, accounting for screen wrap."""
+        dx = abs(x1 - x2)
+        dy = abs(y1 - y2)
+        
+        if dx > self.game.width / 2:
+            dx = self.game.width - dx
+        if dy > self.game.height / 2:
+            dy = self.game.height - dy
+            
+        return math.sqrt(dx * dx + dy * dy)
 
     def all_asteroids_distance_to_player(self) -> List[float]:
         """

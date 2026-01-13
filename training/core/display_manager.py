@@ -44,8 +44,8 @@ class DisplayManager:
         self.showing_best_agent = True
         self.best_agent_steps = 0
 
-        # Use normal arcade.schedule spawning (fresh random game)
-        self.game.manual_spawning = False
+        # Use manual spawning to match headless timing exactly
+        self.game.manual_spawning = True
 
         # Reset game
         self.game.reset_game()
@@ -100,7 +100,9 @@ class DisplayManager:
         
         # Step game
         self.game.external_control = False
-        self.game.on_update(delta_time)
+        # FORCE fixed time step to match training simulation exactly
+        # Arcade provides variable delta_time, but training assumes fixed 1/60s
+        self.game.on_update(GAConfig.FRAME_DELAY)
         self.game.external_control = True
 
         # Update trackers
@@ -190,8 +192,17 @@ class DisplayManager:
             generalization_metrics=generalization_metrics
         )
 
-        print(f"  Fresh game results: Fitness={fresh_fitness:.1f}, Kills={fresh_kills}, Steps={self.best_agent_steps}")
-        print(f"  Generalization: Fitness ratio={fitness_ratio:.2f} (Grade {grade})")
+        print("-" * 50)
+        print(" FRESH GAME (GENERALIZATION TEST)")
+        print("-" * 50)
+        print(" PERFORMANCE")
+        print(f"  Fitness: {fresh_fitness:8.2f}  |  Grade: {grade}")
+        print(f"  Ratio:   {fitness_ratio:8.2f}  |  Steps: {self.best_agent_steps}")
+        print("-" * 50)
+        print(" BEHAVIOR")
+        print(f"  Kills:   {fresh_kills:8d}  |  Accuracy: {fresh_accuracy*100:5.1f}%")
+        print(f"  Death:   {cause_of_death:8s}  |  Shots:    {fresh_shots:5d}")
+        print("=" * 50 + "\n")
 
     def _update_info_text(self):
         metrics = self.game.metrics_tracker.get_episode_stats()

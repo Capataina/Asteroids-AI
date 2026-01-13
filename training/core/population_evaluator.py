@@ -185,6 +185,12 @@ def evaluate_single_agent(
                 durations.append(current_run)
                 current_run = 0
         if current_run > 0: durations.append(current_run)
+        
+        # DEBUG: Trace why this might be 0.0 if thrust_frames > 0
+        if not durations and indices == [0] and thrust_frames > 0:
+             # Just checking the first few items to see what's wrong
+             print(f"[DEBUG] Thrust frames: {thrust_frames}, History len: {len(history)}, First 10: {history[:10]}")
+             
         return sum(durations) / len(durations) if durations else 0.0
 
     avg_thrust_duration = _avg_duration(input_history, [0]) # Up
@@ -344,6 +350,19 @@ def evaluate_population_parallel(
         best_agent_positions.extend(r.get('position_history', []))
         best_agent_kill_events.extend(r.get('kill_data', []))
 
+    # Collect population spatial data (sample of up to 30 agents)
+    # This represents the "average" behavior of the generation
+    sample_size = min(30, len(agent_results))
+    sample_indices = random.sample(range(len(agent_results)), sample_size)
+    
+    population_positions = []
+    population_kill_events = []
+    
+    for idx in sample_indices:
+        for r in agent_results[idx]:
+            population_positions.extend(r.get('position_history', []))
+            population_kill_events.extend(r.get('kill_data', []))
+
     # Aggregate behavioral metrics across population (using averaged per-agent metrics)
     aggregated_metrics = {
         'avg_steps_survived': sum(r['steps_survived'] for r in averaged_results) / len(averaged_results),
@@ -372,6 +391,8 @@ def evaluate_population_parallel(
         'avg_screen_wraps': sum(r.get('screen_wraps', 0) for r in averaged_results) / len(averaged_results),
         'best_agent_positions': best_agent_positions,
         'best_agent_kill_events': best_agent_kill_events,
+        'population_positions': population_positions,
+        'population_kill_events': population_kill_events,
         'avg_reward_breakdown': avg_reward_breakdown,
         'avg_quarterly_scores': avg_quarterly,
     }

@@ -9,6 +9,7 @@ import os
 import math
 import time
 import arcade
+import statistics
 
 # Add project root to path
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -155,7 +156,22 @@ class GATrainingScript:
                     per_agent_metrics=per_agent_metrics
                 )
                 
-                print(f"Gen {self.current_generation + 1} Best: {current_best_fit:.2f}")
+                # Calculate basic stats for display
+                avg_fit = sum(fitnesses) / len(fitnesses)
+                min_fit = min(fitnesses)
+                std_fit = statistics.stdev(fitnesses) if len(fitnesses) > 1 else 0.0
+                
+                print("\n" + "="*50)
+                print(f" GENERATION {self.current_generation + 1} SUMMARY")
+                print("="*50)
+                print(f" FITNESS")
+                print(f"  Best: {current_best_fit:8.2f}  |  Avg: {avg_fit:8.2f}")
+                print(f"  Min:  {min_fit:8.2f}  |  Std: {std_fit:8.2f}")
+                print("-" * 50)
+                print(f" BEHAVIOR (Avg)")
+                print(f"  Kills:    {gen_metrics.get('avg_kills', 0):6.1f}  |  Accuracy: {gen_metrics.get('avg_accuracy', 0)*100:5.1f}%")
+                print(f"  Survival: {gen_metrics.get('avg_steps_survived', 0):6.0f}  |  Shots:    {gen_metrics.get('avg_shots_fired', 0):5.1f}")
+                print("="*50 + "\n")
 
                 # Start Display
                 display_agent = NNAgent(current_best_ind, self.state_encoder, self.action_interface)

@@ -103,3 +103,29 @@ def write_heatmaps(f, generations_data: List[Dict[str, Any]], width: int, height
     else:
         f.write("**Kill Zone Heatmap:** (No kills recorded)\n\n")
 
+    # --- Population Average Heatmaps ---
+    pop_positions = last_gen.get('population_positions', [])
+    pop_kills = last_gen.get('population_kill_events', [])
+    
+    if not pop_positions:
+        return
+        
+    f.write("### Spatial Analytics (Population Average - Sample of 30)\n\n")
+    
+    f.write("**Position Heatmap (Where do they fly?)**\n")
+    f.write("```\n")
+    lines = generate_ascii_heatmap(pop_positions, width, height)
+    for line in lines:
+        f.write(line + "\n")
+    f.write("```\n\n")
+    
+    if pop_kills:
+        f.write("**Kill Zone Heatmap (Where do they kill?)**\n")
+        f.write("```\n")
+        lines = generate_ascii_heatmap(pop_kills, width, height)
+        for line in lines:
+            f.write(line + "\n")
+        f.write("```\n\n")
+    else:
+        f.write("**Kill Zone Heatmap:** (No kills recorded)\n\n")
+
