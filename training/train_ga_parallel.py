@@ -236,7 +236,7 @@ class ParallelGATrainingDriver:
                     self.ga_trainer.action_interface,
                     max_steps=1500,  # Increased to give agents more time to learn
                     max_workers=self.max_workers,
-                    seeds_per_agent=12  # Increased to 12 for robust generalization
+                    seeds_per_agent=20  # Increased to 20 for more robust generalization
                 )
 
                 eval_duration = time.time() - eval_start
