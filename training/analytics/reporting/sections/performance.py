@@ -31,8 +31,12 @@ def write_computational_performance(f, generations_data: List[Dict[str, Any]]):
     avg_total = sum(g.get('total_gen_duration', 0) for g in recent) / len(recent)
     
     f.write(f"**Average Duration (Last 10 Generations):** {avg_total:.2f}s\n")
-    f.write(f"- **Evaluation (Simulation):** {avg_eval:.2f}s ({(avg_eval/avg_total)*100:.1f}%)\n")
-    f.write(f"- **Evolution (GA Operators):** {avg_evol:.4f}s ({(avg_evol/avg_total)*100:.1f}%)\n\n")
+    
+    eval_pct = (avg_eval/avg_total)*100 if avg_total > 0 else 0.0
+    evol_pct = (avg_evol/avg_total)*100 if avg_total > 0 else 0.0
+    
+    f.write(f"- **Evaluation (Simulation):** {avg_eval:.2f}s ({eval_pct:.1f}%)\n")
+    f.write(f"- **Evolution (GA Operators):** {avg_evol:.4f}s ({evol_pct:.1f}%)\n\n")
     
     f.write("| Gen Range | Avg Eval Time | Avg Evol Time | Total Time |\n")
     f.write("|-----------|---------------|---------------|------------|\n")
