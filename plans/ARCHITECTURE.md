@@ -2,140 +2,187 @@
 
 ## Scope / Purpose
 
-This document is the top-down structural truth for AsteroidsAI. It describes what is currently in the repository, how subsystems depend on each other, and the execution/data-flow of the implemented training loop so new AI methods can be added without breaking separation of concerns.
+This document is the top-down structural truth for AsteroidsAI. It describes the implemented repository structure, subsystem responsibilities, and the execution/data-flow of the current GA training loop so new AI methods can be added without breaking separation of concerns or cross-method comparability.
 
 ## Current Implemented System
 
 ### Repository Structure (Implemented)
 
 ```text
-Asteroids AI\
-├─ Asteroids.py                          # Windowed arcade game (visual playback + manual play)
-├─ README.md                             # Project mission/direction (immutable)
-├─ AGENTS.md                             # Repo workflow rules
-├─ ai_agents\
-│  ├─ base_agent.py                      # BaseAgent interface (state -> action)
-│  ├─ neuroevolution\
-│  │  └─ nn_agent.py                     # NNAgent wrapper used by GA (FeedforwardPolicy)
-│  └─ policies\
-│     ├─ feedforward.py                  # MLP (tanh hidden, sigmoid output) parameter unpacking
-│     └─ linear.py                       # LinearPolicy (present, currently unused)
-├─ game\
-│  ├─ globals.py                         # Physics/constants shared by windowed + headless
-│  ├─ headless_game.py                   # HeadlessAsteroidsGame used for parallel rollouts
-│  ├─ classes\
-│  │  ├─ player.py                       # Player physics + shooting cooldown
-│  │  ├─ bullet.py                       # Bullet kinematics + lifetime
-│  │  └─ asteroid.py                     # Asteroid spawn/randomization + fragmentation + HP
-│  ├─ debug\
-│  │  └─ visuals.py                      # Collision/velocity/facing overlays (windowed)
-│  └─ sprites\                           # PNG assets
-├─ interfaces\
-│  ├─ ActionInterface.py                 # Action validation/normalization + to_game_input mapping
-│  ├─ EnvironmentTracker.py              # Spatial queries + wrapped distance utilities
-│  ├─ MetricsTracker.py                  # Episode counters (shots, hits, kills, time_alive)
-│  ├─ RewardCalculator.py                # ComposableRewardCalculator + per-component tracking
-│  ├─ StateEncoder.py                    # StateEncoder abstract base
-│  ├─ encoders\
-│  │  └─ VectorEncoder.py                # Fixed-size egocentric state encoding (player + asteroids)
-│  └─ rewards\                           # RewardComponent implementations (preset selects subset)
-├─ training\
-│  ├─ analytics\                         # TrainingAnalytics facade + collection/analysis/reporting
-│  ├─ config\
-│  │  ├─ genetic_algorithm.py            # GAConfig hyperparameters
-│  │  └─ rewards.py                      # Reward preset selection for training rollouts
-│  ├─ core\
-│  │  ├─ population_evaluator.py         # Parallel evaluation (ThreadPoolExecutor) + aggregation
-│  │  ├─ episode_runner.py               # Single-episode runner (used for windowed stepping)
-│  │  ├─ episode_result.py               # EpisodeResult container
-│  │  └─ display_manager.py              # Fresh-game playback + generalization capture
-│  ├─ methods\
-│  │  └─ genetic_algorithm\
-│  │     ├─ driver.py                    # GADriver (evolve population + adaptive mutation)
-│  │     ├─ selection.py                 # Tournament selection
-│  │     └─ operators.py                 # BLX-alpha crossover + gaussian/uniform mutation
-│  └─ scripts\
-│     └─ train_ga.py                     # Main entry point: run GA training in arcade window
-├─ tests\
-│  ├─ test_ga_dimensions.py              # Encoder/action sizes + NN parameter count checks
-│  └─ test_kill_asteroid_reward.py       # Reward component behavior/unit tests
-├─ plans\                                # Living docs (this folder)
-│  ├─ ARCHITECTURE.md
-│  ├─ GAME_ENGINE.md
-│  ├─ GENETIC_ALGORITHM.md
-│  ├─ ANALYTICS.md
-│  ├─ EVOLUTION_STRATEGIES.md
-│  ├─ NEAT.md
-│  └─ SHARED_COMPONENTS.md               # Novelty/diversity systems for all methods
-├─ training_data.json                    # Training metrics export (generated)
-└─ training_summary.md                   # Training report (generated)
+Asteroids AI/
+├── Asteroids.py                         # Windowed arcade game (rendering + manual play + training playback hooks)
+├── README.md                            # Project mission/direction (immutable)
+├── AGENTS.md                            # Repo workflow rules (docs/code alignment)
+│
+├── ai_agents/
+│   ├── base_agent.py                    # BaseAgent contract: encoded_state -> action_vector
+│   ├── neuroevolution/
+│   │   └── nn_agent.py                  # NNAgent: wraps FeedforwardPolicy for GA (fixed-topology MLP)
+│   └── policies/
+│       ├── feedforward.py               # FeedforwardPolicy MLP unpacking + forward pass
+│       └── linear.py                    # LinearPolicy (present, currently unused)
+│
+├── game/
+│   ├── globals.py                       # Physics/constants shared by windowed + headless
+│   ├── headless_game.py                 # HeadlessAsteroidsGame for seeded parallel rollouts
+│   ├── classes/
+│   │   ├── player.py                    # Player physics + shooting cooldown
+│   │   ├── bullet.py                    # Bullet kinematics + lifetime
+│   │   └── asteroid.py                  # Asteroid spawn/randomization + fragmentation + HP
+│   ├── debug/
+│   │   └── visuals.py                   # Collision/velocity overlays + HybridEncoder ray visualization
+│   └── sprites/                         # PNG assets
+│
+├── interfaces/
+│   ├── ActionInterface.py               # Action validation/normalization + to_game_input mapping
+│   ├── EnvironmentTracker.py            # Spatial queries + wrapped distance utilities
+│   ├── MetricsTracker.py                # Episode counters (shots, hits, kills, time_alive)
+│   ├── RewardCalculator.py              # ComposableRewardCalculator + per-component tracking
+│   ├── StateEncoder.py                  # Abstract encoder contract (encode/get_state_size/reset/clone)
+│   ├── encoders/
+│   │   ├── HybridEncoder.py             # Hybrid “fovea + raycasts” fixed-size encoder (used by GA training)
+│   │   └── VectorEncoder.py             # Legacy/baseline fixed-size encoder (not used by current training script)
+│   └── rewards/                         # RewardComponent implementations
+│
+├── training/
+│   ├── scripts/
+│   │   └── train_ga.py                  # Main GA entry point: evaluate -> playback -> evolve (+ analytics)
+│   ├── config/
+│   │   ├── genetic_algorithm.py         # GAConfig hyperparameters (population, seeds, mutation/crossover)
+│   │   ├── rewards.py                   # Training reward preset (ComposableRewardCalculator assembly)
+│   │   ├── analytics.py                 # AnalyticsConfig: report section toggles + windows
+│   │   └── novelty.py                   # NoveltyConfig: novelty/diversity selection weighting + archive params
+│   ├── core/
+│   │   ├── population_evaluator.py      # Parallel evaluation (ThreadPoolExecutor) + aggregation
+│   │   ├── episode_runner.py            # Windowed stepping helper for playback (EpisodeRunner)
+│   │   ├── episode_result.py            # EpisodeResult container
+│   │   └── display_manager.py           # Best-agent playback + fresh-game generalization capture
+│   ├── methods/
+│   │   └── genetic_algorithm/
+│   │       ├── driver.py                # GADriver: evolve population + adaptive mutation + novelty selection
+│   │       ├── selection.py             # Tournament selection
+│   │       └── operators.py             # BLX-alpha crossover + gaussian/uniform mutation
+│   ├── components/
+│   │   ├── novelty.py                   # Behavior vector + kNN novelty scoring
+│   │   ├── diversity.py                 # Reward diversity (entropy) scoring + warnings
+│   │   ├── archive.py                   # BehaviorArchive for novelty history
+│   │   └── selection.py                 # Combined selection score (fitness + novelty + diversity)
+│   └── analytics/
+│       ├── analytics.py                 # TrainingAnalytics facade
+│       ├── collection/                  # Data collection + schema model
+│       ├── analysis/                    # Statistics/correlation/convergence utilities
+│       └── reporting/                   # Markdown + JSON exporters + report sections
+│
+├── tests/
+│   ├── test_kill_asteroid_reward.py     # Reward component unit tests
+│   └── test_ga_dimensions.py            # Legacy GA dimension script (currently out of date / broken)
+│
+├── plans/                               # Living docs (this folder)
+│   ├── ARCHITECTURE.md
+│   ├── GAME_ENGINE.md
+│   ├── STATE_REPRESENTATION.md
+│   ├── GENETIC_ALGORITHM.md
+│   ├── SHARED_COMPONENTS.md
+│   ├── ANALYTICS.md
+│   ├── EVOLUTION_STRATEGIES.md
+│   └── NEAT.md
+│
+├── training_data.json                   # Generated training metrics export
+└── training_summary.md                  # Generated training report
 ```
 
 ### Subsystem Responsibilities (Implemented)
 
-| Subsystem                             | Responsibility                                                                                                              |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Game** (`game/`, `Asteroids.py`)    | Simulates entities, collisions, spawning, wrapping, and episode termination (player removed on collision in training mode). |
-| **Interfaces** (`interfaces/`)        | Provides state encoding, action translation, metric tracking, and composable reward calculation.                            |
-| **Agents** (`ai_agents/`)             | Defines the `BaseAgent` contract and provides a GA-used neural policy wrapper (`NNAgent`).                                  |
-| **Training** (`training/`)            | Orchestrates GA evolution, parallel rollouts, best-agent playback, and analytics recording.                                 |
-| **Analytics** (`training/analytics/`) | Stores metrics, computes summaries, and outputs reports/exports.                                                            |
-| **Shared Components** (planned)       | Behavior novelty and reward diversity systems shared across all optimization methods to encourage human-like play patterns. |
+| Subsystem                                      | Primary Responsibility                                                                             |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Game (Windowed)** (`Asteroids.py`, `game/`)  | Real-time simulation + rendering + debug overlays, with flags to support training playback parity. |
+| **Game (Headless)** (`game/headless_game.py`)  | Fast seeded simulation for parallel rollouts without rendering.                                    |
+| **Interfaces** (`interfaces/`)                 | Stable contracts around state encoding, action mapping, reward composition, and episode metrics.   |
+| **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `VectorEncoder`).         |
+| **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA uses `NNAgent` with an MLP policy.            |
+| **Training Core** (`training/core/`)           | Executes evaluation/playback orchestration and wires game + interfaces + agents.                   |
+| **Training Methods** (`training/methods/`)     | Algorithm-specific evolution logic; currently only GA exists.                                      |
+| **Shared Components** (`training/components/`) | Method-agnostic novelty/diversity scoring utilities used during selection.                         |
+| **Analytics** (`training/analytics/`)          | Records generation data, exports JSON, and generates the markdown training report.                 |
 
 ### Dependency Direction & Data Flow (Implemented)
 
-- **Game** is the lowest layer; training/agents should not be required to import game internals beyond public state.
-- **Interfaces** depend on game state to produce: encoded state vectors, reward, metrics, and wrapped distance queries.
-- **Agents** depend on interface contracts: take encoded state and output an action vector `[left, right, thrust, shoot]` in `[0, 1]`.
-- **Training** wires game + interfaces + agents and executes evaluation/evolution loops.
-- **Analytics** consumes aggregated metrics produced by the training loop.
+- **Game** is the lowest layer; training/agents should not reach into entity internals except through trackers/encoders.
+- **Interfaces** depend on game state to provide: state encoding inputs, action mapping, reward components, and metrics tracking.
+- **Encoders** depend on `EnvironmentTracker` (and constants in `game/globals.py`) to produce model inputs.
+- **Agents** depend on encoder outputs: GA agents output an action vector `[left, right, thrust, shoot]` in `[0, 1]`.
+- **Training** wires game + interfaces + agents + method logic and runs evaluation/evolution loops.
+- **Analytics** consumes aggregated metrics produced by the training loop and emits human/machine-readable reports.
 
-Per-step control/data loop: `Game state -> VectorEncoder.encode(...) -> Agent.get_action(...) -> ActionInterface.to_game_input(...) -> Game.on_update(...)`.
+Per-step control/data loop:
 
-### Core Execution Flow (Implemented GA)
+```text
+Game state
+  -> EnvironmentTracker
+    -> StateEncoder.encode(...)
+      -> BaseAgent.get_action(...)
+        -> ActionInterface.to_game_input(...)
+          -> Game.on_update(...)
+            -> MetricsTracker / RewardCalculator updates
+```
 
-- `training/scripts/train_ga.py` builds the GA training stack:
-  - State: `VectorEncoder(...)` (player + nearest asteroids).
-  - Action: `ActionInterface(action_space_type="boolean")` (threshold at `0.5`).
-  - Reward: preset from `training/config/rewards.py`.
-  - Method: `GADriver(param_size=...)`.
-  - Analytics: `TrainingAnalytics()` configured with run metadata.
-  - Display: `DisplayManager(...)` for best-agent playback and generalization capture.
-- Evaluation phase:
-  - `evaluate_population_parallel(...)` evaluates each genome on `GAConfig.SEEDS_PER_AGENT` seeds using `HeadlessAsteroidsGame(random_seed=...)`.
-  - Fitness is averaged across seeds; per-agent metrics are returned for distributions.
-  - Aggregated metrics include action counts, durations, wrapped-distance engagement, reward breakdowns, and heatmap inputs.
-- Evolution phase:
-  - `GADriver.evolve(...)` performs tournament selection, BLX-alpha crossover, gaussian mutation, elitism, and adaptive mutation under stagnation.
-- Fresh-game (generalization) phase:
-  - `DisplayManager.start_display(...)` runs a windowed episode with fixed `GAConfig.FRAME_DELAY` stepping.
-  - Fresh-game results and generalization ratios are recorded via `TrainingAnalytics.record_fresh_game(...)`.
+### Core Execution Flow (Implemented: GA)
 
-## Implemented Outputs / Artifacts
+`training/scripts/train_ga.py` orchestrates GA training inside the arcade window:
 
-- `training_summary.md`: Markdown report produced by `TrainingAnalytics.generate_markdown_report(...)`.
-- `training_data.json`: JSON export produced by `TrainingAnalytics.save_json(...)` (schema version, config, generations, distributions, fresh-game data).
+- **Infrastructure setup**
+
+  - Encoder: `HybridEncoder(num_rays=16, num_fovea_asteroids=3)` (see `plans/STATE_REPRESENTATION.md`).
+  - Action mapping: `ActionInterface(action_space_type="boolean")` (threshold at `0.5`).
+  - Reward preset: `training/config/rewards.py:create_reward_calculator()` (external to the game’s internal rewards).
+  - Driver: `training/methods/genetic_algorithm/driver.py:GADriver(...)` (includes novelty/diversity selection).
+  - Analytics: `training/analytics/analytics.py:TrainingAnalytics`.
+  - Display: `training/core/display_manager.py:DisplayManager` (fresh-game playback + generalization capture).
+
+- **Evaluation phase**
+
+  - `training/core/population_evaluator.py:evaluate_population_parallel(...)` evaluates each genome on `GAConfig.SEEDS_PER_AGENT` seeded rollouts using `HeadlessAsteroidsGame(random_seed=...)`.
+  - Fitness is averaged across seeds; aggregated generation metrics and per-agent averaged metrics are returned.
+
+- **Playback (fresh game) phase**
+
+  - `DisplayManager.start_display(...)` runs the best-of-generation genome in the windowed game.
+  - Windowed playback enables `manual_spawning=True` and uses a forced fixed step (`GAConfig.FRAME_DELAY`) to match headless timing.
+  - Fresh-game results + generalization ratios/grade are recorded via `TrainingAnalytics.record_fresh_game(...)`.
+
+- **Evolution phase**
+  - `GADriver.evolve(...)` performs:
+    - Tournament selection over a combined score (fitness + novelty + reward diversity).
+    - BLX-alpha crossover and gaussian mutation.
+    - Elitism and adaptive mutation under stagnation.
+
+## Implemented Outputs / Artifacts (if applicable)
+
+- `training_summary.md`: Markdown report generated by `TrainingAnalytics.generate_markdown_report(...)`.
+- `training_data.json`: JSON export generated by `TrainingAnalytics.save_json(...)` (schema + config + per-generation data + fresh-game data).
 
 ## In Progress / Partially Implemented
 
 - [ ] `interfaces/EnvironmentTracker.get_tick()`: References `game.time`, but the game objects do not define `time`; this method is unused/broken.
 - [ ] `interfaces/ActionInterface(action_space_type="continuous")`: Exists, but currently thresholds exactly like `"boolean"` (no true continuous controls yet).
-- [ ] `interfaces/encoders/VectorEncoder(include_bullets/include_global)`: Constructor supports these flags, but `encode(...)` currently emits only player + nearest asteroids.
-- [ ] `ai_agents/policies/linear.py`: Present but unused by current training scripts/agents.
+- [ ] `interfaces/encoders/VectorEncoder.py`: Provides `encode/get_state_size/reset/clone` but does not inherit `StateEncoder` (duck-typed compatibility only).
+- [ ] `training/core/population_evaluator.py`: Type hints `VectorEncoder` for `state_encoder`, but evaluation works with any encoder that supports `clone/reset/encode`.
+- [ ] Novelty/diversity analytics visibility: GA computes novelty/diversity for selection, but the markdown report does not yet visualize these signals.
+- [ ] `tests/test_ga_dimensions.py`: References removed legacy modules under `ai_agents/neuroevolution/genetic_algorithm/*` and does not reflect the current training stack.
 
 ## Planned / Missing / To Be Changed
 
-- [ ] Evolution Strategies method: Implement ES under `training/methods/` consistent with root `README.md`.
-- [ ] NEAT method: Implement variable-topology genomes/speciation/innovation tracking consistent with root `README.md`.
-- [ ] Additional state encoders: Add alternative encoders (e.g., sensor/noise, variable-cardinality, graph) without coupling to a specific method.
-- [ ] Training dashboard: Add multi-method parallel training/display consistent with root `README.md`.
-- [ ] Checkpointing/resume: Persist method state (e.g., GA population + best genome) so long runs can resume.
+- [ ] Evolution Strategies method: Implement ES under `training/methods/` consistent with `README.md` direction.
+- [ ] NEAT method: Implement variable-topology genomes/speciation/innovation tracking consistent with `README.md` direction.
+- [ ] Multi-method training dashboard: Parallel training/display infrastructure consistent with `README.md` (“single environment, multiple minds”).
+- [ ] Checkpointing/resume: Persist method state (e.g., GA population + best genome) so long runs can resume and be replayed.
+- [ ] Shared evaluator abstraction: Decouple rollouts from fixed-topology GA assumptions (policy factory + generic parameterization).
 
-## Notes / Design Considerations
+## Notes / Design Considerations (optional)
 
-- Windowed gameplay uses `AsteroidsGame` (arcade), while training rollouts use `HeadlessAsteroidsGame`; parity is maintained by sharing constants (`game/globals.py`) and explicit collision radii.
-- Analytics report sparklines use extended glyphs; on some terminals this can render as mojibake depending on encoding/font.
+- Windowed gameplay uses global `random` for spawns; headless rollouts use an isolated `random.Random(seed)` per rollout for reproducibility.
+- Windowed playback uses `manual_spawning` + fixed stepping to reduce drift between headless training and fresh-game evaluation.
 
 ## Discarded / Obsolete / No Longer Relevant
 
-- No architecture-level subsystems have been formally removed; items that exist-but-unused are tracked under "In Progress / Partially Implemented" until adopted or explicitly deleted.
+- No architecture-level subsystems have been formally removed; legacy/unreferenced code paths should be tracked under “In Progress / Partially Implemented” until adopted or explicitly deleted.

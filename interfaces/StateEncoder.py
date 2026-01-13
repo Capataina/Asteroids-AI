@@ -32,3 +32,13 @@ class StateEncoder(ABC):
     Reset the encoder to its initial state.
     """
     pass
+
+  @abstractmethod
+  def clone(self) -> 'StateEncoder':
+    """
+    Create a deep copy of the encoder with the same configuration.
+    
+    Returns:
+      A new instance of the StateEncoder.
+    """
+    pass

@@ -143,6 +143,8 @@ This architecture supports the project's goal of understanding how different opt
 
 - [ ] Ship-centric coordinate transforms
 - [ ] Nearest-neighbour asteroid encoding
+- [ ] Temporal awareness (frame stacking)
+- [ ] Raycasting (lidar) sensors
 - [ ] Variable-cardinality representations
 - [ ] Sensor noise and partial observability experiments
 - [ ] Full graph-based state models

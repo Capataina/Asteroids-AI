@@ -232,3 +232,18 @@ class VectorEncoder:
   def reset(self) -> None:
     """Reset any internal state (if needed)."""
     pass
+
+  def clone(self) -> 'VectorEncoder':
+    """Create a copy of this encoder."""
+    return VectorEncoder(
+        screen_width=self.screen_width,
+        screen_height=self.screen_height,
+        num_nearest_asteroids=self.num_nearest_asteroids,
+        num_nearest_bullets=self.num_nearest_bullets,
+        include_bullets=self.include_bullets,
+        include_global=self.include_global,
+        max_player_velocity=self.max_player_velocity,
+        max_asteroid_velocity=self.max_asteroid_velocity,
+        max_asteroid_size=self.max_asteroid_size,
+        max_asteroid_hp=self.max_asteroid_hp
+    )

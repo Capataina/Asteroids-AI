@@ -2,95 +2,106 @@
 
 ## Scope / Purpose
 
-The game engine is the simulated “world” used by both humans (windowed play) and training rollouts (headless). Its purpose is to provide consistent physics/rules across windowed and headless execution so that behaviors learned in fast evaluation remain valid in real-time playback.
+The game engine is the simulated world used by both humans (windowed play) and training rollouts (headless). Its purpose is to provide consistent physics, spawning, collision rules, and termination behavior so that policies learned in fast evaluation remain meaningful in real-time playback.
 
 ## Current Implemented System
 
-### Two Execution Modes (Implemented)
+### Execution Modes (Implemented)
 
-- **Windowed game (`Asteroids.py:AsteroidsGame`)**: An `arcade.Window` implementation for rendering and interactive playback.
-- **Headless game (`game/headless_game.py:HeadlessAsteroidsGame`)**: A non-rendering simulation used for parallel evaluation.
-- **Shared constants (`game/globals.py`)**: Screen dimensions, physics constants, and collision radii used by both modes.
+| Mode | Implementation | Primary Use |
+|---|---|---|
+| Windowed | `Asteroids.py:AsteroidsGame` (`arcade.Window`) | Rendering, manual play, and best-agent playback during training. |
+| Headless | `game/headless_game.py:HeadlessAsteroidsGame` | Fast seeded rollouts for parallel evaluation. |
+
+### Training/Playback Control Flags (Implemented)
+
+| Flag | Location | Meaning |
+|---|---|---|
+| `update_internal_rewards` | `AsteroidsGame`, `HeadlessAsteroidsGame` | When `False`, the game does not update its own internal `reward_calculator` (training uses an external reward calculator). |
+| `auto_reset_on_collision` | `AsteroidsGame`, `HeadlessAsteroidsGame` | When `False`, a collision ends the episode by removing the player (training loop handles resets). |
+| `manual_spawning` | `AsteroidsGame` | When `True`, asteroid spawns are driven by the same per-step timer logic used in headless mode (improves parity). |
+| `external_control` | `AsteroidsGame` | When `True`, `AsteroidsGame.on_update(...)` returns early to avoid double-updating during training playback (training loop steps explicitly). |
 
 ### Core Entities (Implemented)
 
-- **Player (`game/classes/player.py`)**:
-  - **Kinematics**: Position integrates `change_x/change_y`; friction multiplies velocity each update.
-  - **Rotation**: Left/right rotate by a fixed degree step per update.
-  - **Thrust**: Adds acceleration in the facing direction (angle-based).
-  - **Shooting**: Uses a cooldown timer (`shoot_timer`) and spawns `Bullet` when ready.
-- **Bullet (`game/classes/bullet.py`)**:
-  - **Velocity**: Constant speed in the ship’s facing direction.
-  - **Lifetime**: Decrements per update and removes itself when expired.
-- **Asteroid (`game/classes/asteroid.py`)**:
-  - **Spawn randomness**: Edge-spawned with random velocity/rotation.
-  - **Size tiers**: Large/medium/small controlled by scale constants.
-  - **HP by size**: Large=3, medium=2, small=1.
-  - **Fragmentation**: Large breaks into 2 medium; medium breaks into 3 small; small breaks into none.
+| Entity | File | Granular Responsibilities |
+|---|---|---|
+| Player | `game/classes/player.py` | Integrates velocity + friction each update; rotates left/right; thrusts in facing direction; shoots bullets using a cooldown timer. |
+| Bullet | `game/classes/bullet.py` | Moves at a constant speed; decrements lifetime; expires when lifetime reaches 0. |
+| Asteroid | `game/classes/asteroid.py` | Spawns at edges with randomized velocity/rotation; maintains HP based on size tier; fragments into smaller asteroids when destroyed. |
 
-### Collision & Episode Termination (Implemented)
+### Physics & Configuration Surface (Implemented)
 
-- **Bullet–asteroid collisions**:
-  - **Circle collision**: Explicit radii (`BULLET_RADIUS`, `ASTEROID_BASE_RADIUS * scale`) are used for parity (headless sprites may not have valid texture geometry).
-  - **Asteroid damage**: HP decremented on hit; fragmentation occurs when HP reaches 0.
-  - **Metrics updates**: Hits and kills are tracked via `MetricsTracker`.
-- **Player–asteroid collisions**:
-  - **Circle collision**: Explicit radii (`PLAYER_RADIUS`, `ASTEROID_BASE_RADIUS * scale`).
-  - **Training mode**: Player is removed from `player_list` when collision occurs (episode ends).
-  - **Manual play mode**: `AsteroidsGame` can auto-reset on collision when enabled.
-
-### Wrapping & Spatial Queries (Implemented)
-
-- **World wrapping**: Entities are teleported to the opposite edge when exceeding screen bounds (toroidal world).
-- **Wrapped distance queries** (`interfaces/EnvironmentTracker.get_distance(...)`): Computes shortest path distances accounting for wrap and is used by state encoding and analytics sampling.
-
-### Debug Visuals (Implemented)
-
-- **Overlays (`game/debug/visuals.py`)**:
-  - Player collision circle + facing vector + velocity vector.
-  - Asteroid collision circles + velocity vectors.
-  - Bullet collision circles.
-
-### Configuration Surface (Implemented)
-
-Key constants live in `game/globals.py` (selected examples):
+Key constants live in `game/globals.py`:
 
 | Constant | Meaning |
 |---|---|
 | `SCREEN_WIDTH`, `SCREEN_HEIGHT` | World dimensions (currently `800x600`). |
-| `PLAYER_ACCELERATION`, `PLAYER_FRICTION`, `PLAYER_ROTATION_SPEED` | Player movement model. |
-| `BULLET_SPEED`, `BULLET_LIFETIME`, `BULLET_COOLDOWN` | Weapon behavior. |
+| `PLAYER_ACCELERATION`, `PLAYER_FRICTION`, `PLAYER_ROTATION_SPEED` | Player movement model (per-step). |
+| `BULLET_SPEED`, `BULLET_LIFETIME`, `BULLET_COOLDOWN` | Weapon behavior and firing constraints. |
 | `ASTEROID_SPAWN_INTERVAL` | Spawn cadence in seconds. |
 | `ASTEROID_SPEED_*`, `ASTEROID_HP_*`, `ASTEROID_SCALE_*` | Asteroid tier physics/health/size. |
-| `PLAYER_RADIUS`, `BULLET_RADIUS`, `ASTEROID_BASE_RADIUS` | Explicit collision radii. |
+| `PLAYER_RADIUS`, `BULLET_RADIUS`, `ASTEROID_BASE_RADIUS` | Explicit collision radii for parity between modes. |
 
-## Implemented Outputs / Artifacts
+### Collision & Episode Termination (Implemented)
 
-- **Simulation state**: `player_list`, `asteroid_list`, `bullet_list` are exposed to trackers/encoders in both windowed and headless modes.
-- **Per-episode metrics**: `interfaces/MetricsTracker.py` accumulates shots/hits/kills/time_alive.
-- **Reward accumulation**: `interfaces/RewardCalculator.py` tracks total score and per-component contributions.
+**Bullet → asteroid**
+
+- Circle collision uses explicit radii (`BULLET_RADIUS`, `ASTEROID_BASE_RADIUS * scale`) for parity (sprite texture geometry may be unavailable in headless).
+- Asteroid HP decrements on hit; fragmentation occurs when HP reaches `0`.
+- Metrics are updated via `MetricsTracker` (hits and kills).
+
+**Player → asteroid**
+
+- Circle collision uses explicit radii (`PLAYER_RADIUS`, `ASTEROID_BASE_RADIUS * scale`).
+- Training mode behavior: player is removed from `player_list` (episode ends).
+- Manual play behavior: game can auto-reset on collision when `auto_reset_on_collision=True`.
+
+### Wrapping & Spatial Queries (Implemented)
+
+- World is toroidal: entities wrap to the opposite edge when leaving bounds.
+- `interfaces/EnvironmentTracker.get_distance(...)` computes shortest wrapped distances and is used by encoders and analytics sampling.
+
+### Randomness & Determinism (Implemented)
+
+- Windowed spawn randomness uses module-level `random` (`AsteroidsGame.spawn_asteroid`).
+- Headless spawn randomness uses a per-instance `random.Random(random_seed)` to avoid cross-thread interference and allow deterministic replay per seed.
+
+### Headless Parity Fix: Lifetime Expiration (Implemented)
+
+- Headless mode maintains `bullet_list` and `asteroid_list` as plain Python lists.
+- `Bullet.update()` / `Asteroid.update()` call `remove_from_sprite_lists()`, which is an arcade sprite-list operation and does not remove items from plain lists.
+- `HeadlessAsteroidsGame.on_update(...)` explicitly filters expired bullets/asteroids by `lifetime > 0` to keep headless behavior aligned with windowed behavior.
+
+### Debug Visuals (Implemented)
+
+| Debug Feature | File | Description |
+|---|---|---|
+| Collision/velocity overlays | `game/debug/visuals.py:draw_debug_overlays` | Draws collision circles and velocity/facing vectors. |
+| Hybrid encoder ray fan | `game/debug/visuals.py:draw_hybrid_encoder_debug` | Visualizes `HybridEncoder` raycasts during windowed playback. |
+
+## Implemented Outputs / Artifacts (if applicable)
+
+- Simulation state lists (`player_list`, `asteroid_list`, `bullet_list`) are exposed to trackers/encoders in both modes.
+- Per-episode metrics are accumulated by `interfaces/MetricsTracker.py` (shots, hits, kills, time alive).
+- Reward totals and per-component contributions are tracked by `interfaces/RewardCalculator.py` when enabled by the caller.
 
 ## In Progress / Partially Implemented
 
-- [ ] Deterministic parity (windowed vs. headless RNG): Headless rollouts can be seeded via an isolated RNG; the windowed game uses global `random` without explicit seeding.
-- [ ] True frame-rate independence: Entity motion is currently "per update step" rather than scaled by `delta_time`; training and playback rely on fixed stepping for consistency.
-
-## Recently Fixed
-
-- [x] **Bullet/asteroid lifetime expiration in headless mode**: `Bullet.update()` and `Asteroid.update()` call `remove_from_sprite_lists()` when lifetime expires, but this arcade method does nothing for plain Python lists used in headless mode. Bullets and asteroids would never expire, wrapping around the screen indefinitely. This caused agents to exploit "zombie bullets" that don't exist in windowed mode, inflating training accuracy (70-80%) vs fresh game accuracy (10-20%). Fixed by adding explicit lifetime filtering in `HeadlessAsteroidsGame.on_update()`.
+- [ ] Deterministic parity (windowed vs headless RNG): Windowed mode does not provide a seedable RNG surface comparable to headless mode’s `random_seed`.
+- [ ] True frame-rate independence: Motion is primarily “per update step”; training and playback rely on fixed stepping for consistency.
 
 ## Planned / Missing / To Be Changed
 
-- [ ] Difficulty scaling: Increase asteroid density/speed over time or by curriculum schedule.
-- [ ] Multi-agent variants: Add player-to-player or competitive interactions for future experiments.
-- [ ] Expanded observability hooks: Expose per-tick events (shots fired this tick, asteroids destroyed this tick) for cleaner analytics/reward components.
+- [ ] Difficulty scaling / curriculum variants: Adjust asteroid density/speed over time for richer training dynamics.
+- [ ] Wrap-aware collisions: Detect collisions that occur across the screen edge (toroidal overlap) rather than only after wrapping positions.
+- [ ] Per-tick event hooks: Expose “shots fired this tick”, “asteroids destroyed this tick”, etc., for cleaner reward components and analytics.
 
-## Notes / Design Considerations
+## Notes / Design Considerations (optional)
 
-- Collision detection does not currently account for wrap-around overlap at the moment of collision; entities are wrapped first and then checked in their wrapped positions.
-- Headless mode uses explicit radii to avoid dependency on sprite textures (which may not load without an arcade window context).
+- Headless mode’s explicit radii avoid dependence on sprite textures, which may not load without an arcade window context.
+- Debug overlays are intentionally decoupled from training logic; they are used for interpretability and diagnosing policy behaviors.
 
 ## Discarded / Obsolete / No Longer Relevant
 
-- No engine features have been formally removed; planned replacements should be captured under "Planned / Missing / To Be Changed".
-
+- No engine features have been formally removed; replaced behavior should be captured as “Implemented” and prior issues should be tracked as “Fixed” within the implementation narrative.

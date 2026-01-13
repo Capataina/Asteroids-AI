@@ -2,50 +2,59 @@
 
 ## Scope / Purpose
 
-Evolution Strategies (ES) is a planned optimization method for AsteroidsAI. Its purpose is to benchmark a distribution-based, gradient-estimation approach against the currently implemented GA, while reusing the same environment, state/action interfaces, reward components, and analytics outputs for fair comparison.
+Evolution Strategies (ES) is a planned optimization method for AsteroidsAI. Its purpose is to benchmark a distribution-based, gradient-estimation approach against the currently implemented GA while reusing the same environment, state/action interfaces, reward components, and analytics outputs for fair comparison.
 
 ## Current Implemented System
 
-- **No ES implementation exists yet**: There is currently no `training/methods/evolution_strategies/` code and no `train_es.py` entry point.
-- **Reusable building blocks already exist**:
-  - **Environment**: `game/headless_game.py:HeadlessAsteroidsGame` supports seeded RNG per rollout.
-  - **State encoding**: `interfaces/encoders/VectorEncoder.py` provides a fixed-size state vector.
-  - **Action mapping**: `interfaces/ActionInterface.py` validates and thresholds action vectors.
-  - **Rewards**: `interfaces/RewardCalculator.py` + `interfaces/rewards/*` provide composable reward components.
-  - **Analytics**: `training/analytics/analytics.py:TrainingAnalytics` can record generations/distributions/fresh-games once ES provides the right inputs.
-- **Evaluator reality check**:
-  - `training/core/population_evaluator.evaluate_population_parallel(...)` is currently GA-oriented (constructs `NNAgent` and assumes feedforward parameter vectors).
+### ES Method Implementation Status (Implemented)
 
-## Implemented Outputs / Artifacts
+- No ES implementation exists yet: There is currently no `training/methods/evolution_strategies/` code and no `training/scripts/train_es.py` entry point.
 
-- None (no ES runs are produced by the repository yet).
+### Reusable Building Blocks (Implemented)
+
+| Building Block            | File(s)                                                              | What ES Can Reuse                                                                                               |
+| ------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Headless environment      | `game/headless_game.py`                                              | Seeded rollouts for throughput and reproducibility.                                                             |
+| Windowed playback         | `Asteroids.py`, `training/core/display_manager.py`                   | Fresh-game playback and generalization capture (if wired to ES).                                                |
+| State encoding            | `interfaces/StateEncoder.py`, `interfaces/encoders/HybridEncoder.py` | Fixed-size vector encoding used by GA today (see `plans/STATE_REPRESENTATION.md`).                              |
+| Action mapping            | `interfaces/ActionInterface.py`                                      | Validation/normalization and mapping to `left/right/thrust/shoot`.                                              |
+| Reward composition        | `training/config/rewards.py`, `interfaces/RewardCalculator.py`       | Same reward preset used by GA can be used by ES for comparable fitness.                                         |
+| Analytics/export          | `training/analytics/analytics.py`                                    | Recording/reporting pipeline once ES provides the same generation-level metric keys.                            |
+| Novelty/diversity shaping | `training/components/*`, `training/config/novelty.py`                | Behavior novelty and reward diversity signals for selection/update pressure (see `plans/SHARED_COMPONENTS.md`). |
+
+### Evaluator Reality Check (Implemented)
+
+- `training/core/population_evaluator.evaluate_population_parallel(...)` is currently GA-oriented:
+  - It instantiates `NNAgent` and assumes a fixed-length MLP parameter vector representation.
+  - It can support ES **only if** ES chooses the same “mean parameter vector + perturbations” representation as GA.
+
+## Implemented Outputs / Artifacts (if applicable)
+
+- None (ES is not implemented, so no ES-specific runs or artifacts are produced).
 
 ## In Progress / Partially Implemented
 
-- [ ] Shared evaluator interface: There is a parallel evaluator, but it is not yet abstracted enough to support non-GA parameterizations/policies.
+- [ ] Shared evaluator interface: Parallel evaluator exists but is not yet abstracted to accept a generic “policy factory” (instead of hard-coding `NNAgent`).
 
 ## Planned / Missing / To Be Changed
 
 - [ ] Create `training/methods/evolution_strategies/`:
-  - [ ] Master parameter vector (“mean”) representation.
-  - [ ] Noise sampling (Gaussian perturbations) and mirrored/antithetic sampling.
-  - [ ] Fitness-weighted update rule (rank-based shaping recommended to reduce outliers).
-  - [ ] Sigma/step-size adaptation and learning-rate scheduling.
+  - [ ] Mean parameter vector representation and update rule.
+  - [ ] Gaussian noise sampling with antithetic/mirrored sampling.
+  - [ ] Fitness shaping (rank-based recommended to reduce outlier sensitivity).
+  - [ ] Sigma/step-size strategy and learning-rate scheduling.
 - [ ] Add `training/config/evolution_strategies.py`:
-  - [ ] Population/sample size per update.
-  - [ ] Sigma schedule/strategy.
-  - [ ] Learning rate / optimizer settings.
+  - [ ] Samples per update, sigma strategy, learning rate, and update clipping.
 - [ ] Add `training/scripts/train_es.py`:
-  - [ ] Training loop similar to GA entry point: evaluate → update → report → fresh-game playback.
+  - [ ] Training loop aligned with GA: evaluate → update → report → fresh-game playback.
 - [ ] Analytics parity:
-  - [ ] Record the same generation-level metrics keys as GA for report compatibility.
+  - [ ] Record the same generation-level metrics keys as GA where meaningful so existing report sections work.
 
-## Notes / Design Considerations
+## Notes / Design Considerations (optional)
 
-- ES relies heavily on rollout throughput; headless performance and parallelism will be the primary scaling constraints.
-- If ES uses a different policy representation than `FeedforwardPolicy`, the evaluation layer should accept a generic “policy factory” rather than hard-coding `NNAgent`.
+- ES relies heavily on rollout throughput; headless performance and parallelism are the primary scaling constraints.
+- If ES uses a different policy representation than GA’s fixed MLP, evaluation should accept a generic “policy factory” rather than hard-coding `NNAgent`.
 
 ## Discarded / Obsolete / No Longer Relevant
 
 - No ES approach has been implemented, so nothing has been discarded yet.
-

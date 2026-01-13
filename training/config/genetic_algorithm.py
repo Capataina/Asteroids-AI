@@ -1,5 +1,5 @@
 class GAConfig:
-    POPULATION_SIZE = 10
+    POPULATION_SIZE = 25
     NUM_GENERATIONS = 500
     MUTATION_PROBABILITY = 0.05
     CROSSOVER_PROBABILITY = 0.7
@@ -9,7 +9,7 @@ class GAConfig:
     CROSSOVER_ALPHA = 0.5
     
     # Evaluation settings
-    SEEDS_PER_AGENT = 5
+    SEEDS_PER_AGENT = 12
     MAX_STEPS = 1500
     FRAME_DELAY = 1.0 / 60.0
 

@@ -2,107 +2,150 @@
 
 ## Scope / Purpose
 
-The analytics system captures, aggregates, and exports training metrics so AsteroidsAI experiments can be compared beyond a single “fitness number”. It exists to make training behavior observable (what agents do, how populations shift, and whether improvements generalize) and to provide machine-readable artifacts for later analysis.
+The analytics system captures, aggregates, and exports training metrics so AsteroidsAI experiments can be compared beyond a single fitness number. It exists to make training behavior observable (what agents do, how populations shift, and whether improvements generalize) and to provide machine-readable artifacts for later analysis.
 
 ## Current Implemented System
 
 ### Core Data Model (`training/analytics/collection/models.py`)
 
-- **`AnalyticsData.SCHEMA_VERSION = "2.0"`**: A schema tag written into JSON exports for compatibility tracking.
-- **`AnalyticsData.generations_data`**: Ordered list of per-generation dictionaries (fitness stats + optional behavioral/spatial data).
-- **`AnalyticsData.fresh_game_data`**: Mapping `generation -> {fresh_game, generalization_metrics}` recorded from windowed playback.
-- **`AnalyticsData.distributions_data`**: Mapping `generation -> {distributions, distribution_stats}` for per-agent value lists.
-- **`AnalyticsData.config`**: Training configuration metadata recorded once at startup.
-- **`AnalyticsData.start_time`**: Start timestamp used for duration computations.
-- **`AnalyticsData.all_time_best_fitness`**: Running best fitness value.
-- **`AnalyticsData.all_time_best_generation`**: Generation index where the all-time best occurred.
-- **`AnalyticsData.generations_since_improvement`**: Stagnation counter incremented when best fitness does not improve.
+| Field | Type | Granular Meaning |
+|---|---|---|
+| `SCHEMA_VERSION` | `str` | Schema tag written into JSON exports for compatibility tracking (`"2.0"`). |
+| `generations_data` | `List[dict]` | Ordered per-generation records (fitness stats + optional behavior/spatial/operator/timing keys). |
+| `fresh_game_data` | `Dict[int, dict]` | Mapping `generation -> {fresh_game, generalization_metrics}` from windowed playback. |
+| `distributions_data` | `Dict[int, dict]` | Mapping `generation -> {distributions, distribution_stats}` with sorted per-agent value lists. |
+| `config` | `dict` | Training run metadata (recorded once at startup). |
+| `start_time` | `datetime` | Start timestamp for duration computations and report headers. |
+| `all_time_best_fitness` | `float` | Running best fitness across all generations. |
+| `all_time_best_generation` | `int` | Generation index where the all-time best occurred. |
+| `generations_since_improvement` | `int` | Stagnation counter incremented when best fitness does not improve. |
 
 ### Collection API (`training/analytics/analytics.py`, `training/analytics/collection/collectors.py`)
 
-- **`TrainingAnalytics.set_config(...)`**: Records run metadata (population size, generations, mutation probability, workers).
-- **`TrainingAnalytics.record_generation(...)`**: Appends generation fitness stats and attaches aggregated metrics when provided.
-- **`TrainingAnalytics.record_distributions(...)`**: Stores sorted per-agent value lists, basic distribution health stats, and standard deviations for reporting.
-- **`TrainingAnalytics.record_fresh_game(...)`**: Stores windowed “fresh game” results plus generalization ratios/grade.
+| API | Granular Responsibility |
+|---|---|
+| `TrainingAnalytics.set_config(...)` | Records run metadata (population size, generations, mutation prob, workers, etc.). |
+| `TrainingAnalytics.record_generation(...)` | Appends generation fitness stats and merges optional timing/operator/behavior metrics into the generation record. |
+| `TrainingAnalytics.record_distributions(...)` | Stores per-generation sorted lists (fitness/kills/steps/etc.) plus skewness/kurtosis and “viable vs failed” counts. |
+| `TrainingAnalytics.record_fresh_game(...)` | Stores windowed “fresh game” performance and generalization ratios/grade. |
 
-### What Gets Recorded Per Generation (Observed Keys)
+### Generation Records: Observed Keys (Implemented)
 
-Fitness and run health (always recorded when `fitness_scores` provided):
+Fitness and run health (always recorded):
 
-- **`best_fitness` / `avg_fitness` / `min_fitness` / `median_fitness`**: Summary fitness statistics.
-- **`std_dev`**: Standard deviation of fitnesses.
-- **`p25_fitness` / `p75_fitness` / `p90_fitness`**: Percentiles for skew/long-tail visibility.
-- **`best_improvement` / `avg_improvement`**: Delta versus previous generation.
-- **`all_time_best` / `generations_since_improvement`**: Global best/stagnation tracking.
-- **`evaluation_duration` / `evolution_duration`** (if provided): Timing metrics from the training script.
-- **`crossover_events` / `mutation_events` / `elite_count`** (if provided): GA operator accounting.
+- `generation`: 1-based generation index as passed by the training script.
+- `best_fitness`: max fitness among population.
+- `avg_fitness`: mean fitness among population.
+- `min_fitness`: min fitness among population.
+- `median_fitness`: median fitness among population.
+- `std_dev`: standard deviation of fitnesses.
+- `population_size`: population size for this generation.
+- `p25_fitness`, `p75_fitness`, `p90_fitness`: fitness percentiles for skew/long-tail visibility.
+- `best_improvement`, `avg_improvement`: deltas versus previous generation.
+- `all_time_best`: running best fitness.
+- `generations_since_improvement`: stagnation counter.
 
-Behavioral and spatial metrics (recorded when `behavioral_metrics` is provided by the evaluator):
+Timing stats (recorded when provided by the training script):
 
-- **Combat**: `avg_kills`, `max_kills`, `avg_accuracy`, `avg_shots`, `total_kills`, `total_shots`.
-- **Survival**: `avg_steps`, `max_steps`.
-- **Action rates**: `avg_thrust_frames`, `avg_turn_frames`, `avg_shoot_frames`.
-- **Action durations**: `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`.
-- **Idle/engagement**: `avg_idle_rate`, `avg_asteroid_dist`, `avg_screen_wraps`.
-- **Risk Profiling**: `avg_min_dist` (average closest approach to an asteroid).
-- **Neural Health**: `avg_output_saturation` (percentage of outputs saturated at 0 or 1).
-- **Behavioral Complexity**: `avg_action_entropy` (Shannon entropy of input combinations).
-- **Reward anatomy**: `avg_reward_breakdown` (per-component totals), `avg_quarterly_scores` (episode score quarters).
-- **Heatmap inputs**:
-  - `best_agent_positions` / `best_agent_kill_events` (aggregated across best agent seeds)
-  - `population_positions` / `population_kill_events` (sampled across the population)
+- `evaluation_duration`: wall time spent evaluating the population.
+- `evolution_duration`: wall time spent evolving the population.
 
-### Distributions (Per-Agent Lists)
+Genetic operator stats (recorded when provided by the method driver):
 
-Stored in `AnalyticsData.distributions_data[generation]`:
+- `crossover_events`: number of crossover applications performed.
+- `mutation_events`: number of mutation applications performed.
+- `elite_count`: elites preserved into the next generation.
+- `avg_novelty`: average novelty score used for selection (when novelty is enabled).
+- `avg_diversity`: average reward diversity score used for selection (when diversity is enabled).
+- `archive_size`: current size of the behavior archive (novelty history).
 
-- **Value lists**: `fitness_values`, `kills_values`, `steps_values`, `accuracy_values`, `shots_values`, `thrust_values`, `turn_values`, `shoot_values`.
-- **Stats**: `fitness_skewness`, `fitness_kurtosis`, `viable_agent_count`, `failed_agent_count`.
+Behavioral and spatial metrics (recorded when evaluator provides `behavioral_metrics`):
 
-### Analysis Utilities (Implemented)
+- Combat:
+  - `avg_kills`, `max_kills`, `total_kills`
+  - `avg_accuracy`, `total_shots`
+  - `avg_shots`
+- Survival:
+  - `avg_steps`, `max_steps`
+- Action rates:
+  - `avg_thrust_frames`, `avg_turn_frames`, `avg_shoot_frames`
+- Action durations:
+  - `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`
+- Engagement / movement:
+  - `avg_idle_rate`
+  - `avg_asteroid_dist`
+  - `avg_screen_wraps`
+- Risk profiling:
+  - `avg_min_dist`
+- Neural/behavior health:
+  - `avg_output_saturation`
+  - `avg_action_entropy`
+- Reward anatomy:
+  - `avg_reward_breakdown`
+  - `avg_quarterly_scores`
+- Heatmap inputs:
+  - `best_agent_positions`, `best_agent_kill_events`
+  - `population_positions`, `population_kill_events`
 
-- **Fitness stats** (`training/analytics/analysis/fitness.py`): `median`, `std_dev`, skewness/kurtosis, Pearson correlation.
-- **Report-level analyses** (`training/analytics/reporting/sections/`): deciles, kill efficiency, reward balance warnings, stagnation analysis, correlations, survival distributions, learning progress, convergence analysis, trend tables, ASCII charts, heatmaps, distributions, neural analysis, and risk analysis.
+Fresh-game generalization (recorded when a generation has windowed playback captured):
 
-### Configuration (`training/config/analytics.py`)
+- `fresh_game`: dict of fresh-game performance (`fitness`, `kills`, `steps_survived`, `shots_fired`, `accuracy`, `cause_of_death`, etc.).
+- `generalization_metrics`: dict of ratios/deltas (`fitness_ratio`, `kills_ratio`, `steps_ratio`, `accuracy_delta`, `generalization_grade`).
 
-- **`AnalyticsConfig`**: Centralized configuration class.
-  - Toggles for all report sections (`ENABLE_DISTRIBUTIONS`, `ENABLE_HEATMAPS`, `ENABLE_RISK_ANALYSIS`, etc.).
-  - Configurable window sizes for analysis (`HEATMAP_WINDOW`, `RECENT_TABLE_WINDOW`, `DISTRIBUTION_WINDOW`).
+### Distributions (Implemented)
 
-### Reporting/Export (Implemented)
+Stored in `AnalyticsData.distributions_data[generation]` and mirrored into `generations_data[generation]['distributions']`:
 
-- **Markdown report** (`training/analytics/reporting/markdown.py`): Orchestrates sections into `training_summary.md`, respecting `AnalyticsConfig` toggles.
-- **JSON export** (`training/analytics/reporting/json_export.py`): Writes `training_data.json` (schema + all stored data).
+| Distribution Key | Meaning |
+|---|---|
+| `fitness_values` | Sorted per-agent fitness values. |
+| `kills_values` | Sorted per-agent kills values. |
+| `steps_values` | Sorted per-agent steps survived values. |
+| `accuracy_values` | Sorted per-agent accuracy values. |
+| `shots_values` | Sorted per-agent shots fired values. |
+| `thrust_values` | Sorted per-agent thrust frame counts. |
+| `turn_values` | Sorted per-agent turn frame counts. |
+| `shoot_values` | Sorted per-agent shoot frame counts. |
 
-## Implemented Outputs / Artifacts
+Additional distribution stats:
 
-- **`training_summary.md`**: Generated by `TrainingAnalytics.generate_markdown_report(...)`. Includes:
-  - **Distribution Charts**: ASCII Mean ± StdDev charts for Fitness, Accuracy, Steps, and Kills.
-  - **Heatmaps**: Aggregated spatial heatmaps (positions/kills) over the last `HEATMAP_WINDOW` generations.
-  - **Neural Analysis**: Table showing output saturation and action entropy.
-  - **Risk Profile**: Analysis of minimum proximity to asteroids ("Sniper" vs "Daredevil").
-  - Tables, trends, warnings, and other summary statistics.
-- **`training_data.json`**: Generated by `TrainingAnalytics.save_json(...)` and includes config, summary, generations, fresh-game data, and distribution data.
+- `fitness_skewness`: skewness of the fitness distribution.
+- `fitness_kurtosis`: kurtosis of the fitness distribution.
+- `viable_agent_count`: number of agents with `fitness > 0`.
+- `failed_agent_count`: number of agents with `fitness <= 0`.
+
+### Reporting & Export (Implemented)
+
+| Artifact | Produced By | Notes |
+|---|---|---|
+| `training_summary.md` | `training/analytics/reporting/markdown.py:MarkdownReporter` | Markdown report with configurable sections via `training/config/analytics.py:AnalyticsConfig`. |
+| `training_data.json` | `training/analytics/reporting/json_export.py:save_json` | JSON export containing schema, config, summary, generations, fresh-game and distributions data. |
+
+## Implemented Outputs / Artifacts (if applicable)
+
+- `training_summary.md`: Comprehensive report including trends, distributions, heatmaps, risk and neural sections (as enabled by `AnalyticsConfig`).
+- `training_data.json`: Machine-readable export of all recorded analytics data for offline analysis.
 
 ## In Progress / Partially Implemented
 
-- [ ] Sparkline/arrow glyph rendering: Report sparklines use non-ASCII glyphs which can display as mojibake depending on terminal encoding/font.
-- [ ] Fresh-game record alignment: `DisplayManager` infers the generation number as `len(generations_data)`; this works in the current flow but is brittle if the training loop changes ordering.
+- [ ] Novelty/diversity visualization: GA records `avg_novelty/avg_diversity/archive_size` into generation data, but the markdown report does not yet have dedicated sections/plots for them.
+- [ ] Fresh-game generation alignment: `DisplayManager` infers generation as `len(generations_data)`; this is correct in the current flow but brittle if ordering changes.
+- [ ] Sparkline glyph rendering: Some report sections use non-ASCII glyphs which can display as mojibake depending on terminal encoding/font.
+- [ ] Novelty/diversity distributions: Per-agent `behavior_vector` and `reward_diversity` exist during evaluation but are not exported as distributions.
 
 ## Planned / Missing / To Be Changed
 
-- [ ] Reaction-time metrics: Record delay between a threat entering a danger zone and the agent producing a corrective action.
-- [ ] Feature-importance tooling: Attribute fitness/behavior outcomes to parts of the state vector (currently `VectorEncoder`).
-- [ ] Lineage/ancestry graphs: Track parentage across generations to visualize genetic drift and “founder effects”.
-- [ ] Per-seed variance reporting: Export mean/std across the `seeds_per_agent` evaluations for robustness tracking.
-- [ ] Long-run storage strategy: Add optional compression or chunked exports when `training_data.json` grows large.
+- [ ] Reaction-time metrics: Record delay between a threat entering a danger zone and the agent producing corrective action.
+- [ ] Feature-importance tooling: Attribute outcomes to parts of the current state vector (currently `HybridEncoder` output).
+- [ ] Lineage/ancestry graphs: Track parentage across generations to visualize genetic drift and founder effects.
+- [ ] Per-seed variance reporting: Export mean/std across seeds per agent for robustness tracking.
+- [ ] Long-run storage strategy: Optional compression or chunked exports when `training_data.json` grows large.
 
-## Notes / Design Considerations
+## Notes / Design Considerations (optional)
 
-- Data growth is dominated by heatmap inputs (`*_positions`, `*_kill_events`) because they are stored per generation.
-- Many report sections require a minimum number of generations (often `>= 10`) to produce meaningful trend/correlation outputs.
+- Data growth is dominated by heatmap inputs because they store spatial samples per generation.
+- Many report sections require a minimum number of generations to produce meaningful trend/correlation outputs.
 
 ## Discarded / Obsolete / No Longer Relevant
 
-- No analytics features have been formally removed; items not currently implemented should live under "Planned / Missing / To Be Changed".
+- No analytics features have been formally removed; metrics not currently implemented should live under “Planned / Missing / To Be Changed” rather than being implied elsewhere.

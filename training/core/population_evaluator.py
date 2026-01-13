@@ -11,6 +11,7 @@ from collections import defaultdict
 from typing import List, Tuple, Dict
 from game.headless_game import HeadlessAsteroidsGame
 from ai_agents.neuroevolution.nn_agent import NNAgent
+from interfaces.StateEncoder import StateEncoder
 from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from training.config.rewards import create_reward_calculator
@@ -56,19 +57,8 @@ def evaluate_single_agent(
     agent = NNAgent(individual, state_encoder, action_interface, hidden_size=hidden_size)
     agent.reset()
 
-    # Reset state encoder for this episode (copy all config from original)
-    # Note: num_nearest_asteroids should be synced with config
-    state_encoder_copy = VectorEncoder(
-        screen_width=state_encoder.screen_width,
-        screen_height=state_encoder.screen_height,
-        num_nearest_asteroids=GAConfig.NUM_NEAREST_ASTEROIDS,
-        include_bullets=state_encoder.include_bullets,
-        include_global=state_encoder.include_global,
-        max_player_velocity=state_encoder.max_player_velocity,
-        max_asteroid_velocity=state_encoder.max_asteroid_velocity,
-        max_asteroid_size=state_encoder.max_asteroid_size,
-        max_asteroid_hp=state_encoder.max_asteroid_hp,
-    )
+    # Reset state encoder for this episode
+    state_encoder_copy = state_encoder.clone()
     state_encoder_copy.reset()
     
     # Episode variables
@@ -272,7 +262,7 @@ def evaluate_single_agent(
 
 def evaluate_population_parallel(
     population: List[List[float]],
-    state_encoder: VectorEncoder,
+    state_encoder: StateEncoder,
     action_interface: ActionInterface,
     max_steps: int = 2000,
     max_workers: int = None,

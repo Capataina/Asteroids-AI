@@ -128,6 +128,11 @@ class DisplayManager:
             display_score = max(0, math.floor(self.game.reward_calculator.score))
             self.game.score_text.text = f"Score: {display_score}"
             self.info_text.draw()
+            
+            # Debug Overlays
+            if self.game.debug_mode:
+                import game.debug.visuals
+                game.debug.visuals.draw_hybrid_encoder_debug(self.episode_runner.state_encoder, self.game)
 
     def _stop_display(self):
         self.showing_best_agent = False

@@ -18,7 +18,7 @@ if project_root not in sys.path:
 
 from game import globals
 from Asteroids import AsteroidsGame
-from interfaces.encoders.VectorEncoder import VectorEncoder
+from interfaces.encoders.HybridEncoder import HybridEncoder
 from interfaces.ActionInterface import ActionInterface
 from ai_agents.neuroevolution.nn_agent import NNAgent
 from training.config.genetic_algorithm import GAConfig
@@ -39,12 +39,11 @@ class GATrainingScript:
         self.max_workers = os.cpu_count()
         
         # 1. Setup Infrastructure
-        self.state_encoder = VectorEncoder(
+        self.state_encoder = HybridEncoder(
             screen_width=globals.SCREEN_WIDTH,
             screen_height=globals.SCREEN_HEIGHT,
-            num_nearest_asteroids=GAConfig.NUM_NEAREST_ASTEROIDS,
-            include_bullets=False,
-            include_global=False
+            num_rays=16,
+            num_fovea_asteroids=3
         )
         self.action_interface = ActionInterface(action_space_type="boolean")
         self.reward_calculator = create_reward_calculator()

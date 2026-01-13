@@ -2,50 +2,69 @@
 
 ## Scope / Purpose
 
-The Genetic Algorithm is the currently implemented optimization method in AsteroidsAI. Its purpose is to evolve a neural network policy that can survive and score reward under the same simulation rules used by future methods, providing a concrete baseline for training infrastructure, analytics, and environment parity.
+The Genetic Algorithm is the currently implemented optimization method in AsteroidsAI. Its purpose is to evolve a fixed-topology neural network policy under the shared simulation + reward interfaces, providing a concrete baseline for training infrastructure, analytics, and future method comparisons (ES/NEAT/RL).
 
 ## Current Implemented System
 
+### Entry Point & Orchestration (Implemented)
+
+| Component | File | Granular Responsibility |
+|---|---|---|
+| Training script | `training/scripts/train_ga.py` | Creates encoder/action/reward/driver/analytics/display stack and runs the evaluate → display → evolve loop. |
+| Population evaluator | `training/core/population_evaluator.py` | Runs seeded headless rollouts in parallel and aggregates per-agent + per-generation metrics. |
+| Driver (GA logic) | `training/methods/genetic_algorithm/driver.py` | Maintains population and applies selection/crossover/mutation/elitism (+ novelty/diversity selection). |
+| Playback + generalization | `training/core/display_manager.py` | Runs best agent in windowed “fresh game” and records generalization metrics into analytics. |
+
 ### Policy Representation (Implemented)
 
-- **Genome**: A flat `List[float]` parameter vector (weights + biases).
-- **Policy**: `ai_agents/policies/feedforward.py:FeedforwardPolicy` (MLP).
-  - **Hidden activation**: `tanh`.
-  - **Output activation**: `sigmoid` clamped to avoid overflow.
-  - **Unpacking**: `W1` (input×hidden), `b1` (hidden), `W2` (hidden×output), `b2` (output).
-- **Agent wrapper**: `ai_agents/neuroevolution/nn_agent.py:NNAgent` implements `BaseAgent` and delegates to `FeedforwardPolicy`.
-- **Parameter count**:
-  - Computed via `NNAgent.get_parameter_count(...)`.
-  - Formula: `input*hidden + hidden + hidden*output + output`.
+| Concept | Implementation | Details |
+|---|---|---|
+| Genome | `List[float]` | Flat parameter vector representing all weights and biases. |
+| Policy | `ai_agents/policies/feedforward.py:FeedforwardPolicy` | MLP with `tanh` hidden activation and `sigmoid` outputs (clamped for numerical stability). |
+| Agent wrapper | `ai_agents/neuroevolution/nn_agent.py:NNAgent` | Implements `BaseAgent`, builds `FeedforwardPolicy` using `state_encoder.get_state_size()` as input size. |
+
+**Parameter count (fixed topology)**
+
+- Formula (as implemented): `input*hidden + hidden + hidden*output + output`.
+- Current default sizes:
+  - Input: `HybridEncoder.get_state_size() = 31` (see `plans/STATE_REPRESENTATION.md`)
+  - Hidden: `GAConfig.HIDDEN_LAYER_SIZE = 24`
+  - Output: `4`
+  - Parameter count: `31*24 + 24 + 24*4 + 4 = 868`
 
 ### State Encoding (Implemented)
 
-- **Encoder**: `interfaces/encoders/VectorEncoder.py:VectorEncoder`.
-- **Player features (3)**:
+The current GA training script uses `interfaces/encoders/HybridEncoder.py` (not `VectorEncoder`).
+
+| Encoder | File | Default Size | Used In |
+|---|---|---:|---|
+| `HybridEncoder` | `interfaces/encoders/HybridEncoder.py` | `31` | `training/scripts/train_ga.py` |
+
+**HybridEncoder feature layout (granular)**
+
+- Proprioception (3):
   - Forward velocity (egocentric, normalized).
   - Lateral velocity (egocentric, normalized).
-  - Shooting cooldown (normalized 0..1).
-- **Asteroid features (4 per asteroid)**:
-  - Distance (normalized 0..1).
-  - Angle-to-target (normalized -1..1).
-  - Closing speed (normalized -1..1).
-  - Size/scale (normalized 0..1).
-- **Cardinality**:
-  - Configured by `GAConfig.NUM_NEAREST_ASTEROIDS` (currently 8).
-  - State size formula: `3 + 4 * NUM_NEAREST_ASTEROIDS` (currently `3 + 4*8 = 35`).
-- **Wrapping-aware geometry**:
-  - Toroidal shortest-path adjustment is applied when computing relative asteroid position before distance/angle calculations.
+  - Shoot cooldown fraction (normalized).
+- Fovea list (3 asteroids × 4):
+  - Wrapped distance to asteroid (normalized).
+  - Signed angle-to-target relative to ship heading (normalized).
+  - Closing speed (normalized/clamped).
+  - Asteroid size/scale (normalized).
+- Peripheral rays (16):
+  - Normalized ray hit distances (`1.0` indicates max range/no hit).
 
 ### Action Space (Implemented)
 
-- **Action vector shape**: 4 floats in `[0, 1]`.
-- **Action meaning/order** (as consumed by the game):
-  - `action[0] -> left_pressed`
-  - `action[1] -> right_pressed`
-  - `action[2] -> up_pressed` (thrust)
-  - `action[3] -> space_pressed` (shoot)
-- **Thresholding**: `ActionInterface.to_game_input(...)` uses `> 0.5` to convert to booleans.
-- **Validation**: `ActionInterface.validate(...)` enforces length and rejects NaN/inf.
+| Output Index | Meaning | Mapping |
+|---:|---|---|
+| `0` | Turn left | `left_pressed` |
+| `1` | Turn right | `right_pressed` |
+| `2` | Thrust | `up_pressed` |
+| `3` | Shoot | `space_pressed` |
+
+- Output range: 4 floats in `[0, 1]`.
+- Discretization: `ActionInterface.to_game_input(...)` thresholds `> 0.5` (even when `action_space_type="continuous"`).
 
 ### GA Hyperparameters (Implemented)
 
@@ -53,96 +72,121 @@ From `training/config/genetic_algorithm.py:GAConfig`:
 
 | Setting | Value | Meaning |
 |---|---:|---|
-| `POPULATION_SIZE` | 25 | Individuals per generation. |
-| `NUM_GENERATIONS` | 500 | Total generations in a training run. |
-| `SEEDS_PER_AGENT` | 20 | Rollouts per individual (fitness averaged). |
-| `MAX_STEPS` | 1500 | Episode cap (step limit). |
-| `HIDDEN_LAYER_SIZE` | 24 | Hidden units in the MLP. |
-| `MUTATION_PROBABILITY` | 0.05 | Per-gene mutation chance. |
-| `MUTATION_GAUSSIAN_SIGMA` | 0.1 | Stddev for gaussian mutation noise. |
-| `CROSSOVER_PROBABILITY` | 0.7 | Probability to apply crossover on a parent pair. |
-| `CROSSOVER_ALPHA` | 0.5 | BLX-alpha blend/extrapolation factor. |
-| `FRAME_DELAY` | 1/60 | Fixed step used for training + playback. |
+| `POPULATION_SIZE` | `10` | Individuals per generation. |
+| `NUM_GENERATIONS` | `500` | Total generations in a run. |
+| `SEEDS_PER_AGENT` | `5` | Headless rollouts per individual (fitness averaged). |
+| `MAX_STEPS` | `1500` | Step limit per rollout/playback. |
+| `FRAME_DELAY` | `1/60` | Fixed time step used for training evaluation and playback. |
+| `HIDDEN_LAYER_SIZE` | `24` | Hidden units in the MLP. |
+| `MUTATION_PROBABILITY` | `0.05` | Per-gene mutation chance. |
+| `MUTATION_GAUSSIAN_SIGMA` | `0.1` | Stddev for gaussian noise. |
+| `MUTATION_UNIFORM_LOW/HIGH` | `-1.0 / 1.0` | Bounds for uniform mutation / initialization. |
+| `CROSSOVER_PROBABILITY` | `0.7` | Probability to apply crossover to a parent pair. |
+| `CROSSOVER_ALPHA` | `0.5` | BLX-alpha expansion factor. |
 
 ### Evolution Operators (Implemented)
 
-- **Parent selection** (`training/methods/genetic_algorithm/selection.py`):
-  - Tournament selection with `tournament_size=3`.
-  - Produces a parent list the same size as the population.
-- **Crossover** (`training/methods/genetic_algorithm/operators.py`):
-  - BLX-alpha blend crossover implemented as `crossover_blend(...)`.
-  - Produces two children by sampling from an extended per-gene interval.
-- **Mutation** (`training/methods/genetic_algorithm/operators.py`):
-  - Gaussian mutation implemented as `mutate_gaussian(...)` (per-gene probabilistic noise).
-  - Uniform mutation implemented as `mutate_uniform(...)` (present; not used by current driver).
-- **Adaptive mutation** (`training/methods/genetic_algorithm/driver.py`):
-  - If stagnation exceeds 10 generations, mutation probability and sigma are boosted up to caps.
-- **Elitism** (`training/methods/genetic_algorithm/driver.py`):
-  - Keeps ~10% top individuals (minimum 2) each generation.
-  - Preserves all-time best genome into the elite when stagnation is not too long (`< 30`).
+| Operator | File | Granular Behavior |
+|---|---|---|
+| Tournament selection | `training/methods/genetic_algorithm/selection.py` | Picks `tournament_size=3` competitors and selects the best by selection score. |
+| Crossover | `training/methods/genetic_algorithm/operators.py:crossover_blend` | BLX-alpha blend crossover producing two children sampled from expanded gene intervals. |
+| Mutation | `training/methods/genetic_algorithm/operators.py:mutate_gaussian` | Per-gene gaussian noise with probability `mutation_probability`. |
+| Elitism | `training/methods/genetic_algorithm/driver.py` | Preserves top ~10% (min 2) by raw fitness; injects all-time best if stagnation is low. |
+| Adaptive mutation | `training/methods/genetic_algorithm/driver.py:_adapt_mutation` | Boosts mutation probability and sigma after stagnation threshold (10 gens). |
+
+### Novelty & Reward Diversity Selection (Implemented)
+
+GA selection is not based purely on raw fitness:
+
+- Per-agent behavior vectors are computed from action/engagement metrics (`training/components/novelty.py`).
+- Per-agent reward diversity is computed from the reward breakdown entropy (`training/components/diversity.py`).
+- Selection score is computed as `fitness + novelty_bonus + diversity_bonus` (`training/components/selection.py`).
+- A `BehaviorArchive` stores historically novel behaviors and influences novelty distances (`training/components/archive.py`).
+
+See `plans/SHARED_COMPONENTS.md` for the full novelty/diversity system details.
 
 ### Evaluation Loop (Implemented)
 
-- **Parallel evaluation** (`training/core/population_evaluator.py`):
-  - Uses `ThreadPoolExecutor` to evaluate many individuals concurrently.
-  - Each individual is evaluated on `SEEDS_PER_AGENT` deterministic seeds using `HeadlessAsteroidsGame(random_seed=...)`.
-  - Fitness is averaged across seeds.
-- **Per-agent metrics returned by the evaluator**:
-  - `fitness`, `steps_survived`, `kills`, `shots_fired`, `hits`, `accuracy`, `time_alive`.
-  - Action counts: `thrust_frames`, `turn_frames`, `shoot_frames`.
-  - Action durations: `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`.
-  - Engagement: `idle_rate`, `avg_asteroid_dist`, `screen_wraps`.
-  - Reward anatomy: `reward_breakdown`, `quarterly_scores`.
-  - Heatmap inputs: `position_history`, `kill_data`.
-- **Population-level aggregation**:
-  - Averages of the above, plus “best agent” and “population sample” heatmap streams.
+**Parallel rollouts**
 
-### Training Orchestration & Display (Implemented)
+- `evaluate_population_parallel(...)` evaluates each individual on `SEEDS_PER_AGENT` deterministic seeds using `HeadlessAsteroidsGame(random_seed=...)`.
+- Rollouts are executed concurrently via `ThreadPoolExecutor(max_workers=os.cpu_count())`.
+- Seed assignment is deterministic per generation: `generation_seed + agent_idx * seeds_per_agent + seed_offset`.
 
-- **Entry point**: `training/scripts/train_ga.py`.
-- **Phases**:
-  - Evaluate population → show best agent in windowed “fresh game” → evolve population.
-- **Generalization capture** (`training/core/display_manager.py`):
-  - Windowed episode is stepped with fixed `GAConfig.FRAME_DELAY` even if arcade provides variable `delta_time`.
-  - Fresh-game performance is recorded into analytics with ratio metrics and a letter grade.
+**Per-agent averaged metrics (returned from evaluator)**
 
-## Implemented Outputs / Artifacts
+Each agent’s metrics are averaged across its seeds and returned in `per_agent_metrics`:
 
-- **`training_summary.md`**: Generated at save points via `TrainingAnalytics.generate_markdown_report(...)`.
-- **`training_data.json`**: Generated at save points via `TrainingAnalytics.save_json(...)`.
-- **Windowed best-agent playback**: The best genome is executed in the arcade window between generations.
+- Fitness:
+  - `fitness`: averaged total reward score.
+- Core gameplay:
+  - `steps_survived`: averaged survival steps.
+  - `kills`: averaged kills.
+  - `shots_fired`: averaged shots.
+  - `accuracy`: averaged kills/shots.
+- Action usage:
+  - `thrust_frames`, `turn_frames`, `shoot_frames`: averaged counts.
+  - `idle_rate`: averaged fraction of “no input” frames.
+- Engagement / risk:
+  - `avg_asteroid_dist`: averaged nearest-asteroid distance.
+  - `min_asteroid_dist`: averaged closest approach distance (risk proxy).
+  - `screen_wraps`: averaged wrap count (coverage proxy).
+- Reward anatomy:
+  - `reward_breakdown`: averaged per-component totals.
+- Novelty/diversity inputs:
+  - `behavior_vector`: 7D behavior characterization vector.
+  - `reward_diversity`: entropy-based diversity score.
+- Neural/behavior health:
+  - `output_saturation`: % of outputs near 0/1 (saturated).
+  - `action_entropy`: Shannon entropy of action-combination distribution.
+
+**Per-generation aggregated metrics (returned from evaluator)**
+
+- Population averages for the above (e.g. `avg_kills`, `avg_accuracy`, `avg_action_entropy`).
+- Population action-style averages:
+  - `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`
+- Best-agent aggregates:
+  - `best_agent_positions`, `best_agent_kill_events` (heatmap inputs).
+- Population sample aggregates:
+  - `population_positions`, `population_kill_events` (heatmap inputs).
+- Reward aggregates:
+  - `avg_reward_breakdown`
+  - `avg_quarterly_scores`
+
+### Windowed Playback & Fresh-Game Generalization (Implemented)
+
+- `DisplayManager.start_display(...)` runs the best agent in the windowed `AsteroidsGame`.
+- Playback uses:
+  - `manual_spawning=True` (spawn timing parity with headless).
+  - Forced fixed time step `GAConfig.FRAME_DELAY` even if arcade provides variable `delta_time`.
+  - Optional debug overlays, including `draw_hybrid_encoder_debug(...)` when enabled.
+- Fresh-game metrics and generalization ratios/grade are recorded into analytics via `TrainingAnalytics.record_fresh_game(...)`.
+
+## Implemented Outputs / Artifacts (if applicable)
+
+- `training_summary.md`: Training report generated by `TrainingAnalytics.generate_markdown_report(...)`.
+- `training_data.json`: Training export generated by `TrainingAnalytics.save_json(...)`.
 
 ## In Progress / Partially Implemented
 
-- [ ] Alternate operators: `mutate_uniform(...)` and `crossover_arithmetic(...)` exist but are not used by the current GA driver.
-- [ ] Checkpointing/resume: The run exports metrics, but does not persist the GA population/genomes for resuming training.
+- [ ] Checkpointing/resume: Training exports analytics but does not persist the GA population/genomes for resuming runs.
+- [ ] Novelty/diversity reporting: Novelty/diversity influences selection, but the markdown report does not explicitly visualize these signals.
+- [ ] `ActionInterface(action_space_type="continuous")`: Exists but behaves identically to boolean thresholding.
+- [ ] Encoder/test drift: `VectorEncoder` still exists and some legacy code assumes it, while current training uses `HybridEncoder`.
+- [ ] `GAConfig.NUM_NEAREST_ASTEROIDS`: Remains in config but is not used by the current `HybridEncoder` training setup.
 
 ## Planned / Missing / To Be Changed
 
 - [ ] Genome persistence: Save best-of-generation and all-time-best genomes to reloadable files for playback/re-evaluation.
-- [ ] Novelty/diversity shaping: Add novelty tracking or other diversity-preservation mechanisms (beyond basic fitness stddev).
 - [ ] Multi-episode fresh-game validation: Replace single fresh-game playback with multiple rollouts and averaged generalization stats.
-- [ ] Method abstraction: If ES/NEAT are added, consider refactoring evaluator interfaces so non-GA policies can reuse rollouts cleanly.
+- [ ] Evaluation abstraction: Generalize evaluator interfaces so ES/NEAT policies can reuse rollouts without hard-coded GA assumptions.
+- [ ] Continuous action support: Implement true continuous control (or explicitly remove the misleading “continuous” mode).
 
-## Notes / Design Considerations
+## Notes / Design Considerations (optional)
 
-- The action space is currently boolean-thresholded; "continuous" mode exists in `ActionInterface` but behaves identically to boolean thresholding.
-- The windowed game's internal reward calculator differs from the training reward preset; training fitness should be interpreted using `training/config/rewards.py`.
-- **Training data before the headless bullet-lifetime fix is invalid**: A bug caused bullets to never expire in headless mode, inflating training accuracy (70-80%) vs real gameplay (10-20%). Agents learned to exploit "zombie bullets" that wrap infinitely. Previous training runs should be discarded and rerun with the fixed headless game.
-
-## Future Considerations
-
-### Dynamic Difficulty Adjustment (Curriculum)
-
-- **Concept**: Scale the difficulty of the training environment as the population's fitness improves.
-- **Goal**: Prevent agents from converging to "safe" local optima (like the Turret strategy) early on by forcing them to master fundamental skills first.
-- **Implementation Strategy**:
-  - **Stage 1 (Pilot License)**: Empty world. Reward only velocity and displacement. Survival is easy, but "winning" requires movement.
-  - **Stage 2 (Target Practice)**: Stationary asteroids. Reward accuracy. Puts the "Pilot" skills to use.
-  - **Stage 3 (Full Game)**: Standard Asteroids.
-- **Challenges**: Defining robust transition thresholds (when to switch stages) and managing the "fitness shock" when rules change.
+- Training fitness is defined by `training/config/rewards.py` and is intentionally decoupled from the game’s internal reward components.
+- Hybrid state encoding changes the input dimensionality and should be treated as a “schema change” for any persisted genomes.
 
 ## Discarded / Obsolete / No Longer Relevant
 
-- No GA features have been formally removed; unused-but-present components should remain listed under "In Progress / Partially Implemented" until adopted or deleted.
-
+- The GA training system no longer relies on `VectorEncoder` as its default encoder; the current baseline encoder for training is `HybridEncoder`.
