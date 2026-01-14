@@ -69,6 +69,11 @@ def evaluate_single_agent(
     thrust_frames = 0
     turn_frames = 0
     shoot_frames = 0
+
+    # Detailed turn tracking (for diagnosing spin behavior)
+    left_only_frames = 0   # Left pressed, right not pressed
+    right_only_frames = 0  # Right pressed, left not pressed
+    both_turn_frames = 0   # Both left and right pressed (cancel out)
     
     # Spatial tracking
     position_history = []
@@ -136,6 +141,13 @@ def evaluate_single_agent(
             thrust_frames += 1
         if game.left_pressed or game.right_pressed:
             turn_frames += 1
+            # Detailed turn tracking
+            if game.left_pressed and game.right_pressed:
+                both_turn_frames += 1
+            elif game.left_pressed:
+                left_only_frames += 1
+            else:  # right_pressed only
+                right_only_frames += 1
         if game.space_pressed:
             shoot_frames += 1
         
@@ -247,6 +259,10 @@ def evaluate_single_agent(
         'thrust_frames': thrust_frames,
         'turn_frames': turn_frames,
         'shoot_frames': shoot_frames,
+        # Detailed turn metrics for diagnosing spin behavior
+        'left_only_frames': left_only_frames,
+        'right_only_frames': right_only_frames,
+        'both_turn_frames': both_turn_frames,
         'avg_thrust_duration': avg_thrust_duration,
         'avg_turn_duration': avg_turn_duration,
         'avg_shoot_duration': avg_shoot_duration,
@@ -267,7 +283,8 @@ def evaluate_population_parallel(
     max_steps: int = 2000,
     max_workers: int = None,
     generation_seed: int = None,
-    seeds_per_agent: int = 3
+    seeds_per_agent: int = 3,
+    use_common_seeds: bool = False
 ) -> Tuple[List[float], int, Dict, List[Dict]]:
     """
     Evaluate entire population in parallel with multiple seeds per agent.
@@ -283,6 +300,8 @@ def evaluate_population_parallel(
         max_workers: Number of parallel workers (None = auto)
         generation_seed: Base seed for this generation (used to derive per-agent seeds)
         seeds_per_agent: Number of different seeds to evaluate each agent on (default: 3)
+        use_common_seeds: If True, all agents use the same seed set (CRN for ES).
+                          If False, each agent gets unique seeds (default, GA-style).
 
     Returns:
         Tuple of:
@@ -294,15 +313,22 @@ def evaluate_population_parallel(
     # Base seed for this generation - used to derive unique seeds
     if generation_seed is None:
         generation_seed = random.randint(0, 2**31 - 1)
-        
-    print(f"[DEBUG] Evaluation Generation Seed: {generation_seed}")
 
-    # Generate seeds for all evaluations: each agent gets `seeds_per_agent` different seeds
-    # Agent i gets seeds: [base + i*seeds_per_agent + 0, base + i*seeds_per_agent + 1, ...]
+    print(f"[DEBUG] Evaluation Generation Seed: {generation_seed} (CRN: {use_common_seeds})")
+
+    # Generate seeds for all evaluations
     all_eval_tasks = []
     for agent_idx, individual in enumerate(population):
         for seed_offset in range(seeds_per_agent):
-            seed = generation_seed + agent_idx * seeds_per_agent + seed_offset
+            if use_common_seeds:
+                # CRN mode: All agents use the same seed set within a generation
+                # This ensures fitness differences reflect parameter differences, not seed luck
+                # Seed set changes across generations to maintain generalization pressure
+                seed = generation_seed + seed_offset
+            else:
+                # Default mode: Each agent gets unique seeds
+                # Agent i gets seeds: [base + i*seeds_per_agent + 0, base + i*seeds_per_agent + 1, ...]
+                seed = generation_seed + agent_idx * seeds_per_agent + seed_offset
             all_eval_tasks.append((agent_idx, individual, seed))
 
     # Use ThreadPoolExecutor for parallel evaluation
@@ -353,6 +379,11 @@ def evaluate_population_parallel(
         avg_saturation = sum(r.get('output_saturation', 0.0) for r in results) / len(results)
         avg_entropy = sum(r.get('action_entropy', 0.0) for r in results) / len(results)
 
+        # Detailed turn metrics averaging
+        avg_left_only = sum(r.get('left_only_frames', 0) for r in results) / len(results)
+        avg_right_only = sum(r.get('right_only_frames', 0) for r in results) / len(results)
+        avg_both_turn = sum(r.get('both_turn_frames', 0) for r in results) / len(results)
+
         # Average reward breakdown for this agent
         agent_reward_breakdown = {}
         for r in results:
@@ -385,6 +416,10 @@ def evaluate_population_parallel(
             'thrust_frames': avg_thrust,
             'turn_frames': avg_turn,
             'shoot_frames': avg_shoot,
+            # Detailed turn metrics
+            'left_only_frames': avg_left_only,
+            'right_only_frames': avg_right_only,
+            'both_turn_frames': avg_both_turn,
             'idle_rate': avg_idle_rate,
             'avg_asteroid_dist': avg_asteroid_dist,
             'min_asteroid_dist': avg_min_dist,
@@ -470,6 +505,10 @@ def evaluate_population_parallel(
         'avg_screen_wraps': sum(r.get('screen_wraps', 0) for r in averaged_results) / len(averaged_results),
         'avg_output_saturation': sum(r.get('output_saturation', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_action_entropy': sum(r.get('action_entropy', 0.0) for r in averaged_results) / len(averaged_results),
+        # Detailed turn metrics for diagnosing spin behavior
+        'avg_left_only_frames': sum(r.get('left_only_frames', 0) for r in averaged_results) / len(averaged_results),
+        'avg_right_only_frames': sum(r.get('right_only_frames', 0) for r in averaged_results) / len(averaged_results),
+        'avg_both_turn_frames': sum(r.get('both_turn_frames', 0) for r in averaged_results) / len(averaged_results),
         'best_agent_positions': best_agent_positions,
         'best_agent_kill_events': best_agent_kill_events,
         'population_positions': population_positions,

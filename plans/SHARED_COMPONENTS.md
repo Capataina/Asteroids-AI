@@ -103,6 +103,8 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - [ ] Novelty/diversity distributions: Analytics exports do not currently include distributions of `reward_diversity` or any per-dimension `behavior_vector` statistics.
 - [ ] `NoveltyConfig.normalize_scores`: Configuration flag exists but is not currently used in selection score computation (scores are combined in raw scale).
 - [ ] `NoveltyConfig.min_positive_components`: Configuration value exists but is not explicitly enforced by selection scoring (diversity returns 0.0 for <=1 positive component implicitly).
+- [ ] ES parity of scoring semantics: GA uses `compute_selection_score(...)` with fitness-relative scaling, while ES applies novelty/diversity bonuses scaled by fitness spread (stddev with a floor) pre-rank-shaping in `training/methods/evolution_strategies/driver.py:_apply_novelty_diversity(...)`.
+- [ ] ES bonus-scale validation: ES rank transformation discards magnitude information, so novelty/diversity bonus weights must be tuned with shaping behavior in mind (currently enabled in `ESConfig`).
 
 ## Planned / Missing / To Be Changed
 

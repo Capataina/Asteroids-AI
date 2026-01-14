@@ -69,6 +69,7 @@ Behavioral and spatial metrics (recorded when evaluator provides `behavioral_met
   - `avg_steps`, `max_steps`
 - Action rates:
   - `avg_thrust_frames`, `avg_turn_frames`, `avg_shoot_frames`
+  - `avg_left_only_frames`, `avg_right_only_frames`, `avg_both_turn_frames` (detailed turn metrics)
 - Action durations:
   - `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`
 - Engagement / movement:
@@ -132,6 +133,7 @@ Additional distribution stats:
 - [ ] Fresh-game generation alignment: `DisplayManager` infers generation as `len(generations_data)`; this is correct in the current flow but brittle if ordering changes.
 - [ ] Sparkline glyph rendering: Some report sections use non-ASCII glyphs which can display as mojibake depending on terminal encoding/font.
 - [ ] Novelty/diversity distributions: Per-agent `behavior_vector` and `reward_diversity` exist during evaluation but are not exported as distributions.
+- [ ] Evaluation seed traceability: Evaluator chooses a `generation_seed` and prints it as debug output, but the seed is not stored in analytics exports for reproducibility or CRN experiments.
 
 ## Planned / Missing / To Be Changed
 
@@ -139,6 +141,7 @@ Additional distribution stats:
 - [ ] Feature-importance tooling: Attribute outcomes to parts of the current state vector (currently `HybridEncoder` output).
 - [ ] Lineage/ancestry graphs: Track parentage across generations to visualize genetic drift and founder effects.
 - [ ] Per-seed variance reporting: Export mean/std across seeds per agent for robustness tracking.
+- [ ] Evaluation seed-policy metadata: Record whether a generation used per-candidate seeds or common-random-numbers (CRN), and persist the exact seed set used.
 - [ ] Long-run storage strategy: Optional compression or chunked exports when `training_data.json` grows large.
 
 ## Notes / Design Considerations (optional)

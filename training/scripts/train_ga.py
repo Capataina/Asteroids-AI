@@ -125,7 +125,8 @@ class GATrainingScript:
                     self.action_interface,
                     max_steps=GAConfig.MAX_STEPS,
                     max_workers=self.max_workers,
-                    seeds_per_agent=GAConfig.SEEDS_PER_AGENT
+                    seeds_per_agent=GAConfig.SEEDS_PER_AGENT,
+                    use_common_seeds=GAConfig.USE_COMMON_SEEDS
                 )
                 self.current_fitnesses = fitnesses
                 self.current_per_agent_metrics = per_agent_metrics

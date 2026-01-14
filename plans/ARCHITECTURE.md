@@ -18,7 +18,7 @@ Asteroids AI/
 │   ├── base_agent.py                    # BaseAgent contract: encoded_state -> action_vector
 │   ├── neuroevolution/
 │   │   ├── nn_agent.py                  # NNAgent: wraps FeedforwardPolicy for GA (NumPy, fixed-topology MLP)
-│   │   └── nn_agent_tf.py               # NNAgentTF: wraps FeedforwardPolicyTF for ES (TensorFlow)
+│   │   └── nn_agent_tf.py               # NNAgentTF: TensorFlow agent wrapper (present, currently unused by training scripts)
 │   └── policies/
 │       ├── feedforward.py               # FeedforwardPolicy NumPy MLP unpacking + forward pass
 │       ├── feedforward_tf.py            # FeedforwardPolicyTF TensorFlow Keras MLP for ES
@@ -52,13 +52,13 @@ Asteroids AI/
 │   │   └── train_es.py                  # Main ES entry point: sample -> evaluate -> playback -> update (+ analytics)
 │   ├── config/
 │   │   ├── genetic_algorithm.py         # GAConfig hyperparameters (population, seeds, mutation/crossover)
-│   │   ├── evolution_strategies.py      # ESConfig hyperparameters (sigma, learning rate, antithetic sampling)
+│   │   ├── evolution_strategies.py      # ESConfig hyperparameters (sigma schedule, CRN, antithetic sampling, AdamW, elitism)
 │   │   ├── rewards.py                   # Training reward preset (ComposableRewardCalculator assembly)
 │   │   ├── analytics.py                 # AnalyticsConfig: report section toggles + windows
 │   │   └── novelty.py                   # NoveltyConfig: novelty/diversity selection weighting + archive params
 │   ├── core/
 │   │   ├── population_evaluator.py      # Parallel evaluation for GA (ThreadPoolExecutor + NNAgent)
-│   │   ├── population_evaluator_tf.py   # Parallel evaluation for ES (ThreadPoolExecutor + NNAgentTF)
+│   │   ├── population_evaluator_tf.py   # TensorFlow parallel evaluator (present, currently unused by training scripts)
 │   │   ├── episode_runner.py            # Windowed stepping helper for playback (EpisodeRunner)
 │   │   ├── episode_result.py            # EpisodeResult container
 │   │   └── display_manager.py           # Best-agent playback + fresh-game generalization capture
@@ -68,7 +68,7 @@ Asteroids AI/
 │   │   │   ├── selection.py             # Tournament selection
 │   │   │   └── operators.py             # BLX-alpha crossover + gaussian/uniform mutation
 │   │   └── evolution_strategies/
-│   │       ├── driver.py                # ESDriver: sample perturbations + gradient update + sigma decay
+│   │       ├── driver.py                # ESDriver: sample perturbations + gradient update (AdamW) + elitism + adaptive sigma
 │   │       └── fitness_shaping.py       # Rank transformation + utility computation
 │   ├── components/
 │   │   ├── novelty.py                   # Behavior vector + kNN novelty scoring
@@ -95,8 +95,10 @@ Asteroids AI/
 │   ├── EVOLUTION_STRATEGIES.md
 │   └── NEAT.md
 │
-├── training_data.json                   # Generated training metrics export
-└── training_summary.md                  # Generated training report
+├── training_data.json                   # Generated GA training metrics export
+├── training_summary.md                  # Generated GA training report
+├── training_data_es.json                # Generated ES training metrics export
+└── training_summary_es.md               # Generated ES training report
 ```
 
 ### Subsystem Responsibilities (Implemented)
@@ -107,7 +109,7 @@ Asteroids AI/
 | **Game (Headless)** (`game/headless_game.py`)  | Fast seeded simulation for parallel rollouts without rendering.                                    |
 | **Interfaces** (`interfaces/`)                 | Stable contracts around state encoding, action mapping, reward composition, and episode metrics.   |
 | **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `VectorEncoder`).         |
-| **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA uses `NNAgent` (NumPy), ES uses `NNAgentTF` (TensorFlow). |
+| **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA and ES training scripts currently use `NNAgent` (NumPy). |
 | **Training Core** (`training/core/`)           | Executes evaluation/playback orchestration and wires game + interfaces + agents.                   |
 | **Training Methods** (`training/methods/`)     | Algorithm-specific optimization logic; GA and ES are implemented.                                  |
 | **Shared Components** (`training/components/`) | Method-agnostic novelty/diversity scoring utilities used during selection.                         |
@@ -150,6 +152,7 @@ Game state
 - **Evaluation phase**
 
   - `training/core/population_evaluator.py:evaluate_population_parallel(...)` evaluates each genome on `GAConfig.SEEDS_PER_AGENT` seeded rollouts using `HeadlessAsteroidsGame(random_seed=...)`.
+  - Seed assignment mode is controlled by `GAConfig.USE_COMMON_SEEDS` (default `False`): unique seeds per genome vs CRN (shared seed set across the population).
   - Fitness is averaged across seeds; aggregated generation metrics and per-agent averaged metrics are returned.
 
 - **Playback (fresh game) phase**
@@ -180,13 +183,14 @@ Game state
 - **Sampling phase**
 
   - `ESDriver.sample_population()` generates Gaussian perturbations around the mean.
-  - If `USE_ANTITHETIC=True`, generates paired ε and -ε perturbations for variance reduction.
+  - If `USE_ANTITHETIC=True`, generates paired `+epsilon` and `-epsilon` perturbations for variance reduction.
   - Returns candidate parameter vectors for evaluation.
 
 - **Evaluation phase**
 
-  - `training/core/population_evaluator_tf.py:evaluate_population_parallel_tf(...)` evaluates candidates using `NNAgentTF` (TensorFlow).
+  - `training/core/population_evaluator.py:evaluate_population_parallel(...)` evaluates candidates using `NNAgent` (NumPy).
   - Same multi-seed averaging as GA (`ESConfig.SEEDS_PER_AGENT` rollouts per candidate).
+  - Seed assignment mode is controlled by `ESConfig.USE_COMMON_SEEDS` (default `True`) to enable CRN + antithetic variance reduction.
   - Returns fitnesses and behavioral metrics.
 
 - **Playback (fresh game) phase**
@@ -197,14 +201,16 @@ Game state
 - **Update phase**
   - `ESDriver.update(...)` performs:
     - Rank-based fitness transformation (if `USE_RANK_TRANSFORMATION=True`).
-    - Gradient estimation: `grad = (1/Nσ) * Σ utility_i * ε_i`.
-    - Mean update: `θ ← θ + α * grad`.
-    - Weight decay and sigma decay.
+    - Gradient estimation: `grad = (1/(N*sigma)) * Σ (utility_i * epsilon_i)`.
+    - Mean update: AdamW (when `USE_ADAMW=True`) or SGD (when `USE_ADAMW=False`) is applied to update `theta`.
+    - Weight decay, adaptive sigma decay, and optional elite pull/injection are applied based on `ESConfig`.
 
 ## Implemented Outputs / Artifacts (if applicable)
 
 - `training_summary.md`: Markdown report generated by `TrainingAnalytics.generate_markdown_report(...)`.
 - `training_data.json`: JSON export generated by `TrainingAnalytics.save_json(...)` (schema + config + per-generation data + fresh-game data).
+- `training_summary_es.md`: Markdown report generated by ES training via `TrainingAnalytics.generate_markdown_report(...)`.
+- `training_data_es.json`: JSON export generated by ES training via `TrainingAnalytics.save_json(...)`.
 
 ## In Progress / Partially Implemented
 
@@ -217,7 +223,7 @@ Game state
 
 ## Planned / Missing / To Be Changed
 
-- [x] Evolution Strategies method: ES implemented under `training/methods/evolution_strategies/` with TensorFlow policy.
+- [x] Evolution Strategies method: ES implemented under `training/methods/evolution_strategies/`; training script currently uses shared NumPy policy/evaluator (TF components are present but unused).
 - [ ] NEAT method: Implement variable-topology genomes/speciation/innovation tracking consistent with `README.md` direction.
 - [ ] Multi-method training dashboard: Parallel training/display infrastructure consistent with `README.md` ("single environment, multiple minds").
 - [ ] Checkpointing/resume: Persist method state (e.g., GA population + ES mean + best genome) so long runs can resume and be replayed.

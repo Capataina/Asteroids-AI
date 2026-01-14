@@ -77,6 +77,7 @@ From `training/config/genetic_algorithm.py:GAConfig`:
 | `SEEDS_PER_AGENT`           |          `5` | Headless rollouts per individual (fitness averaged).       |
 | `MAX_STEPS`                 |       `1500` | Step limit per rollout/playback.                           |
 | `FRAME_DELAY`               |       `1/60` | Fixed time step used for training evaluation and playback. |
+| `USE_COMMON_SEEDS`          |      `False` | If `True`, all individuals share the same seed set per generation (CRN mode); if `False`, each individual uses unique seeds. |
 | `HIDDEN_LAYER_SIZE`         |         `24` | Hidden units in the MLP.                                   |
 | `MUTATION_PROBABILITY`      |       `0.05` | Per-gene mutation chance.                                  |
 | `MUTATION_GAUSSIAN_SIGMA`   |        `0.1` | Stddev for gaussian noise.                                 |
@@ -109,13 +110,15 @@ See `plans/SHARED_COMPONENTS.md` for the full novelty/diversity system details.
 
 **Parallel rollouts**
 
-- `evaluate_population_parallel(...)` evaluates each individual on `SEEDS_PER_AGENT` deterministic seeds using `HeadlessAsteroidsGame(random_seed=...)`.
+- `evaluate_population_parallel(...)` evaluates each individual on `SEEDS_PER_AGENT` seeded rollouts using `HeadlessAsteroidsGame(random_seed=...)`.
 - Rollouts are executed concurrently via `ThreadPoolExecutor(max_workers=os.cpu_count())`.
-- Seed assignment is deterministic per generation: `generation_seed + agent_idx * seeds_per_agent + seed_offset`.
+- Seed assignment is deterministic per generation and depends on `GAConfig.USE_COMMON_SEEDS`:
+  - Default (`USE_COMMON_SEEDS=False`): `generation_seed + agent_idx * seeds_per_agent + seed_offset` (unique seeds per individual).
+  - CRN mode (`USE_COMMON_SEEDS=True`): `generation_seed + seed_offset` (shared seed set across individuals).
 
 **Per-agent averaged metrics (returned from evaluator)**
 
-Each agent’s metrics are averaged across its seeds and returned in `per_agent_metrics`:
+Each agent's metrics are averaged across its seeds and returned in `per_agent_metrics`:
 
 - Fitness:
   - `fitness`: averaged total reward score.
@@ -126,7 +129,8 @@ Each agent’s metrics are averaged across its seeds and returned in `per_agent_
   - `accuracy`: averaged kills/shots.
 - Action usage:
   - `thrust_frames`, `turn_frames`, `shoot_frames`: averaged counts.
-  - `idle_rate`: averaged fraction of “no input” frames.
+  - `left_only_frames`, `right_only_frames`, `both_turn_frames`: averaged detailed turn breakdown (spin diagnosis).
+  - `idle_rate`: averaged fraction of "no input" frames.
 - Engagement / risk:
   - `avg_asteroid_dist`: averaged nearest-asteroid distance.
   - `min_asteroid_dist`: averaged closest approach distance (risk proxy).
@@ -145,6 +149,8 @@ Each agent’s metrics are averaged across its seeds and returned in `per_agent_
 - Population averages for the above (e.g. `avg_kills`, `avg_accuracy`, `avg_action_entropy`).
 - Population action-style averages:
   - `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`
+- Population detailed turn averages:
+  - `avg_left_only_frames`, `avg_right_only_frames`, `avg_both_turn_frames`
 - Best-agent aggregates:
   - `best_agent_positions`, `best_agent_kill_events` (heatmap inputs).
 - Population sample aggregates:
@@ -228,6 +234,8 @@ The current GA implementation uses entirely custom-written operators and selecti
 
 - Training fitness is defined by `training/config/rewards.py` and is intentionally decoupled from the game’s internal reward components.
 - Hybrid state encoding changes the input dimensionality and should be treated as a “schema change” for any persisted genomes.
+- Evaluation-noise tolerance: Tournament selection + elitism tends to be more tolerant of per-individual seed differences than ES-style gradient estimation, so GA can look stronger under noisy evaluation.
+- Seeds-per-agent trade-off: Increasing `GAConfig.SEEDS_PER_AGENT` reduces luck and selects for generalization, but increases episode cost per generation.
 
 ## Discarded / Obsolete / No Longer Relevant
 

@@ -73,11 +73,24 @@ class ESTrainingScript:
             'population_size': ESConfig.POPULATION_SIZE,
             'num_generations': ESConfig.NUM_GENERATIONS,
             'sigma': ESConfig.SIGMA,
+            'sigma_decay': ESConfig.SIGMA_DECAY,
+            'sigma_min': ESConfig.SIGMA_MIN,
+            'adaptive_sigma': ESConfig.ADAPTIVE_SIGMA_ENABLED,
             'learning_rate': ESConfig.LEARNING_RATE,
             'use_antithetic': ESConfig.USE_ANTITHETIC,
             'use_rank_transformation': ESConfig.USE_RANK_TRANSFORMATION,
             'weight_decay': ESConfig.WEIGHT_DECAY,
             'seeds_per_agent': ESConfig.SEEDS_PER_AGENT,
+            'use_common_seeds': ESConfig.USE_COMMON_SEEDS,
+            'enable_novelty': ESConfig.ENABLE_NOVELTY,
+            'enable_diversity': ESConfig.ENABLE_DIVERSITY,
+            'novelty_weight': ESConfig.NOVELTY_WEIGHT,
+            'diversity_weight': ESConfig.DIVERSITY_WEIGHT,
+            'use_adamw': ESConfig.USE_ADAMW,
+            'adamw_beta1': ESConfig.ADAMW_BETA1,
+            'adamw_beta2': ESConfig.ADAMW_BETA2,
+            'enable_elitism': ESConfig.ENABLE_ELITISM,
+            'elite_pull_enabled': ESConfig.ELITE_PULL_ENABLED,
             'max_workers': self.max_workers,
         })
 
@@ -87,7 +100,8 @@ class ESTrainingScript:
         # State
         self.current_generation = 0
         self.best_fitness = float('-inf')
-        self.best_mean = None
+        self.best_candidate = None  # Store actual best candidate weights (not the mean)
+        self.best_generation = 0    # Track which generation produced the best
         self.phase = "sampling"
         self.current_candidates = []
         self.current_fitnesses = []
@@ -104,19 +118,26 @@ class ESTrainingScript:
 
         print("ES Training Script Initialized")
         print(f"  Population Size: {ESConfig.POPULATION_SIZE}")
-        print(f"  Sigma: {ESConfig.SIGMA}")
+        print(f"  Sigma: {ESConfig.SIGMA} (decay={ESConfig.SIGMA_DECAY}, min={ESConfig.SIGMA_MIN})")
+        print(f"  Adaptive Sigma: {ESConfig.ADAPTIVE_SIGMA_ENABLED} (patience={ESConfig.ADAPTIVE_SIGMA_PATIENCE})")
         print(f"  Learning Rate: {ESConfig.LEARNING_RATE}")
+        print(f"  Optimizer: {'AdamW' if ESConfig.USE_ADAMW else 'SGD'} (β1={ESConfig.ADAMW_BETA1}, β2={ESConfig.ADAMW_BETA2})")
+        print(f"  Elitism: {ESConfig.ENABLE_ELITISM} (pull={ESConfig.ELITE_PULL_ENABLED}, strength={ESConfig.ELITE_PULL_STRENGTH})")
         print(f"  Antithetic Sampling: {ESConfig.USE_ANTITHETIC}")
         print(f"  Rank Transformation: {ESConfig.USE_RANK_TRANSFORMATION}")
+        print(f"  Common Seeds (CRN): {ESConfig.USE_COMMON_SEEDS}")
+        print(f"  Novelty: {ESConfig.ENABLE_NOVELTY} (weight={ESConfig.NOVELTY_WEIGHT})")
+        print(f"  Diversity: {ESConfig.ENABLE_DIVERSITY} (weight={ESConfig.DIVERSITY_WEIGHT})")
 
     def update(self, delta_time):
         try:
             if self.current_generation >= ESConfig.NUM_GENERATIONS:
                 if not self.display_manager.showing_best_agent:
                     print("Training Complete.")
+                    print(f"All-time best fitness: {self.best_fitness:.2f} (Generation {self.best_generation})")
                     self._save()
-                    if self.best_mean is not None:
-                        agent = NNAgent(self.best_mean, self.state_encoder, self.action_interface)
+                    if self.best_candidate is not None:
+                        agent = NNAgent(self.best_candidate, self.state_encoder, self.action_interface)
                         self.display_manager.start_display(agent, self.best_fitness, self.best_fitness)
                     return
 
@@ -162,7 +183,8 @@ class ESTrainingScript:
                     self.action_interface,
                     max_steps=ESConfig.MAX_STEPS,
                     max_workers=self.max_workers,
-                    seeds_per_agent=ESConfig.SEEDS_PER_AGENT
+                    seeds_per_agent=ESConfig.SEEDS_PER_AGENT,
+                    use_common_seeds=ESConfig.USE_COMMON_SEEDS
                 )
                 self.current_fitnesses = fitnesses
                 self.current_per_agent_metrics = per_agent_metrics
@@ -172,10 +194,11 @@ class ESTrainingScript:
                 current_best_fit = fitnesses[best_idx]
                 current_best_candidate = self.current_candidates[best_idx]
 
-                # Update all-time best
+                # Update all-time best - store actual candidate weights, not the mean
                 if current_best_fit > self.best_fitness:
                     self.best_fitness = current_best_fit
-                    self.best_mean = self.driver.get_mean_as_list()
+                    self.best_candidate = current_best_candidate.copy()  # Store actual best candidate
+                    self.best_generation = self.current_generation + 1
 
                 # Record Analytics
                 timing_stats = {
@@ -207,22 +230,29 @@ class ESTrainingScript:
                 min_fit = min(fitnesses)
                 std_fit = statistics.stdev(fitnesses) if len(fitnesses) > 1 else 0.0
 
-                print("\n" + "=" * 50)
+                print("\n" + "=" * 60)
                 print(f" GENERATION {self.current_generation + 1} SUMMARY (ES)")
-                print("=" * 50)
+                print("=" * 60)
                 print(f" FITNESS")
                 print(f"  Best:  {current_best_fit:8.2f}  |  Avg: {avg_fit:8.2f}")
                 print(f"  Min:   {min_fit:8.2f}  |  Std: {std_fit:8.2f}")
-                print("-" * 50)
+                print(f"  All-time Best: {self.best_fitness:.2f} (Gen {self.best_generation})")
+                print("-" * 60)
                 print(f" ES PARAMETERS")
                 print(f"  Sigma: {self.driver.sigma:.4f}  |  LR: {ESConfig.LEARNING_RATE:.4f}")
                 if 'gradient_norm' in es_stats:
                     print(f"  Grad Norm: {es_stats['gradient_norm']:.4f}  |  Mean Norm: {es_stats.get('mean_param_norm', 0):.2f}")
-                print("-" * 50)
+                stagnation = self.driver.generations_since_improvement
+                adaptive_triggered = es_stats.get('adaptive_sigma_triggered', False)
+                elite_pull = es_stats.get('elite_pull_applied', False)
+                print(f"  Stagnation: {stagnation} gens  |  Adaptive σ: {'YES' if adaptive_triggered else 'no'}")
+                if ESConfig.ENABLE_ELITISM:
+                    print(f"  Elite Injected: {es_stats.get('elite_injected', False)}  |  Elite Pull: {'YES' if elite_pull else 'no'}")
+                print("-" * 60)
                 print(f" BEHAVIOR (Avg)")
                 print(f"  Kills:    {gen_metrics.get('avg_kills', 0):6.1f}  |  Accuracy: {gen_metrics.get('avg_accuracy', 0) * 100:5.1f}%")
                 print(f"  Survival: {gen_metrics.get('avg_steps_survived', 0):6.0f}  |  Shots:    {gen_metrics.get('avg_shots_fired', 0):5.1f}")
-                print("=" * 50 + "\n")
+                print("=" * 60 + "\n")
 
                 # Start Display with best candidate
                 display_agent = NNAgent(current_best_candidate, self.state_encoder, self.action_interface)
