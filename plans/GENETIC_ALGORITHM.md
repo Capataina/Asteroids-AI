@@ -29,8 +29,8 @@ The Genetic Algorithm is the currently implemented optimization method in Astero
 - Current default sizes:
   - Input: `HybridEncoder.get_state_size() = 31` (see `plans/STATE_REPRESENTATION.md`)
   - Hidden: `GAConfig.HIDDEN_LAYER_SIZE = 24`
-  - Output: `4`
-  - Parameter count: `31*24 + 24 + 24*4 + 4 = 868`
+  - Output: `3` (signed turn, thrust, shoot)
+  - Parameter count: `31*24 + 24 + 24*3 + 3 = 843`
 
 ### State Encoding (Implemented)
 
@@ -56,15 +56,24 @@ The current GA training script uses `interfaces/encoders/HybridEncoder.py` (not 
 
 ### Action Space (Implemented)
 
-| Output Index | Meaning    | Mapping         |
-| -----------: | ---------- | --------------- |
-|          `0` | Turn left  | `left_pressed`  |
-|          `1` | Turn right | `right_pressed` |
-|          `2` | Thrust     | `up_pressed`    |
-|          `3` | Shoot      | `space_pressed` |
+| Output Index | Meaning     | Mapping                          |
+| -----------: | ----------- | -------------------------------- |
+|          `0` | Turn (signed) | Signed turn value (`-1..1`)     |
+|          `1` | Thrust      | `up_pressed`                     |
+|          `2` | Shoot       | `space_pressed`                  |
 
-- Output range: 4 floats in `[0, 1]`.
-- Discretization: `ActionInterface.to_game_input(...)` thresholds `> 0.5` (even when `action_space_type="continuous"`).
+- Output range: 3 floats in `[0, 1]` from the policy.
+- Turn mapping: `ActionInterface.to_game_input(...)` converts `action[0]` into a signed turn value (`turn_value = action[0] * 2 - 1`) with a deadzone; left if `< -0.4`, right if `> 0.4`.
+
+### Reward Preset (Implemented)
+
+- Default reward preset is balanced to avoid any single component dominating total fitness:
+  - `VelocitySurvivalBonus(reward_multiplier=1.5, max_velocity_cap=15.0)`
+  - `DistanceBasedKillReward(max_reward_per_kill=18.0, min_reward_fraction=0.15)`
+  - `ConservingAmmoBonus(hit_bonus=4.0, shot_penalty=-2.0)`
+  - `ExplorationBonus(grid_rows=3, grid_cols=4, bonus_per_cell=5.0)`
+  - `DeathPenalty(penalty=-150.0, early_death_scale=1.0)` with max time derived from `max_steps * frame_delay`
+- `create_reward_calculator(max_steps, frame_delay)` passes `max_time_alive` into `DeathPenalty` for early-death scaling.
 
 ### GA Hyperparameters (Implemented)
 
@@ -115,6 +124,7 @@ See `plans/SHARED_COMPONENTS.md` for the full novelty/diversity system details.
 - Seed assignment is deterministic per generation and depends on `GAConfig.USE_COMMON_SEEDS`:
   - Default (`USE_COMMON_SEEDS=False`): `generation_seed + agent_idx * seeds_per_agent + seed_offset` (unique seeds per individual).
   - CRN mode (`USE_COMMON_SEEDS=True`): `generation_seed + seed_offset` (shared seed set across individuals).
+- Reward calculator creation passes `max_steps` and `frame_delay` so early-death scaling uses the expected episode duration.
 
 **Per-agent averaged metrics (returned from evaluator)**
 
@@ -229,10 +239,15 @@ The current GA implementation uses entirely custom-written operators and selecti
 - [ ] Multi-episode fresh-game validation: Replace single fresh-game playback with multiple rollouts and averaged generalization stats.
 - [ ] Evaluation abstraction: Generalize evaluator interfaces so ES/NEAT policies can reuse rollouts without hard-coded GA assumptions.
 - [ ] Continuous action support: Implement true continuous control (or explicitly remove the misleading "continuous" mode).
+- [ ] Ray-danger avoidance shaping (shared): Add a danger-aware reward component driven by raycasts (and/or TTC) that explicitly values avoiding imminent collisions.
+- [ ] Aim-alignment reward (shared): Add a per-second aiming reward based on ray "frontness" so agents are incentivized to point at threats deliberately before firing.
+- [ ] Perception upgrade (shared): Increase `HybridEncoder.num_rays` and add rear/side coverage rays to reduce blind-spot exploitation by stationary/spinner policies.
+- [ ] Predictive ray features (shared): Add TTC/closing-speed features per ray to better support dodge behavior under the existing ES/GA policy structure.
+- [ ] Output saturation penalty (shared): Penalize sustained saturated NN outputs (especially near-constant shoot output) using existing `output_saturation` metrics.
 
 ## Notes / Design Considerations (optional)
 
-- Training fitness is defined by `training/config/rewards.py` and is intentionally decoupled from the game’s internal reward components.
+- Training fitness is defined by `training/config/rewards.py` and is intentionally decoupled from the game's internal reward components.
 - Hybrid state encoding changes the input dimensionality and should be treated as a “schema change” for any persisted genomes.
 - Evaluation-noise tolerance: Tournament selection + elitism tends to be more tolerant of per-individual seed differences than ES-style gradient estimation, so GA can look stronger under noisy evaluation.
 - Seeds-per-agent trade-off: Increasing `GAConfig.SEEDS_PER_AGENT` reduces luck and selects for generalization, but increases episode cost per generation.

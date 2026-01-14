@@ -107,7 +107,7 @@ Asteroids AI/
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | **Game (Windowed)** (`Asteroids.py`, `game/`)  | Real-time simulation + rendering + debug overlays, with flags to support training playback parity. |
 | **Game (Headless)** (`game/headless_game.py`)  | Fast seeded simulation for parallel rollouts without rendering.                                    |
-| **Interfaces** (`interfaces/`)                 | Stable contracts around state encoding, action mapping, reward composition, and episode metrics.   |
+| **Interfaces** (`interfaces/`)                 | Stable contracts around state encoding, action mapping, reward composition, and episode metrics (ActionInterface enforces mutually exclusive turning). |
 | **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `VectorEncoder`).         |
 | **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA and ES training scripts currently use `NNAgent` (NumPy). |
 | **Training Core** (`training/core/`)           | Executes evaluation/playback orchestration and wires game + interfaces + agents.                   |
@@ -228,6 +228,7 @@ Game state
 - [ ] Multi-method training dashboard: Parallel training/display infrastructure consistent with `README.md` ("single environment, multiple minds").
 - [ ] Checkpointing/resume: Persist method state (e.g., GA population + ES mean + best genome) so long runs can resume and be replayed.
 - [ ] Unified evaluator interface: Consider consolidating `population_evaluator.py` and `population_evaluator_tf.py` with a policy factory pattern.
+- [ ] Curriculum hooks (future): Add environment-level difficulty knobs and training hooks for progressive difficulty, while keeping the progression metric as an open design decision.
 
 ## Notes / Design Considerations (optional)
 

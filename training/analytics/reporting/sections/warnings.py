@@ -142,6 +142,14 @@ def write_reward_warnings(f, generations_data: List[Dict[str, Any]]):
         f.write("No reward component data available for analysis.\n\n")
         return
 
+    last_gen = generations_data[-1]
+    if 'reward_dominance_index' in last_gen:
+        f.write("### Balance Metrics (Latest Generation)\n\n")
+        f.write(f"- Reward dominance index (HHI): {last_gen.get('reward_dominance_index', 0.0):.2f}\n")
+        f.write(f"- Reward entropy (normalized): {last_gen.get('reward_entropy', 0.0):.2f}\n")
+        f.write(f"- Max component share: {last_gen.get('reward_max_share', 0.0)*100:.1f}%\n")
+        f.write(f"- Positive component count: {last_gen.get('reward_positive_component_count', 0)}\n\n")
+
     warnings, confirmations = analyze_reward_balance(generations_data)
 
     if warnings:

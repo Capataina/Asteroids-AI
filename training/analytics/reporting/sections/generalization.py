@@ -7,6 +7,19 @@ Generates fresh game generalization analysis.
 from typing import List, Dict, Any
 
 
+def _reward_shares(breakdown: Dict[str, float]) -> Dict[str, float]:
+    positive = {k: v for k, v in breakdown.items() if v > 0}
+    total = sum(positive.values())
+    if total <= 0:
+        return {}
+    return {k: v / total for k, v in positive.items()}
+
+
+def _reward_share_shift(train_shares: Dict[str, float], fresh_shares: Dict[str, float]) -> float:
+    keys = set(train_shares.keys()) | set(fresh_shares.keys())
+    return 0.5 * sum(abs(train_shares.get(k, 0.0) - fresh_shares.get(k, 0.0)) for k in keys)
+
+
 def write_generalization_analysis(f, generations_data: List[Dict[str, Any]]):
     """Write generalization analysis from fresh game data.
 
@@ -62,3 +75,31 @@ def write_generalization_analysis(f, generations_data: List[Dict[str, Any]]):
             if count > 0:
                 f.write(f"{grade}:{count} ")
         f.write("\n\n")
+
+    # Reward transfer gap analysis
+    recent_with_rewards = [g for g in recent if g.get('fresh_game', {}).get('reward_breakdown')]
+    if not recent_with_rewards:
+        return
+
+    f.write("### Reward Transfer Gap (Fresh vs Training)\n\n")
+    f.write("| Gen | Share Shift | Largest Share Deltas |\n")
+    f.write("|-----|-------------|----------------------|\n")
+
+    for g in recent_with_rewards:
+        fresh_breakdown = g.get('fresh_game', {}).get('reward_breakdown', {})
+        train_breakdown = g.get('avg_reward_breakdown', {})
+        train_shares = _reward_shares(train_breakdown)
+        fresh_shares = _reward_shares(fresh_breakdown)
+
+        if not train_shares or not fresh_shares:
+            continue
+
+        shift = _reward_share_shift(train_shares, fresh_shares)
+        deltas = {k: fresh_shares.get(k, 0.0) - train_shares.get(k, 0.0)
+                  for k in set(train_shares.keys()) | set(fresh_shares.keys())}
+        top_deltas = sorted(deltas.items(), key=lambda item: abs(item[1]), reverse=True)[:3]
+        top_str = ", ".join([f"{k} {v*100:+.0f}%" for k, v in top_deltas]) if top_deltas else "N/A"
+
+        f.write(f"| {g['generation']} | {shift*100:6.1f}% | {top_str} |\n")
+
+    f.write("\n")

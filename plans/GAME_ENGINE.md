@@ -93,9 +93,11 @@ Key constants live in `game/globals.py`:
 
 ## Planned / Missing / To Be Changed
 
-- [ ] Difficulty scaling / curriculum variants: Adjust asteroid density/speed over time for richer training dynamics.
+- [ ] Difficulty knobs (shared): Expose explicit difficulty parameters (e.g., max asteroid count, spawn interval, asteroid speed multipliers) that can be applied consistently in both windowed and headless modes.
+- [ ] Curriculum hooks (shared): Allow training scripts to pass a per-episode/per-generation difficulty setting into the environment (headless + playback) without changing reward definitions.
+- [ ] Progressive difficulty schedule (future): Define a curriculum schedule that increases difficulty as policies improve, while keeping metric selection and comparability as an open design decision (not yet a committed goal).
 - [ ] Wrap-aware collisions: Detect collisions that occur across the screen edge (toroidal overlap) rather than only after wrapping positions.
-- [ ] Per-tick event hooks: Expose “shots fired this tick”, “asteroids destroyed this tick”, etc., for cleaner reward components and analytics.
+- [ ] Per-tick event hooks: Expose "shots fired this tick", "asteroids destroyed this tick", etc., for cleaner reward components and analytics.
 
 ## Notes / Design Considerations (optional)
 

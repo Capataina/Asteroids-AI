@@ -47,7 +47,10 @@ class ESTrainingScript:
             num_fovea_asteroids=3
         )
         self.action_interface = ActionInterface(action_space_type="boolean")
-        self.reward_calculator = create_reward_calculator()
+        self.reward_calculator = create_reward_calculator(
+            max_steps=ESConfig.MAX_STEPS,
+            frame_delay=ESConfig.FRAME_DELAY
+        )
 
         self.episode_runner = EpisodeRunner(
             game=game,
@@ -59,7 +62,7 @@ class ESTrainingScript:
         # 2. Setup Driver (ES Logic)
         input_size = self.state_encoder.get_state_size()
         hidden_size = ESConfig.HIDDEN_LAYER_SIZE
-        output_size = 4
+        output_size = 3
         param_size = NNAgent.get_parameter_count(input_size, hidden_size, output_size)
 
         print(f"ES Parameter Size: {param_size}")

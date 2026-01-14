@@ -4,7 +4,7 @@
 
 Evolution Strategies (ES) is the second optimization method implemented in AsteroidsAI. Its purpose is to benchmark a distribution-based, gradient-estimation approach against the GA while reusing the same environment, state/action interfaces, reward components, and analytics outputs for fair comparison.
 
-ES maintains a probability distribution over parameter space (Gaussian with mean θ and stddev σ) and iteratively updates the distribution mean by estimating the gradient of expected fitness through sampling. This contrasts with GA's selection/crossover/mutation approach.
+ES maintains a probability distribution over parameter space (Gaussian with mean `theta` and stddev `sigma`) and iteratively updates the distribution mean by estimating the gradient of expected fitness through sampling. This contrasts with GA's selection/crossover/mutation approach.
 
 ## Current Implemented System
 
@@ -27,7 +27,7 @@ ES maintains a probability distribution over parameter space (Gaussian with mean
 
 | Component | File | Granular Responsibility |
 |-----------|------|-------------------------|
-| Training script | `training/scripts/train_es.py` | Creates encoder/action/reward/driver/analytics/display stack and runs the sample → evaluate → display → update loop. |
+| Training script | `training/scripts/train_es.py` | Creates encoder/action/reward/driver/analytics/display stack and runs the sample -> evaluate -> display -> update loop. |
 | Shared evaluator (used) | `training/core/population_evaluator.py` | Runs seeded headless rollouts in parallel using `NNAgent` (NumPy). |
 | Driver (ES logic) | `training/methods/evolution_strategies/driver.py` | Maintains mean vector, samples perturbations, computes gradient updates. |
 | Playback + generalization | `training/core/display_manager.py` | Runs best candidate in windowed "fresh game" (shared with GA). |
@@ -47,8 +47,8 @@ ES maintains a probability distribution over parameter space (Gaussian with mean
 - Current default sizes:
   - Input: `HybridEncoder.get_state_size() = 31`
   - Hidden: `ESConfig.HIDDEN_LAYER_SIZE = 24`
-  - Output: `4`
-  - Parameter count: `31*24 + 24 + 24*4 + 4 = 868`
+  - Output: `3` (signed turn, thrust, shoot)
+  - Parameter count: `31*24 + 24 + 24*3 + 3 = 843`
 
 ### ES Hyperparameters (Implemented)
 
@@ -100,7 +100,7 @@ From `training/config/evolution_strategies.py:ESConfig`:
 | `SEEDS_PER_AGENT` | `3` | Headless rollouts per candidate (fitness averaged). |
 | `MAX_STEPS` | `1500` | Step limit per rollout/playback. |
 | `USE_COMMON_SEEDS` | `True` | CRN mode: all candidates see same seeds. |
-| `USE_ANTITHETIC` | `True` | Use mirrored sampling (ε and -ε pairs). |
+| `USE_ANTITHETIC` | `True` | Use mirrored sampling (`epsilon` and `-epsilon` pairs). |
 | `USE_RANK_TRANSFORMATION` | `True` | Apply rank-based fitness shaping. |
 
 **Novelty/Diversity:**
@@ -116,19 +116,19 @@ From `training/config/evolution_strategies.py:ESConfig`:
 
 | Component | File | Granular Behavior |
 |-----------|------|-------------------|
-| Sampling | `driver.py:ESDriver.sample_population()` | Generates Gaussian perturbations; if antithetic, uses ε and -ε pairs. Injects elite if enabled. |
-| Gradient update | `driver.py:ESDriver.update()` | Applies rank transformation, computes `grad = (1/Nσ) * Σ utility * ε`, updates via AdamW or SGD. |
+| Sampling | `driver.py:ESDriver.sample_population()` | Generates Gaussian perturbations; if antithetic, uses `epsilon` and `-epsilon` pairs. Injects elite if enabled. |
+| Gradient update | `driver.py:ESDriver.update()` | Applies rank transformation, computes `grad = (1/(N*sigma)) * sum(utility * epsilon)`, updates via AdamW or SGD. |
 | AdamW optimizer | `driver.py:ESDriver._adamw_update()` | Momentum + adaptive per-parameter LR + decoupled weight decay. |
 | Elitism | `driver.py:ESDriver` | Tracks best-ever candidate, injects into population, pulls mean when stagnating. |
 | Fitness shaping | `fitness_shaping.py:rank_transformation()` | OpenAI ES-style rank transformation: `u = max(0, log(N/2+1) - log(rank))`, normalized. |
-| Sigma decay | `driver.py:ESDriver._decay_sigma()` | `σ ← max(σ * decay, σ_min)` with adaptive acceleration when stagnating. |
+| Sigma decay | `driver.py:ESDriver._decay_sigma()` | `sigma <- max(sigma * decay, sigma_min)` with adaptive acceleration when stagnating. |
 | Elite pull | `driver.py:ESDriver._apply_elite_pull()` | Pulls mean toward best-ever candidate when stagnation exceeds patience. |
 
 ### Evaluation Loop (Implemented)
 
 **Parallel rollouts (shared evaluator)**
 
-- `training/core/population_evaluator.py:evaluate_population_parallel(...)` evaluates each candidate on `SEEDS_PER_AGENT` deterministic seeds using `HeadlessAsteroidsGame(random_seed=...)`.
+- `training/core/population_evaluator.py:evaluate_population_parallel(...)` evaluates each candidate on `SEEDS_PER_AGENT` seeds derived from a per-generation `generation_seed` using `HeadlessAsteroidsGame(random_seed=...)` (with optional CRN via `use_common_seeds`).
 - Uses `ai_agents/neuroevolution/nn_agent.py:NNAgent` for forward passes (same policy stack as GA).
 - Rollouts are executed concurrently via `ThreadPoolExecutor(max_workers=os.cpu_count())`.
 - Returns same metrics structure as GA evaluator for analytics compatibility.
@@ -141,10 +141,25 @@ From `training/config/evolution_strategies.py:ESConfig`:
   - Seed derivation: `seed = generation_seed + seed_offset` (independent of agent index).
   - This ensures fitness differences reflect parameter differences, not environmental luck.
   - The seed set changes across generations to maintain generalization pressure.
-  - Antithetic pairs (`+ε` and `-ε`) now see identical rollout randomness, enabling proper variance reduction.
+  - Antithetic pairs (`+epsilon` and `-epsilon`) now see identical rollout randomness, enabling proper variance reduction.
 - When `use_common_seeds=False` (used by GA training):
   - Each agent gets unique seeds: `seed = generation_seed + agent_idx * seeds_per_agent + seed_offset`.
   - GA is more noise-tolerant due to tournament selection + elitism.
+
+### Reward Preset (Implemented)
+
+- Default reward preset is rebalanced so no single component dominates total fitness:
+  - `VelocitySurvivalBonus(reward_multiplier=1.5, max_velocity_cap=15.0)`
+  - `DistanceBasedKillReward(max_reward_per_kill=18.0, min_reward_fraction=0.15)`
+  - `ConservingAmmoBonus(hit_bonus=4.0, shot_penalty=-2.0)`
+  - `ExplorationBonus(grid_rows=3, grid_cols=4, bonus_per_cell=5.0)`
+  - `DeathPenalty(penalty=-150.0, early_death_scale=1.0)` with max time derived from `max_steps * frame_delay`
+- `create_reward_calculator(max_steps, frame_delay)` now passes `max_time_alive` into `DeathPenalty` for early-death scaling.
+
+### Action Mapping (Implemented)
+
+- Signed turn control: `ActionInterface` converts `action[0]` into a signed turn value (`turn_value = action[0] * 2 - 1`) with a deadzone; left if `< -0.4`, right if `> 0.4`.
+- Thrust and shoot remain thresholded at `> 0.5` for `action[1]` and `action[2]`.
 
 **Best Candidate Tracking (Implemented)**
 
@@ -201,14 +216,8 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 
 ## Implemented Outputs / Artifacts (if applicable)
 
-- `training_summary_es.md`: Markdown report generated by ES training.
+- `training_summary_es.md`: Markdown report generated by ES training, containing run summary metrics and a config section populated from `TrainingAnalytics.set_config(...)` at runtime.
 - `training_data_es.json`: JSON export with schema, config, and per-generation data.
-- Observed run snapshot (from `training_summary_es.md`, generated `2026-01-14 00:10:53`):
-  - Total generations recorded: `78`.
-  - All-time best fitness: `1041.15` (best generation: `60`).
-  - Final best fitness: `899.21` (final generation: `78`).
-  - Best fresh-game fitness: `2358.39` (fresh-game best generation: `65`).
-  - Reported training config: `population_size=25`, `seeds_per_agent=12`, `sigma=0.1`, `learning_rate=0.01`, `weight_decay=0.005` (may differ from current `ESConfig` defaults).
 
 ## In Progress / Partially Implemented
 
@@ -218,8 +227,12 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 ## Planned / Missing / To Be Changed
 
 - [ ] Add validation seed set: Re-evaluate candidate policies on a held-out seed set before labeling them as best-of-run.
-- [ ] Improve action continuity for ES: Replace hard thresholding with either true continuous controls or a mutually-exclusive turn mapping to reduce objective discontinuities.
+- [ ] Ray-danger avoidance shaping (shared): Add a reward component that penalizes time spent with dangerous ray hits (e.g., min ray distance below a threshold) and rewards increasing clearance while under threat.
+- [ ] Aim-alignment reward (shared): Add a reward component that pays per-second based on how "front-aligned" the nearest asteroid is (e.g., highest reward when a threat is on the front ray, decaying to ~0 toward rear rays) to incentivize deliberate aiming.
+- [ ] Output saturation penalty (shared): Penalize sustained saturated NN outputs (especially near-constant shoot output) using existing `output_saturation` metrics to discourage degenerate always-on control signals.
 - [ ] Natural Evolution Strategies (NES): Implement fitness-weighted covariance adaptation for more sophisticated exploration.
+- [ ] Perception upgrade (shared): Increase `HybridEncoder.num_rays` (e.g., 16 -> 32) and include rear/side coverage rays to reduce blind-spot exploitation.
+- [ ] Predictive ray features (shared): Add per-ray time-to-collision (TTC) or closing-speed features for imminent-threat detection without changing the ES algorithm itself.
 - [ ] Checkpointing: Save/load ES state (mean vector, sigma, best_candidate, adam_m, adam_v) for resuming training.
 - [ ] Comparative analysis tools: Side-by-side GA vs ES metric visualizations.
 - [ ] ES-specific markdown report sections: Dedicated visualization for sigma decay curve, elite tracking, and AdamW statistics.
@@ -230,35 +243,35 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 
 ```
 Initialize:
-  θ = zeros(param_size)     # Mean parameter vector
-  σ = initial_sigma         # Exploration noise
+  theta = zeros(param_size) # Mean parameter vector
+  sigma = initial_sigma     # Exploration noise
   m = zeros(param_size)     # AdamW first moment
   v = zeros(param_size)     # AdamW second moment
   elite = None              # Best-ever candidate
 
 For each generation:
-    1. Sample: Generate N-1 noise vectors ε_i ~ N(0, I)
-       If antithetic: use ε and -ε pairs
+    1. Sample: Generate N-1 noise vectors epsilon_i ~ N(0, I)
+       If antithetic: use epsilon and -epsilon pairs
        If elitism enabled: inject elite as Nth candidate
 
-    2. Perturb: Create candidates θ_i = θ + σ * ε_i
+    2. Perturb: Create candidates theta_i = theta + sigma * epsilon_i
 
-    3. Evaluate: F_i = evaluate(θ_i) averaged over common seeds (CRN)
+    3. Evaluate: F_i = evaluate(theta_i) averaged over common seeds (CRN)
 
     4. Update elite: If best F_i > elite_fitness, store that candidate
 
     5. Shape: Transform F_i to utilities u_i via rank transformation
 
-    6. Gradient: grad = (1/Nσ) * Σ u_i * ε_i
+    6. Gradient: grad = (1/(N*sigma)) * sum(u_i * epsilon_i)
 
     7. AdamW Update:
-       m = β1*m + (1-β1)*grad
-       v = β2*v + (1-β2)*grad²
-       θ = θ*(1-lr*λ) + lr * m_hat/(√v_hat + ε)
+       m = beta1*m + (1-beta1)*grad
+       v = beta2*v + (1-beta2)*grad^2
+       theta = theta*(1-lr*weight_decay) + lr * m_hat/(sqrt(v_hat) + adam_eps)
 
-    8. Elite Pull: If stagnating, pull θ toward elite
+    8. Elite Pull: If stagnating, pull theta toward elite
 
-    9. Sigma Decay: σ ← max(σ * decay * adaptive_factor, σ_min)
+    9. Sigma Decay: sigma <- max(sigma * decay * adaptive_factor, sigma_min)
 ```
 
 ### Key Differences from GA
@@ -304,12 +317,12 @@ training/
 ## Notes / Design Considerations (optional)
 
 - **CRN implementation rationale**: ES gradient estimation is highly sensitive to evaluation noise. With CRN (`use_common_seeds=True`), all candidates see identical environments, so fitness differences purely reflect parameter quality. The seed set changes across generations to maintain generalization pressure. This is critical for ES but less important for GA (which uses tournament selection + elitism for noise tolerance).
-- **Antithetic sampling with CRN**: The `+ε`/`-ε` variance reduction technique now works correctly because paired perturbations see identical rollout randomness.
+- **Antithetic sampling with CRN**: The `+epsilon`/`-epsilon` variance reduction technique now works correctly because paired perturbations see identical rollout randomness.
 - **Best candidate vs mean**: ES now stores the actual best-performing candidate weights for playback, not the distribution mean. The mean is a smoothed estimate that was never directly evaluated, so using it for "best policy" was misleading.
 - **Turn direction metrics**: The evaluator now tracks `left_only_frames`, `right_only_frames`, and `both_turn_frames` separately. This allows diagnosing whether agents are spinning in one direction, alternating intelligently, or pressing both turn keys (which cancel out to ~0 rotation).
 - **Novelty/diversity scaling for rank transformation**: ES applies novelty/diversity bonuses pre-rank-shaping. Since rank transformation discards magnitude information, the bonuses are now scaled by `fitness_std` (with a floor of 10.0) to ensure they meaningfully affect rankings. With typical fitness std of ~150-200, a novelty score of 0.3 with weight 0.1 adds ~5-6 to fitness (enough to shift a few rankings).
 - Action discontinuity: `interfaces/ActionInterface.py` thresholds outputs at `0.5`, creating a piecewise-constant policy mapping that makes the fitness landscape jagged for ES-style updates.
-- Sample budget comparability: ES "one generation" can cost far more rollouts than GA (population × seeds per candidate), so wall-clock comparisons should be normalized by total episodes evaluated.
+- Sample budget comparability: ES "one generation" can cost far more rollouts than GA (population * seeds per candidate), so wall-clock comparisons should be normalized by total episodes evaluated.
 - Fitness shaping role: Rank transformation reduces sensitivity to outliers and keeps update scales stable across generations.
 - Regularization role: Weight decay limits parameter blow-up; sigma decay (with a floor) prevents perpetual over-exploration while retaining adaptability.
 - TensorFlow stack status: A TF policy/evaluator exists but is not currently used by the ES training entry point; the canonical ES execution path today is NumPy-based.

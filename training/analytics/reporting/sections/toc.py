@@ -35,6 +35,7 @@ def write_table_of_contents(f, has_behavior: bool, has_fresh_game: bool):
         f.write("- [Behavioral Summary](#behavioral-summary-last-10-generations)\n")
 
     f.write("- [Learning Progress](#learning-progress)\n")
+    f.write("- [Control Diagnostics](#control-diagnostics)\n")
     f.write("- [Convergence Analysis](#convergence-analysis)\n")
     
     if has_behavior:

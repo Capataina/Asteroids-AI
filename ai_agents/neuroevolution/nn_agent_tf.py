@@ -39,7 +39,7 @@ class NNAgentTF(BaseAgent):
         self.state_encoder = state_encoder
         self.action_interface = action_interface
         input_size = state_encoder.get_state_size()
-        output_size = 4  # left, right, thrust, shoot
+        output_size = 3  # signed turn, thrust, shoot
         self.policy = FeedforwardPolicyTF(parameter_vector, input_size, hidden_size, output_size)
 
     def get_action(self, state: List[float]) -> List[float]:
@@ -68,7 +68,7 @@ class NNAgentTF(BaseAgent):
         return self.policy.get_weights()
 
     @staticmethod
-    def get_parameter_count(input_size: int, hidden_size: int, output_size: int = 4) -> int:
+    def get_parameter_count(input_size: int, hidden_size: int, output_size: int = 3) -> int:
         """
         Calculate total number of parameters for the network.
 

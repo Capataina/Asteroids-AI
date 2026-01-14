@@ -23,29 +23,39 @@ from game import globals
 
 REWARD_PRESETS = {
     "default": [
-        # Survival - reduced slightly to balance with kills
-        (VelocitySurvivalBonus, {"reward_multiplier": 2.0, "max_velocity_cap": 15.0}),
+        # Survival - keep meaningful but avoid dominating the total reward.
+        (VelocitySurvivalBonus, {"reward_multiplier": 1.5, "max_velocity_cap": 15.0}),
 
-        # Kills - dynamically scaled based on asteroid distribution
-        # Close-range kills worth more than long-range, minimum 10% reward for furthest
-        (DistanceBasedKillReward, {"max_reward_per_kill": 25.0, "min_reward_fraction": 0.1}),
+        # Kills - dynamic scaling; keep strong but not a runaway winner.
+        (DistanceBasedKillReward, {"max_reward_per_kill": 18.0, "min_reward_fraction": 0.15}),
 
-        # Accuracy - higher hit bonus to encourage aimed shots
-        (ConservingAmmoBonus, {"hit_bonus": 20.0, "shot_penalty": -3.0}),
+        # Accuracy - reduce hit reward so it is clearly below kill reward.
+        (ConservingAmmoBonus, {"hit_bonus": 4.0, "shot_penalty": -2.0}),
 
-        # Exploration - reduced slightly to balance with kills
-        (ExplorationBonus, {"screen_width": globals.SCREEN_WIDTH, "screen_height": globals.SCREEN_HEIGHT, "grid_rows": 3, "grid_cols": 4, "bonus_per_cell": 6.0}),
+        # Exploration - small, consistent bonus to promote traversal.
+        (ExplorationBonus, {"screen_width": globals.SCREEN_WIDTH, "screen_height": globals.SCREEN_HEIGHT, "grid_rows": 3, "grid_cols": 4, "bonus_per_cell": 5.0}),
 
-        # Death penalty - keeps agents from being too reckless
-        (DeathPenalty, {"penalty": -150.0}),
+        # Death penalty - scaled to make early deaths meaningfully worse than late deaths.
+        (DeathPenalty, {"penalty": -150.0, "early_death_scale": 1.0}),
     ]
 }
 
-def create_reward_calculator(preset="default"):
+def create_reward_calculator(
+    preset: str = "default",
+    max_steps: int | None = None,
+    frame_delay: float | None = None
+):
     calc = ComposableRewardCalculator()
     if preset not in REWARD_PRESETS:
         raise ValueError(f"Unknown reward preset: {preset}")
-        
+
+    max_time_alive = None
+    if max_steps is not None and frame_delay is not None:
+        max_time_alive = max_steps * frame_delay
+
     for component_class, kwargs in REWARD_PRESETS[preset]:
-        calc.add_component(component_class(**kwargs))
+        component_kwargs = dict(kwargs)
+        if component_class is DeathPenalty and max_time_alive is not None:
+            component_kwargs["max_time_alive"] = max_time_alive
+        calc.add_component(component_class(**component_kwargs))
     return calc

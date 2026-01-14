@@ -24,8 +24,8 @@ class ActionInterface:
     Returns:
       True if the action is valid, raises ValueError otherwise.
     """
-    if len(action) != 4:
-      raise ValueError(f"Invalid action length: {len(action)}")
+    if len(action) not in (3, 4):
+      raise ValueError(f"Invalid action length: {len(action)} (expected 3 or 4)")
     
     # Check for NaN or inf values
     for value in action:
@@ -59,22 +59,38 @@ class ActionInterface:
     Returns:
       The game input format.
     """
-    if self.action_space_type == "boolean":
-      return {
-        "left_pressed": action[0] > 0.5,
-        "right_pressed": action[1] > 0.5,
-        "up_pressed": action[2] > 0.5,
-        "space_pressed": action[3] > 0.5,
-      }
-    elif self.action_space_type == "continuous":
-      return {
-        "left_pressed": action[0] > 0.5,
-        "right_pressed": action[1] > 0.5,
-        "up_pressed": action[2] > 0.5,
-        "space_pressed": action[3] > 0.5,
-      }
-    else:
+    if self.action_space_type not in ["boolean", "continuous"]:
       raise ValueError(f"Invalid action space type: {self.action_space_type}")
+
+    turn_threshold = 0.4
+    left_pressed = False
+    right_pressed = False
+
+    if len(action) == 3:
+      # Signed turn control: action[0] in [0,1] -> turn_value in [-1,1].
+      turn_value = (action[0] * 2.0) - 1.0
+      if turn_value > turn_threshold:
+        right_pressed = True
+      elif turn_value < -turn_threshold:
+        left_pressed = True
+      up_pressed = action[1] > 0.5
+      space_pressed = action[2] > 0.5
+    else:
+      # Legacy compatibility: derive signed turn from left/right difference.
+      turn_value = action[1] - action[0]
+      if turn_value > turn_threshold:
+        right_pressed = True
+      elif turn_value < -turn_threshold:
+        left_pressed = True
+      up_pressed = action[2] > 0.5
+      space_pressed = action[3] > 0.5
+
+    return {
+      "left_pressed": left_pressed,
+      "right_pressed": right_pressed,
+      "up_pressed": up_pressed,
+      "space_pressed": space_pressed,
+    }
 
   def get_action_space_size(self) -> int:
     """
@@ -85,8 +101,8 @@ class ActionInterface:
       The size of the action space.
     """
     if self.action_space_type == "boolean":
-      return 4
+      return 3
     elif self.action_space_type == "continuous":
-      return 4
+      return 3
     else:
       raise ValueError(f"Invalid action space type: {self.action_space_type}")

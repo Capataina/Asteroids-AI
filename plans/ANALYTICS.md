@@ -10,7 +10,7 @@ The analytics system captures, aggregates, and exports training metrics so Aster
 
 | Field | Type | Granular Meaning |
 |---|---|---|
-| `SCHEMA_VERSION` | `str` | Schema tag written into JSON exports for compatibility tracking (`"2.0"`). |
+| `SCHEMA_VERSION` | `str` | Schema tag written into JSON exports for compatibility tracking (`"2.1"`). |
 | `generations_data` | `List[dict]` | Ordered per-generation records (fitness stats + optional behavior/spatial/operator/timing keys). |
 | `fresh_game_data` | `Dict[int, dict]` | Mapping `generation -> {fresh_game, generalization_metrics}` from windowed playback. |
 | `distributions_data` | `Dict[int, dict]` | Mapping `generation -> {distributions, distribution_stats}` with sorted per-agent value lists. |
@@ -63,8 +63,8 @@ Behavioral and spatial metrics (recorded when evaluator provides `behavioral_met
 
 - Combat:
   - `avg_kills`, `max_kills`, `total_kills`
-  - `avg_accuracy`, `total_shots`
-  - `avg_shots`
+  - `avg_accuracy`, `avg_hits`, `avg_shots`
+  - `avg_shots_per_kill`, `avg_shots_per_hit`
 - Survival:
   - `avg_steps`, `max_steps`
 - Action rates:
@@ -72,25 +72,41 @@ Behavioral and spatial metrics (recorded when evaluator provides `behavioral_met
   - `avg_left_only_frames`, `avg_right_only_frames`, `avg_both_turn_frames` (detailed turn metrics)
 - Action durations:
   - `avg_thrust_duration`, `avg_turn_duration`, `avg_shoot_duration`
+- Turn dynamics:
+  - `avg_turn_value_mean`, `avg_turn_value_std`, `avg_turn_abs_mean`
+  - `avg_turn_deadzone_rate`, `avg_turn_switch_rate`
+  - `avg_turn_balance`, `avg_turn_left_rate`, `avg_turn_right_rate`
+  - `avg_turn_streak`, `avg_max_turn_streak`
+- Aim alignment:
+  - `avg_frontness`, `avg_frontness_at_shot`, `avg_frontness_at_hit`
+  - `avg_shot_distance`, `avg_hit_distance`
+- Shooting cadence:
+  - `avg_cooldown_ready_rate`, `avg_cooldown_usage_rate`
 - Engagement / movement:
   - `avg_idle_rate`
   - `avg_asteroid_dist`
   - `avg_screen_wraps`
+  - `avg_distance_traveled`, `avg_speed`, `avg_speed_std`
+  - `avg_coverage_ratio`
 - Risk profiling:
   - `avg_min_dist`
+  - `avg_danger_exposure_rate`, `avg_danger_entries`, `avg_danger_reaction_time`, `avg_danger_wraps`
+- Robustness:
+  - `avg_fitness_std` (seed variance per agent)
 - Neural/behavior health:
   - `avg_output_saturation`
   - `avg_action_entropy`
 - Reward anatomy:
   - `avg_reward_breakdown`
   - `avg_quarterly_scores`
+  - `reward_component_shares`, `reward_entropy`, `reward_dominance_index`, `reward_max_share`, `reward_positive_component_count`
 - Heatmap inputs:
   - `best_agent_positions`, `best_agent_kill_events`
   - `population_positions`, `population_kill_events`
 
 Fresh-game generalization (recorded when a generation has windowed playback captured):
 
-- `fresh_game`: dict of fresh-game performance (`fitness`, `kills`, `steps_survived`, `shots_fired`, `accuracy`, `cause_of_death`, etc.).
+- `fresh_game`: dict of fresh-game performance (`fitness`, `kills`, `steps_survived`, `shots_fired`, `accuracy`, `cause_of_death`, `reward_breakdown`, etc.).
 - `generalization_metrics`: dict of ratios/deltas (`fitness_ratio`, `kills_ratio`, `steps_ratio`, `accuracy_delta`, `generalization_grade`).
 
 ### Distributions (Implemented)
@@ -107,6 +123,20 @@ Stored in `AnalyticsData.distributions_data[generation]` and mirrored into `gene
 | `thrust_values` | Sorted per-agent thrust frame counts. |
 | `turn_values` | Sorted per-agent turn frame counts. |
 | `shoot_values` | Sorted per-agent shoot frame counts. |
+| `turn_deadzone_rate_values` | Sorted per-agent turn deadzone rates. |
+| `turn_balance_values` | Sorted per-agent turn balance values (right-left bias). |
+| `turn_switch_rate_values` | Sorted per-agent turn switch rates. |
+| `frontness_values` | Sorted per-agent aim frontness averages. |
+| `frontness_at_shot_values` | Sorted per-agent frontness at shot averages. |
+| `danger_exposure_rate_values` | Sorted per-agent danger exposure rates. |
+| `reaction_time_values` | Sorted per-agent danger reaction times. |
+| `coverage_ratio_values` | Sorted per-agent coverage ratios. |
+| `distance_traveled_values` | Sorted per-agent distance traveled totals. |
+| `avg_speed_values` | Sorted per-agent average speeds. |
+| `cooldown_usage_rate_values` | Sorted per-agent cooldown usage rates. |
+| `shots_per_kill_values` | Sorted per-agent shots-per-kill ratios. |
+| `shots_per_hit_values` | Sorted per-agent shots-per-hit ratios. |
+| `fitness_std_values` | Sorted per-agent fitness std across seeds. |
 
 Additional distribution stats:
 
@@ -114,17 +144,20 @@ Additional distribution stats:
 - `fitness_kurtosis`: kurtosis of the fitness distribution.
 - `viable_agent_count`: number of agents with `fitness > 0`.
 - `failed_agent_count`: number of agents with `fitness <= 0`.
+- `std_dev_kills`, `std_dev_steps`, `std_dev_accuracy`: std-dev snapshots for core performance metrics.
+- `std_dev_frontness`, `std_dev_danger_exposure_rate`, `std_dev_turn_deadzone_rate`: std-dev snapshots for control diagnostics.
+- `std_dev_coverage_ratio`, `std_dev_fitness_std`: std-dev snapshots for traversal and seed variance.
 
 ### Reporting & Export (Implemented)
 
 | Artifact | Produced By | Notes |
 |---|---|---|
-| `training_summary.md` | `training/analytics/reporting/markdown.py:MarkdownReporter` | Markdown report with configurable sections via `training/config/analytics.py:AnalyticsConfig`. |
+| `training_summary.md` | `training/analytics/reporting/markdown.py:MarkdownReporter` | Markdown report with configurable sections via `training/config/analytics.py:AnalyticsConfig` (includes control diagnostics + reward transfer gaps when enabled). |
 | `training_data.json` | `training/analytics/reporting/json_export.py:save_json` | JSON export containing schema, config, summary, generations, fresh-game and distributions data. |
 
 ## Implemented Outputs / Artifacts (if applicable)
 
-- `training_summary.md`: Comprehensive report including trends, distributions, heatmaps, risk and neural sections (as enabled by `AnalyticsConfig`).
+- `training_summary.md`: Comprehensive report including control diagnostics, reward balance, generalization transfer gaps, trends, distributions, heatmaps, risk, and neural sections (as enabled by `AnalyticsConfig`).
 - `training_data.json`: Machine-readable export of all recorded analytics data for offline analysis.
 
 ## In Progress / Partially Implemented
@@ -137,10 +170,8 @@ Additional distribution stats:
 
 ## Planned / Missing / To Be Changed
 
-- [ ] Reaction-time metrics: Record delay between a threat entering a danger zone and the agent producing corrective action.
 - [ ] Feature-importance tooling: Attribute outcomes to parts of the current state vector (currently `HybridEncoder` output).
 - [ ] Lineage/ancestry graphs: Track parentage across generations to visualize genetic drift and founder effects.
-- [ ] Per-seed variance reporting: Export mean/std across seeds per agent for robustness tracking.
 - [ ] Evaluation seed-policy metadata: Record whether a generation used per-candidate seeds or common-random-numbers (CRN), and persist the exact seed set used.
 - [ ] Long-run storage strategy: Optional compression or chunked exports when `training_data.json` grows large.
 

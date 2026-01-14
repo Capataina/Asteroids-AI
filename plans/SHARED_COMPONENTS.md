@@ -111,7 +111,11 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - [ ] Add report sections for novelty/diversity: Visualize archive growth, novelty trends, and diversity trends alongside fitness.
 - [ ] Adaptive archive threshold: Adjust novelty threshold dynamically based on archive fill rate and population novelty statistics.
 - [ ] Behavior clustering: Cluster behavior vectors to identify distinct strategies and track their population share over time.
-- [ ] Extend behavior characterization: Add additional behavior dimensions (e.g., risk appetite, ray hit distribution summaries) while maintaining normalization.
+- [ ] Extend behavior characterization (turn asymmetry): Add left-only/right-only/both-turn rates as explicit behavior dimensions to detect and penalize one-direction collapse in novelty pressure.
+- [ ] Extend behavior characterization (turn streaks): Add longest/mean same-direction turn streak length as a behavior dimension to distinguish "continuous spinner" from agile turning.
+- [ ] Extend behavior characterization (danger exposure): Add a danger-exposure metric (e.g., fraction of steps where min ray distance < threshold or min TTC < threshold) as a behavior dimension.
+- [ ] Extend behavior characterization (aim alignment): Add an aim-alignment metric (e.g., time with an asteroid in the front rays / best-ray index distribution) as a behavior dimension.
+- [ ] Extend behavior characterization (output saturation): Incorporate `output_saturation` into the behavior vector so novelty can discourage always-on saturated control policies.
 - [ ] Method parity integration: Ensure ES/NEAT selection/update logic can reuse the same novelty/diversity signals for fair comparison.
 
 ## Notes / Design Considerations (optional)
@@ -119,6 +123,7 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - Novelty and diversity address different failure modes:
   - Behavior novelty discourages population collapse into identical action patterns.
   - Reward diversity discourages single-component reward exploitation.
+- Reward balance principle: Reward components should be weighted so no single component becomes a clear dominant driver of total fitness, preserving reward diversity/novelty and reducing degenerate exploit strategies.
 - Both systems are designed to be reward-preset agnostic:
   - Behavior novelty uses action/engagement metrics independent of reward values.
   - Diversity uses entropy over whatever reward components are active.

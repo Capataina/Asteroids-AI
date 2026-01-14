@@ -199,10 +199,10 @@ class ESDriver:
 
         # Update elitism tracking
         best_idx = int(np.argmax(fitnesses_array))
-        best_fitness = fitnesses_array[best_idx]
+        best_fitness = float(fitnesses_array[best_idx])
 
         if best_fitness > self.best_ever_fitness:
-            self.best_ever_fitness = best_fitness
+            self.best_ever_fitness = float(best_fitness)
             # Reconstruct the candidate from mean + sigma * noise
             if self.elite_index is not None and best_idx == self.elite_index:
                 # Best is the elite itself, keep it

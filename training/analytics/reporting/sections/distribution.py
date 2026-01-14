@@ -70,7 +70,12 @@ def write_distribution_charts(f, generations_data: List[Dict[str, Any]]):
         ('avg_accuracy', 'std_dev_accuracy', 'Accuracy', True),
         ('avg_steps', 'std_dev_steps', 'Survival Steps', False),
         ('avg_kills', 'std_dev_kills', 'Kills', False),
-        ('avg_fitness', 'std_dev', 'Fitness', False)
+        ('avg_fitness', 'std_dev', 'Fitness', False),
+        ('avg_frontness', 'std_dev_frontness', 'Aim Frontness', True),
+        ('avg_danger_exposure_rate', 'std_dev_danger_exposure_rate', 'Danger Exposure', True),
+        ('avg_turn_deadzone_rate', 'std_dev_turn_deadzone_rate', 'Turn Deadzone', True),
+        ('avg_coverage_ratio', 'std_dev_coverage_ratio', 'Coverage Ratio', True),
+        ('avg_fitness_std', 'std_dev_fitness_std', 'Seed Fitness Std', False),
     ]
     
     for mean_key, std_key, label, is_pct in metrics:

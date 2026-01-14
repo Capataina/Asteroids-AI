@@ -11,7 +11,7 @@ from typing import List, Dict, Any
 class AnalyticsData:
     """Stores all training analytics data and tracking state."""
 
-    SCHEMA_VERSION = "2.0"
+    SCHEMA_VERSION = "2.1"
 
     def __init__(self):
         # Core data storage

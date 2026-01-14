@@ -40,6 +40,7 @@ from training.analytics.reporting.sections.heatmaps import write_heatmaps
 from training.analytics.reporting.sections.distribution import write_distribution_charts
 from training.analytics.reporting.sections.neural import write_neural_analysis
 from training.analytics.reporting.sections.risk import write_risk_analysis
+from training.analytics.reporting.sections.control import write_control_diagnostics
 
 
 class MarkdownReporter:
@@ -170,6 +171,11 @@ class MarkdownReporter:
             # Risk Analysis (New)
             if AnalyticsConfig.ENABLE_RISK_ANALYSIS:
                 write_risk_analysis(f, self.data.generations_data)
+
+            # Control Diagnostics
+            if AnalyticsConfig.ENABLE_CONTROL_DIAGNOSTICS:
+                f.write("## Control Diagnostics\n\n")
+                write_control_diagnostics(f, self.data.generations_data)
 
             # Convergence Analysis
             if AnalyticsConfig.ENABLE_CONVERGENCE_ANALYSIS:

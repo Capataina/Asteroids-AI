@@ -35,6 +35,7 @@ class AnalyticsConfig:
     ENABLE_HEATMAPS = True       # Spatial analytics
     ENABLE_NEURAL_ANALYSIS = True # Saturation & Entropy
     ENABLE_RISK_ANALYSIS = True   # Min proximity tracking
+    ENABLE_CONTROL_DIAGNOSTICS = True # Turn/aim/danger diagnostics
     
     # --- Window Sizes (Granular) ---
     # Number of recent generations to include in analysis/visualization

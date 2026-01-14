@@ -46,7 +46,10 @@ class GATrainingScript:
             num_fovea_asteroids=3
         )
         self.action_interface = ActionInterface(action_space_type="boolean")
-        self.reward_calculator = create_reward_calculator()
+        self.reward_calculator = create_reward_calculator(
+            max_steps=GAConfig.MAX_STEPS,
+            frame_delay=GAConfig.FRAME_DELAY
+        )
         
         self.episode_runner = EpisodeRunner(
             game=game,
@@ -58,7 +61,7 @@ class GATrainingScript:
         # 2. Setup Driver (GA Logic)
         input_size = self.state_encoder.get_state_size()
         hidden_size = GAConfig.HIDDEN_LAYER_SIZE
-        output_size = 4
+        output_size = 3
         param_size = NNAgent.get_parameter_count(input_size, hidden_size, output_size)
         
         self.driver = GADriver(param_size=param_size)

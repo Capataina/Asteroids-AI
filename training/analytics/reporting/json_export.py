@@ -11,6 +11,44 @@ from typing import Dict, Any
 from training.analytics.collection.models import AnalyticsData
 
 
+try:
+    import numpy as np  # type: ignore
+except Exception:  # pragma: no cover - numpy should be present, but keep exporter resilient
+    np = None
+
+
+def _json_default(obj: Any):
+    """
+    JSON serializer for objects not supported by default json code.
+
+    Primarily handles NumPy scalar/array types (e.g., float32) which appear in
+    analytics operator stats and distributions.
+    """
+    if np is not None:
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+
+    tolist = getattr(obj, "tolist", None)
+    if callable(tolist):
+        return tolist()
+
+    # Common scalar-like objects (including some non-numpy types) can expose .item().
+    item = getattr(obj, "item", None)
+    if callable(item):
+        return item()
+
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+
 def save_json(output_path: str, data: AnalyticsData, summary: Dict[str, Any]) -> str:
     """Save raw training data as JSON.
 
@@ -34,7 +72,7 @@ def save_json(output_path: str, data: AnalyticsData, summary: Dict[str, Any]) ->
     }
 
     with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(export_data, f, indent=2)
+        json.dump(export_data, f, indent=2, default=_json_default)
 
     print(f"[OK] Raw training data saved to: {output_path}")
     return output_path
