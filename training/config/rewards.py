@@ -26,9 +26,9 @@ REWARD_PRESETS = {
         # Survival - reduced slightly to balance with kills
         (VelocitySurvivalBonus, {"reward_multiplier": 2.0, "max_velocity_cap": 15.0}),
 
-        # Kills - significantly increased now that bullets properly expire
-        # Close-range kills worth more than long-range
-        (DistanceBasedKillReward, {"max_reward_per_kill": 75.0, "min_distance": 50.0, "max_distance": 400.0}),
+        # Kills - dynamically scaled based on asteroid distribution
+        # Close-range kills worth more than long-range, minimum 10% reward for furthest
+        (DistanceBasedKillReward, {"max_reward_per_kill": 25.0, "min_reward_fraction": 0.1}),
 
         # Accuracy - higher hit bonus to encourage aimed shots
         (ConservingAmmoBonus, {"hit_bonus": 20.0, "shot_penalty": -3.0}),
