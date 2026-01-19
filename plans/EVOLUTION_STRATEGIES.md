@@ -243,6 +243,10 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 - [ ] TensorFlow ES pipeline usage decision: TF policy/evaluator exist but are not invoked by `training/scripts/train_es.py`, leaving two ES stacks (NumPy-wired vs TF-unused).
 - [ ] ES evaluation robustness: CRN + antithetic sampling exist, but there is no confirmation re-evaluation step for top candidates (best-of-generation can still be seed-noise-driven).
 - [ ] Classic ES config drift: AdamW, rank transformation, and elitism settings remain in `ESConfig` but are no longer used by the CMA-ES driver.
+- [ ] CMA-ES elite retention gap: Best candidates are tracked for display, but there is no explicit elite injection into sampling/evaluation for stability.
+- [ ] CMA-ES progress signal mismatch: Stagnation/restarts are driven by scalar best fitness, while updates are driven by Pareto ordering, so “improvement” signals can disagree.
+- [ ] Seed-noise robustness gap: Evaluator produces per-candidate `fitness_std` across seeds, but selection/update logic does not use it to damp noisy updates or prefer stable candidates.
+- [ ] Pareto diagnostics visibility gap: Only a small subset of Pareto structure is exported/reported, limiting objective-set evaluation and tuning.
 
 ## Planned / Missing / To Be Changed
 
@@ -260,15 +264,40 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 - [ ] Candidate confirmation evaluation: Re-evaluate top-K candidates with additional rollouts and use the confirmed ranking for elite tracking and/or updates.
 - [ ] Persistent validation seeds: Add a held-out seed set for periodic evaluation so “best-of-run” is not defined only by training seeds.
 - [ ] Update gating: Reduce learning rate and/or skip mean updates when the ranking is unstable (e.g., poor agreement between cheap-vs-confirmed evaluation).
+- [ ] CMA-ES elite injection (replacement): Replace one sampled candidate per generation with the best-so-far candidate so elite evaluation is compute-neutral.
+- [ ] CMA-ES elite evaluation telemetry: Record the injected elite’s fitness/objectives/seed variance so drift away from “known good” is observable.
+- [ ] CMA-ES mean pull toward elite: Apply a controlled `mean <- mean + pull_strength * (elite - mean)` when stagnating to recover without restarting.
+- [ ] CMA-ES pull cooldown: Add a cooldown so elite pulls cannot trigger repeatedly across consecutive generations.
+- [ ] CMA-ES post-pull sigma bump: Optionally multiply sigma briefly after a pull to re-expand local exploration around the recovered region.
+- [ ] Pareto-consistent stagnation metric: Trigger stagnation based on a Pareto-aligned progress scalar instead of scalar best fitness.
+- [ ] Variance-aware progress scalar: Track a stability-aware score (e.g., `fitness - k*fitness_std`) to reduce seed-luck dominance without additional seeds.
+- [ ] `fitness_std` tie-break: When Pareto rank/crowding are similar, prefer lower `fitness_std` candidates to reduce brittle “lucky” selection.
+- [ ] `fitness_std` update damping: Scale down mean step size when the selected parents have unusually high seed variance to prevent noisy over-updates.
+- [ ] `fitness_std` parent down-weighting: Down-weight high-variance parents during recombination so they influence the update less than stable parents.
+- [ ] Seed-stability Pareto objective (optional): Add `fitness_std` as a minimization objective so Pareto ordering directly favors robust candidates without extra rollouts.
+- [ ] Elite parent eligibility rule: Allow the injected elite to participate in recombination only when it is within a configurable trust radius of the current mean.
+- [ ] Elite exclusion default: Exclude the injected elite from recombination by default so elite evaluation does not destabilize the CMA-ES update.
+- [ ] `CMAES_MU` tuning (compute-neutral): Reduce `mu` to increase selection pressure without changing `POPULATION_SIZE`.
+- [ ] Crowding-informed recombination weights: Modulate recombination weights using crowding distance so the update preserves front diversity.
+- [ ] Crowding normalization rule: Define a deterministic mapping for finite vs infinite crowding so weighting is stable and reproducible.
 
 **Alignment (make “better fitness” mean “plays better”):**
 
 - [ ] Skill proxy objective surfacing: Ensure the ES scalar score includes measurable skill proxies (aim-at-shot, danger reaction, efficient shooting, movement/coverage), not only survival/death timing.
 - [ ] Degenerate behavior suppression (ES-only optional): Penalize “always shoot” or “never thrust” regimes using existing behavioral metrics so the optimizer cannot win by trivial input saturation.
 
+- [ ] Pareto objective usage audit (reporting): Report per-objective variance/spread so objectives that have no selection effect can be detected explicitly.
+- [ ] Pareto objective dominance audit (reporting): Report objective correlations and rank sensitivity so redundant objectives are identified explicitly.
+
 **Observability (ensure the policy can perceive what it needs to control):**
 
 - [ ] Threat-imminence minimal features: Add “nearest threat closing speed” and “nearest threat bearing” to the ES state (if not already sufficiently represented by current encoder features).
+
+- [ ] Pareto front histogram export (reporting): Export per-generation front rank counts (front0/front1/...) so front growth/collapse is measurable.
+- [ ] Pareto crowding distribution export (reporting): Export crowding distance percentiles and infinite-count per generation so diversity pressure is visible.
+- [ ] Objective spread export (reporting): Export objective summaries (mean/median/p10/p90) for full population and for front0 only.
+- [ ] Pareto-vs-fitness consistency export (reporting): Export whether the Pareto-selected candidate is also top-k by scalar fitness so selection alignment is explicit.
+- [ ] Pareto tie-break telemetry (reporting): Export counts of tie-break usage so Pareto stability is measurable.
 
 #### Medium (multi-step changes across ES, encoder, and evaluation stack)
 
@@ -419,6 +448,7 @@ training/
 - Action discontinuity: `interfaces/ActionInterface.py` thresholds outputs at `0.5`, creating a piecewise-constant policy mapping that makes the fitness landscape jagged for ES-style updates.
 - Sample budget comparability: ES "one generation" can cost far more rollouts than GA (population \* seeds per candidate), so wall-clock comparisons should be normalized by total episodes evaluated.
 - TensorFlow stack status: A TF policy/evaluator exists but is not currently used by the ES training entry point; the canonical ES execution path today is NumPy-based.
+- Compute budget constraint (ES): Prefer compute-neutral robustness (elite replacement, `fitness_std` tie-break/damping, crowding-weighted recombination) over increasing `POPULATION_SIZE` or `SEEDS_PER_AGENT`.
 
 ## Discarded / Obsolete / No Longer Relevant
 
