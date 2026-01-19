@@ -17,6 +17,7 @@ from interfaces.encoders.VectorEncoder import VectorEncoder
 from interfaces.ActionInterface import ActionInterface
 from training.config.rewards import create_reward_calculator
 from training.config.genetic_algorithm import GAConfig
+from training.config.pareto import ParetoConfig
 from training.components.novelty import compute_behavior_vector
 from training.components.diversity import compute_reward_diversity
 
@@ -109,7 +110,7 @@ def evaluate_single_agent(
     total_turn_streak = 0
     turn_streak_count = 0
     last_turn_sign = 0
-    turn_deadzone = 0.4
+    turn_deadzone = 0.0
 
     # Aim alignment tracking
     frontness_sum = 0.0
@@ -127,6 +128,10 @@ def evaluate_single_agent(
     danger_entries = 0
     danger_wraps = 0
     danger_active = False
+
+    # Soft-min TTC risk proxy (seconds)
+    softmin_ttc_sum = 0.0
+    softmin_ttc_samples = 0
     reaction_pending = False
     reaction_timer = 0
     reaction_times = []
@@ -363,12 +368,63 @@ def evaluate_single_agent(
                         reaction_pending = False
             else:
                 danger_active = False
-                reaction_pending = False
-                reaction_timer = 0
+            reaction_pending = False
+            reaction_timer = 0
         else:
             danger_active = False
             reaction_pending = False
             reaction_timer = 0
+
+        # Soft-min TTC across all asteroids (closest matters, others still count)
+        if game.player:
+            asteroids = game.asteroid_list
+            if asteroids:
+                ttc_values = []
+                player_x = game.player.center_x
+                player_y = game.player.center_y
+                player_vx = game.player.change_x
+                player_vy = game.player.change_y
+                ttc_max = ParetoConfig.RISK_TTC_MAX
+                tau = ParetoConfig.RISK_TAU
+                for ast in asteroids:
+                    dx = ast.center_x - player_x
+                    dy = ast.center_y - player_y
+                    if abs(dx) > game.width / 2:
+                        dx = -1 * math.copysign(game.width - abs(dx), dx)
+                    if abs(dy) > game.height / 2:
+                        dy = -1 * math.copysign(game.height - abs(dy), dy)
+
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    radius = globals.ASTEROID_BASE_RADIUS * ast.this_scale
+                    if dist <= 1e-6:
+                        ttc = 0.0
+                    else:
+                        rel_vx = ast.change_x - player_vx
+                        rel_vy = ast.change_y - player_vy
+                        closing_speed = -(dx * rel_vx + dy * rel_vy) / dist
+                        if closing_speed <= 1e-6:
+                            ttc = ttc_max
+                        else:
+                            ttc_frames = max(0.0, (dist - radius) / closing_speed)
+                            ttc = ttc_frames * frame_delay
+                            ttc = min(ttc, ttc_max)
+                    ttc_values.append(ttc)
+
+                if ttc_values:
+                    if tau <= 1e-6:
+                        softmin_ttc = min(ttc_values)
+                    else:
+                        weights = [math.exp(-ttc / tau) for ttc in ttc_values]
+                        weight_sum = sum(weights)
+                        if weight_sum <= 0.0:
+                            softmin_ttc = ttc_max
+                        else:
+                            softmin_ttc = sum(w * ttc for w, ttc in zip(weights, ttc_values)) / weight_sum
+                    softmin_ttc_sum += softmin_ttc
+                    softmin_ttc_samples += 1
+            else:
+                softmin_ttc_sum += ParetoConfig.RISK_TTC_MAX
+                softmin_ttc_samples += 1
         
         # Calculate step reward
         step_reward = reward_calculator.calculate_step_reward(
@@ -450,6 +506,7 @@ def evaluate_single_agent(
 
     danger_exposure_rate = danger_frames / steps if steps > 0 else 0.0
     avg_reaction_time = sum(reaction_times) / len(reaction_times) if reaction_times else 0.0
+    avg_softmin_ttc = softmin_ttc_sum / softmin_ttc_samples if softmin_ttc_samples > 0 else ParetoConfig.RISK_TTC_MAX
 
     avg_speed = speed_sum / speed_samples if speed_samples > 0 else 0.0
     speed_var = (speed_sq_sum / speed_samples) - (avg_speed * avg_speed) if speed_samples > 0 else 0.0
@@ -518,6 +575,7 @@ def evaluate_single_agent(
         'danger_entries': danger_entries,
         'avg_reaction_time': avg_reaction_time,
         'danger_wraps': danger_wraps,
+        'softmin_ttc': avg_softmin_ttc,
         'distance_traveled': distance_traveled,
         'avg_speed': avg_speed,
         'std_speed': std_speed,
@@ -640,6 +698,7 @@ def evaluate_population_parallel(
         avg_thrust_duration = sum(r.get('avg_thrust_duration', 0.0) for r in results) / len(results)
         avg_turn_duration = sum(r.get('avg_turn_duration', 0.0) for r in results) / len(results)
         avg_shoot_duration = sum(r.get('avg_shoot_duration', 0.0) for r in results) / len(results)
+        avg_time_alive = sum(r.get('time_alive', 0.0) for r in results) / len(results)
         
         # New metrics averaging
         avg_min_dist = sum(r.get('min_asteroid_dist', 0.0) for r in results) / len(results)
@@ -664,6 +723,7 @@ def evaluate_population_parallel(
         avg_danger_entries = sum(r.get('danger_entries', 0.0) for r in results) / len(results)
         avg_reaction_time = sum(r.get('avg_reaction_time', 0.0) for r in results) / len(results)
         avg_danger_wraps = sum(r.get('danger_wraps', 0.0) for r in results) / len(results)
+        avg_softmin_ttc = sum(r.get('softmin_ttc', 0.0) for r in results) / len(results)
         avg_distance_traveled = sum(r.get('distance_traveled', 0.0) for r in results) / len(results)
         avg_speed = sum(r.get('avg_speed', 0.0) for r in results) / len(results)
         avg_speed_std = sum(r.get('std_speed', 0.0) for r in results) / len(results)
@@ -706,6 +766,7 @@ def evaluate_population_parallel(
         averaged_results.append({
             'fitness': avg_fitness,
             'steps_survived': avg_steps,
+            'time_alive': avg_time_alive,
             'kills': avg_kills,
             'shots_fired': sum(r['shots_fired'] for r in results) / len(results),
             'accuracy': avg_accuracy,
@@ -743,6 +804,7 @@ def evaluate_population_parallel(
             'danger_entries': avg_danger_entries,
             'avg_reaction_time': avg_reaction_time,
             'danger_wraps': avg_danger_wraps,
+            'softmin_ttc': avg_softmin_ttc,
             'distance_traveled': avg_distance_traveled,
             'avg_speed': avg_speed,
             'std_speed': avg_speed_std,
@@ -807,6 +869,7 @@ def evaluate_population_parallel(
     # Aggregate behavioral metrics across population (using averaged per-agent metrics)
     aggregated_metrics = {
         'avg_steps_survived': sum(r['steps_survived'] for r in averaged_results) / len(averaged_results),
+        'avg_time_alive': sum(r.get('time_alive', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_kills': sum(r['kills'] for r in averaged_results) / len(averaged_results),
         'avg_shots_fired': sum(r['shots_fired'] for r in averaged_results) / len(averaged_results),
         'avg_accuracy': sum(r['accuracy'] for r in averaged_results) / len(averaged_results),
@@ -855,6 +918,7 @@ def evaluate_population_parallel(
         'avg_danger_entries': sum(r.get('danger_entries', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_danger_reaction_time': sum(r.get('avg_reaction_time', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_danger_wraps': sum(r.get('danger_wraps', 0.0) for r in averaged_results) / len(averaged_results),
+        'avg_softmin_ttc': sum(r.get('softmin_ttc', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_distance_traveled': sum(r.get('distance_traveled', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_speed': sum(r.get('avg_speed', 0.0) for r in averaged_results) / len(averaged_results),
         'avg_speed_std': sum(r.get('std_speed', 0.0) for r in averaged_results) / len(averaged_results),

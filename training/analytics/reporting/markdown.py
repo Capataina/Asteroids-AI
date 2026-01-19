@@ -33,7 +33,11 @@ from training.analytics.reporting.sections.velocity import write_learning_veloci
 from training.analytics.reporting.sections.highlights import write_generation_highlights, write_best_agent_profile
 from game import globals
 from training.analytics.reporting.sections.warnings import write_reward_warnings
-from training.analytics.reporting.sections.performance import write_computational_performance, write_genetic_operator_stats
+from training.analytics.reporting.sections.performance import (
+    write_computational_performance,
+    write_genetic_operator_stats,
+    write_es_optimizer_stats,
+)
 from training.analytics.reporting.sections.milestones import write_milestone_timeline
 from training.analytics.reporting.sections.toc import write_table_of_contents
 from training.analytics.reporting.sections.heatmaps import write_heatmaps
@@ -41,6 +45,7 @@ from training.analytics.reporting.sections.distribution import write_distributio
 from training.analytics.reporting.sections.neural import write_neural_analysis
 from training.analytics.reporting.sections.risk import write_risk_analysis
 from training.analytics.reporting.sections.control import write_control_diagnostics
+from training.analytics.reporting.sections.takeaways import collect_report_takeaways, write_report_takeaways
 
 
 class MarkdownReporter:
@@ -80,6 +85,15 @@ class MarkdownReporter:
                 f.write("## Quick Trend Overview\n\n")
                 write_sparklines(f, self.data.generations_data)
 
+            # Report Takeaways (all sections)
+            takeaways = collect_report_takeaways(
+                self.data.generations_data,
+                summary,
+                has_behavior,
+                has_fresh_game
+            )
+            write_report_takeaways(f, takeaways)
+
             # Training Configuration
             write_config(f, self.data.config)
 
@@ -102,9 +116,9 @@ class MarkdownReporter:
             # Milestone Timeline
             write_milestone_timeline(f, self.data.generations_data)
 
-            # Training Progress by Decile
+            # Training Progress by Phase
             if AnalyticsConfig.ENABLE_PROGRESS_DECILES:
-                f.write("## Training Progress by Decile\n\n")
+                f.write("## Training Progress by Phase\n\n")
                 write_decile_breakdown(f, self.data.generations_data)
 
             # Distribution Charts (New)
@@ -174,7 +188,6 @@ class MarkdownReporter:
 
             # Control Diagnostics
             if AnalyticsConfig.ENABLE_CONTROL_DIAGNOSTICS:
-                f.write("## Control Diagnostics\n\n")
                 write_control_diagnostics(f, self.data.generations_data)
 
             # Convergence Analysis
@@ -213,6 +226,7 @@ class MarkdownReporter:
             f.write("\n---\n\n# Technical Appendix\n\n")
             write_computational_performance(f, self.data.generations_data)
             write_genetic_operator_stats(f, self.data.generations_data)
+            write_es_optimizer_stats(f, self.data.generations_data)
 
         print(f"\n[OK] Training summary saved to: {output_path}")
         return output_path

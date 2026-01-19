@@ -107,7 +107,7 @@ def evaluate_single_agent_tf(
     total_turn_streak = 0
     turn_streak_count = 0
     last_turn_sign = 0
-    turn_deadzone = 0.4
+    turn_deadzone = 0.0
 
     # Aim alignment tracking
     frontness_sum = 0.0

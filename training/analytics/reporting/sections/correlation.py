@@ -6,6 +6,9 @@ Generates correlation matrix between metrics.
 
 from typing import List, Dict, Any
 
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+
 from training.analytics.analysis.fitness import pearson_correlation
 
 
@@ -71,3 +74,22 @@ def write_correlation_matrix(f, generations_data: List[Dict[str, Any]]):
                      (abs(corr_steps), 'survival time', corr_steps),
                      (abs(corr_accuracy), 'accuracy', corr_accuracy)])
     f.write(f"Fitness is most strongly predicted by {strongest[1]} (r={strongest[2]:.2f}).\n\n")
+
+    takeaways = [
+        f"Strongest fitness driver: {strongest[1]} (r={strongest[2]:.2f}).",
+    ]
+    warnings = []
+    if all(abs(r) < 0.4 for r in [corr_kills, corr_steps, corr_accuracy]):
+        warnings.append("All correlations are weak; fitness may be driven by other factors.")
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "avg_fitness",
+            "avg_kills",
+            "avg_steps",
+            "avg_accuracy",
+        ])
+    )

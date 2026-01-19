@@ -4,68 +4,115 @@ Sparklines report section.
 Generates ASCII sparklines for quick trend visualization.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
+
+from training.config.analytics import AnalyticsConfig
+from training.analytics.reporting.insights import trend_stats
+from training.analytics.reporting.sections.common import write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+
+
+def _bin_values(values: List[float], width: int) -> List[float]:
+    if not values:
+        return []
+    width = max(1, min(width, len(values)))
+    bins = []
+    n = len(values)
+    for i in range(width):
+        start = int(i * n / width)
+        end = int((i + 1) * n / width)
+        chunk = values[start:end] or [values[start]]
+        bins.append(sum(chunk) / len(chunk))
+    return bins
+
+
+def _make_sparkline(values: List[float], width: int) -> str:
+    if not values:
+        return "N/A"
+    samples = _bin_values(values, width)
+    if len(samples) < 2:
+        return "." * len(samples)
+
+    min_val = min(samples)
+    max_val = max(samples)
+    range_val = max_val - min_val
+    if range_val == 0:
+        return "." * len(samples)
+
+    chars = " .:-=+*#%@"
+    result = ""
+    for v in samples:
+        idx = int((v - min_val) / range_val * (len(chars) - 1))
+        idx = max(0, min(len(chars) - 1, idx))
+        result += chars[idx]
+    return result
+
+
+def _fmt_value(value: float, fmt: Callable[[float], str]) -> str:
+    return fmt(value) if fmt else f"{value:.2f}"
 
 
 def write_sparklines(f, generations_data: List[Dict[str, Any]]):
-    """Generate ASCII sparklines for quick trend visualization.
-
-    Args:
-        f: File handle to write to
-        generations_data: List of generation data dictionaries
-    """
+    """Generate ASCII sparklines for quick trend visualization."""
     if len(generations_data) < 2:
         f.write("Not enough data for sparklines.\n\n")
         return
 
-    sparkline_chars = "▁▂▃▄▅▆▇█"
-
-    def make_sparkline(values, width=10):
-        """Create sparkline from values."""
-        if not values:
-            return "N/A"
-        # Sample to width points
-        step = max(1, len(values) // width)
-        sampled = values[::step][:width]
-        if len(sampled) < 2:
-            return "▄" * len(sampled)
-
-        min_val = min(sampled)
-        max_val = max(sampled)
-        range_val = max_val - min_val
-
-        if range_val == 0:
-            return "▄" * len(sampled)
-
-        result = ""
-        for v in sampled:
-            idx = int((v - min_val) / range_val * 7)
-            idx = max(0, min(7, idx))
-            result += sparkline_chars[idx]
-        return result
-
-    # Gather metrics
-    best_fitness = [g['best_fitness'] for g in generations_data]
-    avg_fitness = [g['avg_fitness'] for g in generations_data]
-    avg_kills = [g.get('avg_kills', 0) for g in generations_data]
-    avg_accuracy = [g.get('avg_accuracy', 0) for g in generations_data]
-    avg_steps = [g.get('avg_steps', 0) for g in generations_data]
-    std_devs = [g.get('std_dev', 0) for g in generations_data]
-
-    def pct_change(values):
-        if len(values) < 2 or values[0] == 0:
-            return 0
-        return ((values[-1] - values[0]) / abs(values[0])) * 100
+    width = AnalyticsConfig.SPARKLINE_WIDTH
+    metrics = [
+        ("Best Fitness", "best_fitness", lambda v: f"{v:.0f}", True),
+        ("Avg Fitness", "avg_fitness", lambda v: f"{v:.0f}", True),
+        ("Min Fitness", "min_fitness", lambda v: f"{v:.0f}", True),
+        ("Fitness Spread", "std_dev", lambda v: f"{v:.0f}", False),
+        ("Avg Kills", "avg_kills", lambda v: f"{v:.1f}", True),
+        ("Avg Accuracy", "avg_accuracy", lambda v: f"{v*100:.0f}%", True),
+        ("Avg Steps", "avg_steps", lambda v: f"{v:.0f}", True),
+        ("Action Entropy", "avg_action_entropy", lambda v: f"{v:.2f}", True),
+        ("Output Saturation", "avg_output_saturation", lambda v: f"{v*100:.0f}%", False),
+        ("Frontness Avg", "avg_frontness", lambda v: f"{v*100:.0f}%", True),
+        ("Danger Exposure", "avg_danger_exposure_rate", lambda v: f"{v*100:.0f}%", False),
+        ("Softmin TTC", "avg_softmin_ttc", lambda v: f"{v:.2f}", True),
+        ("Seed Fitness Std", "avg_fitness_std", lambda v: f"{v:.1f}", False),
+    ]
 
     f.write("```\n")
-    f.write(f"Best Fitness: {best_fitness[0]:.0f} → {best_fitness[-1]:.0f}   [{make_sparkline(best_fitness)}] {pct_change(best_fitness):+.0f}%\n")
-    f.write(f"Avg Fitness:  {avg_fitness[0]:.0f} → {avg_fitness[-1]:.0f}   [{make_sparkline(avg_fitness)}] {pct_change(avg_fitness):+.0f}%\n")
-    if any(avg_kills):
-        f.write(f"Avg Kills:    {avg_kills[0]:.1f} → {avg_kills[-1]:.1f}   [{make_sparkline(avg_kills)}] {pct_change(avg_kills):+.0f}%\n")
-    if any(avg_accuracy):
-        f.write(f"Avg Accuracy: {avg_accuracy[0]*100:.0f}% → {avg_accuracy[-1]*100:.0f}%   [{make_sparkline(avg_accuracy)}] {pct_change(avg_accuracy):+.0f}%\n")
-    if any(avg_steps):
-        f.write(f"Avg Steps:    {avg_steps[0]:.0f} → {avg_steps[-1]:.0f}   [{make_sparkline(avg_steps)}] {pct_change(avg_steps):+.0f}%\n")
-    if any(std_devs):
-        f.write(f"Diversity:    {std_devs[0]:.0f} → {std_devs[-1]:.0f}   [{make_sparkline(std_devs)}] {pct_change(std_devs):+.0f}%\n")
+    for label, key, fmt, higher_is_better in metrics:
+        if key not in generations_data[-1]:
+            continue
+        values = [g.get(key, 0.0) for g in generations_data]
+        if all(v == 0 for v in values):
+            continue
+        stats = trend_stats(
+            generations_data,
+            key,
+            higher_is_better=higher_is_better,
+            phase_count=AnalyticsConfig.PHASE_COUNT,
+        )
+        line = (
+            f"{label:<16} "
+            f"{_fmt_value(stats['start'], fmt)} -> {_fmt_value(stats['end'], fmt)}  "
+            f"[{_make_sparkline(values, width)}]  "
+            f"{stats['tag']} ({stats['confidence']})"
+        )
+        f.write(line + "\n")
     f.write("```\n\n")
+
+    write_glossary(
+        f,
+        glossary_entries([
+            "best_fitness",
+            "avg_fitness",
+            "min_fitness",
+            "std_dev",
+            "avg_kills",
+            "avg_accuracy",
+            "avg_steps",
+            "avg_action_entropy",
+            "avg_output_saturation",
+            "avg_frontness",
+            "avg_danger_exposure_rate",
+            "avg_softmin_ttc",
+            "avg_fitness_std",
+        ]),
+        title="Quick Trend Glossary",
+    )

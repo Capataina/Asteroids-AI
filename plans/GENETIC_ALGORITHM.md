@@ -63,7 +63,7 @@ The current GA training script uses `interfaces/encoders/HybridEncoder.py` (not 
 |          `2` | Shoot       | `space_pressed`                  |
 
 - Output range: 3 floats in `[0, 1]` from the policy.
-- Turn mapping: `ActionInterface.to_game_input(...)` converts `action[0]` into a signed turn value (`turn_value = action[0] * 2 - 1`) with a deadzone; left if `< -0.4`, right if `> 0.4`.
+- Turn mapping: `ActionInterface.to_game_input(...)` converts `action[0]` into a signed turn value (`turn_value = action[0] * 2 - 1`) with no deadzone; left if `< 0`, right if `> 0`.
 
 ### Reward Preset (Implemented)
 

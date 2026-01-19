@@ -1,143 +1,85 @@
 """
-Reward balance warnings report section.
+Reward balance analysis section.
 
-Automatically detects potential issues with reward configuration
-and surfaces them as actionable warnings.
+Detects reward component dominance, instability, and penalty skew.
 """
 
 from typing import List, Dict, Any, Tuple
 
+from training.analytics.analysis.phases import split_generations, summarize_values
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+
+
+def _component_series(generations_data: List[Dict[str, Any]], component: str) -> List[float]:
+    return [g.get('avg_reward_breakdown', {}).get(component, 0.0) for g in generations_data]
+
 
 def analyze_reward_balance(generations_data: List[Dict[str, Any]]) -> Tuple[List[str], List[str]]:
-    """Analyze reward components for potential issues.
-
-    Args:
-        generations_data: List of generation data dictionaries
-
-    Returns:
-        Tuple of (warnings, confirmations) lists
-    """
-    warnings = []
-    confirmations = []
+    warnings: List[str] = []
+    takeaways: List[str] = []
 
     if not generations_data or 'avg_reward_breakdown' not in generations_data[-1]:
-        return warnings, confirmations
+        return warnings, takeaways
 
-    # Get first and last phase data
-    n = len(generations_data)
-    phase_size = max(1, n // 10)
-    first_phase = generations_data[:phase_size]
-    last_phase = generations_data[-phase_size:]
-
-    def avg_component(data, comp):
-        values = [g.get('avg_reward_breakdown', {}).get(comp, 0) for g in data]
-        return sum(values) / len(values) if values else 0
-
-    # Get all components from last generation
-    components = list(generations_data[-1].get('avg_reward_breakdown', {}).keys())
-    if not components:
-        return warnings, confirmations
-
-    # Calculate totals for percentage analysis
     last_breakdown = generations_data[-1].get('avg_reward_breakdown', {})
+    components = list(last_breakdown.keys())
+    if not components:
+        return warnings, takeaways
+
+    # Dominance and entropy signals (latest generation)
+    dominance_index = generations_data[-1].get('reward_dominance_index', 0.0)
+    entropy = generations_data[-1].get('reward_entropy', 0.0)
+    max_share = generations_data[-1].get('reward_max_share', 0.0)
+
+    # Build historical baselines for dominance
+    dominance_series = [g.get('reward_dominance_index', 0.0) for g in generations_data if 'reward_dominance_index' in g]
+    entropy_series = [g.get('reward_entropy', 0.0) for g in generations_data if 'reward_entropy' in g]
+
+    dom_stats = summarize_values(dominance_series)
+    ent_stats = summarize_values(entropy_series)
+
+    if dominance_series and dominance_index > dom_stats["mean"] + dom_stats["std"]:
+        warnings.append("Reward dominance is above run average (one component is likely overpowering).")
+    if entropy_series and entropy < max(0.1, ent_stats["mean"] - ent_stats["std"]):
+        warnings.append("Reward entropy is below run average (reward mix is narrowing).")
+    if max_share > 0.6:
+        warnings.append(f"Max component share is high ({max_share*100:.1f}%).")
+
+    # Component-level stability
+    phases = split_generations(generations_data, phase_count=4)
+    for comp in components:
+        series = _component_series(generations_data, comp)
+        stats = summarize_values(series)
+        if stats["std"] > max(1.0, abs(stats["mean"]) * 0.75):
+            warnings.append(f"{comp} is volatile across the run (high variance vs mean).")
+
+        if stats["mean"] < 0 and series[-1] < 0:
+            warnings.append(f"{comp} remains negative on average (behavior may be over-penalized).")
+
+        # Sign flip across phases
+        if phases:
+            phase_values = [sum(g.get('avg_reward_breakdown', {}).get(comp, 0.0) for g in p["data"]) / len(p["data"]) for p in phases]
+            if any(v < 0 for v in phase_values) and any(v > 0 for v in phase_values):
+                takeaways.append(f"{comp} flipped sign across phases (objective meaning changed during training).")
+
+    # Penalty ratio
     total_positive = sum(v for v in last_breakdown.values() if v > 0)
     total_negative = sum(abs(v) for v in last_breakdown.values() if v < 0)
+    penalty_ratio = (total_negative / total_positive) if total_positive > 0 else 0.0
+    if penalty_ratio > 0.7:
+        warnings.append(f"Penalty ratio is high ({penalty_ratio:.2f}), negative rewards dominate.")
+    elif penalty_ratio > 0.4:
+        takeaways.append(f"Penalty ratio is elevated ({penalty_ratio:.2f}); rewards are penalty-heavy.")
 
-    # Analyze each component
-    consistently_negative = []
-    dominant_components = []
-    declining_components = []
-    learned_components = []
+    if not takeaways:
+        takeaways.append("Reward mix is broadly stable with no major dominance spikes.")
 
-    for comp in components:
-        first_val = avg_component(first_phase, comp)
-        last_val = avg_component(last_phase, comp)
-
-        # Check for consistently negative throughout training
-        all_negative = all(
-            g.get('avg_reward_breakdown', {}).get(comp, 0) < 0
-            for g in generations_data
-        )
-
-        # Check for dominance (>40% of positive rewards)
-        if total_positive > 0 and last_val > 0:
-            pct_of_total = (last_val / total_positive) * 100
-            if pct_of_total > 40:
-                dominant_components.append((comp, pct_of_total))
-
-        # Check if component was learned (negative -> positive)
-        if first_val < 0 and last_val > 0:
-            learned_components.append(comp)
-
-        # Check for consistently negative
-        if all_negative and last_val < -5:
-            consistently_negative.append((comp, last_val))
-
-        # Check for declining positive rewards
-        if first_val > 10 and last_val < first_val * 0.5:
-            declining_components.append((comp, first_val, last_val))
-
-    # Generate warnings
-    for comp, avg_val in consistently_negative:
-        warnings.append(
-            f"**{comp} consistently negative** - This component has been negative "
-            f"throughout training, averaging {avg_val:.1f}/episode. The intended behavior "
-            f"may not be incentivized strongly enough, or there may be a conflict with other rewards."
-        )
-
-    for comp, pct in dominant_components:
-        if pct > 60:
-            warnings.append(
-                f"**{comp} dominates reward ({pct:.0f}%)** - This single component accounts for "
-                f"most of all positive reward. Other behaviors may be under-incentivized."
-            )
-        elif pct > 40:
-            warnings.append(
-                f"**{comp} is dominant ({pct:.0f}%)** - This component accounts for a large portion "
-                f"of positive reward. Consider if this is intentional."
-            )
-
-    for comp, first_val, last_val in declining_components:
-        warnings.append(
-            f"**{comp} declining** - This component dropped from {first_val:.1f} to {last_val:.1f}. "
-            f"The agent may be trading off this behavior for others."
-        )
-
-    # Generate confirmations
-    for comp in learned_components:
-        confirmations.append(f"**{comp} learned** - Started negative, now positive")
-
-    if not dominant_components or all(pct <= 60 for _, pct in dominant_components):
-        confirmations.append("**Reward reasonably balanced** - No single component >60%")
-
-    # Check if survival is positive
-    survival_comp = next((c for c in components if 'survival' in c.lower()), None)
-    if survival_comp:
-        survival_val = last_breakdown.get(survival_comp, 0)
-        if survival_val > 0:
-            confirmations.append(f"**{survival_comp} positive** - Agents are learning to stay alive")
-
-    # Check for healthy penalty ratio
-    if total_positive > 0 and total_negative > 0:
-        penalty_ratio = total_negative / total_positive
-        if penalty_ratio < 0.3:
-            confirmations.append("**Penalty ratio healthy** - Negative rewards are not overwhelming positive")
-        elif penalty_ratio > 0.5:
-            warnings.append(
-                f"**High penalty ratio ({penalty_ratio:.1%})** - Negative rewards are {penalty_ratio:.0%} "
-                f"of positive rewards. Agents may be struggling to achieve net positive fitness."
-            )
-
-    return warnings, confirmations
+    return warnings, takeaways
 
 
 def write_reward_warnings(f, generations_data: List[Dict[str, Any]]):
-    """Write reward balance warnings section.
-
-    Args:
-        f: File handle to write to
-        generations_data: List of generation data dictionaries
-    """
+    """Write reward balance warnings section."""
     if not generations_data or 'avg_reward_breakdown' not in generations_data[-1]:
         f.write("No reward component data available for analysis.\n\n")
         return
@@ -150,35 +92,17 @@ def write_reward_warnings(f, generations_data: List[Dict[str, Any]]):
         f.write(f"- Max component share: {last_gen.get('reward_max_share', 0.0)*100:.1f}%\n")
         f.write(f"- Positive component count: {last_gen.get('reward_positive_component_count', 0)}\n\n")
 
-    warnings, confirmations = analyze_reward_balance(generations_data)
+    warnings, takeaways = analyze_reward_balance(generations_data)
 
-    if warnings:
-        f.write("### Warnings\n\n")
-        for warning in warnings:
-            f.write(f"- {warning}\n\n")
-
-    if confirmations:
-        f.write("### Confirmations\n\n")
-        for confirmation in confirmations:
-            f.write(f"- {confirmation}\n")
-        f.write("\n")
-
-    if not warnings and not confirmations:
-        f.write("No significant reward balance issues detected.\n\n")
-
-    # Recommendations based on warnings
-    if warnings:
-        f.write("### Recommendations\n\n")
-
-        has_negative_warning = any('consistently negative' in w.lower() for w in warnings)
-        has_dominant_warning = any('dominates' in w.lower() or 'dominant' in w.lower() for w in warnings)
-
-        if has_negative_warning:
-            f.write("- Consider increasing the magnitude of consistently negative reward components\n")
-            f.write("- Check if there are conflicting incentives preventing the behavior\n")
-
-        if has_dominant_warning:
-            f.write("- Review if other behaviors need stronger incentives\n")
-            f.write("- Consider reducing the dominant component or boosting others\n")
-
-        f.write("\n")
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "avg_reward_breakdown",
+            "reward_dominance_index",
+            "reward_entropy",
+            "reward_max_share",
+            "reward_positive_component_count",
+        ])
+    )

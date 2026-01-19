@@ -7,17 +7,21 @@ Generates stagnation pattern analysis.
 from typing import List, Dict, Any
 
 from training.analytics.analysis.convergence import analyze_stagnation_periods
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+
+
+def _percentile(values: List[int], pct: float) -> float:
+    if not values:
+        return 0.0
+    values = sorted(values)
+    idx = int(round((pct / 100.0) * (len(values) - 1)))
+    return values[max(0, min(len(values) - 1, idx))]
 
 
 def write_stagnation_analysis(f, generations_data: List[Dict[str, Any]],
                                generations_since_improvement: int):
-    """Analyze and write stagnation patterns.
-
-    Args:
-        f: File handle to write to
-        generations_data: List of generation data dictionaries
-        generations_since_improvement: Current stagnation counter
-    """
+    """Analyze and write stagnation patterns."""
     if not generations_data:
         f.write("No data available.\n\n")
         return
@@ -39,8 +43,25 @@ def write_stagnation_analysis(f, generations_data: List[Dict[str, Any]],
     f.write(f"- **Longest Stagnation:** {max_stagnation} generations\n")
     f.write(f"- **Number of Stagnation Periods:** {num_periods}\n\n")
 
-    if current > max_stagnation:
-        f.write("**Warning:** Current stagnation exceeds previous maximum. Consider:\n")
-        f.write("- Increasing mutation rate\n")
-        f.write("- Reducing elitism\n")
-        f.write("- Adding fresh random individuals\n\n")
+    warnings: List[str] = []
+    takeaways: List[str] = []
+
+    p75 = _percentile(periods, 75)
+    p90 = _percentile(periods, 90)
+
+    if current >= p90 and current > 0:
+        warnings.append("Current stagnation is in the top 10% of historical plateaus.")
+    elif current >= p75 and current > 0:
+        warnings.append("Current stagnation is above typical plateaus.")
+
+    takeaways.append(f"Stagnation periods average {avg_stagnation:.1f} generations.")
+    takeaways.append(f"Longest plateau reached {max_stagnation} generations.")
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "best_fitness",
+        ])
+    )

@@ -8,6 +8,10 @@ from typing import List, Dict, Any
 
 from training.analytics.analysis.behavioral import calculate_behavioral_by_quarter
 from training.analytics.analysis.action_classification import classify_behavior, get_action_rates
+from training.analytics.reporting.insights import trend_stats
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+from training.config.analytics import AnalyticsConfig
 
 
 def write_behavioral_trends(f, generations_data: List[Dict[str, Any]]):
@@ -41,7 +45,16 @@ def write_behavioral_trends(f, generations_data: List[Dict[str, Any]]):
     # (Checking the first quarter might fail if we resumed training with new code)
     has_action_data = 'avg_thrust_frames' in generations_data[-1]
 
+    baseline_rates = None
     if has_action_data:
+        all_rates = [get_action_rates(q) for q in quarters if 'avg_thrust_frames' in q]
+        if all_rates:
+            baseline_rates = {
+                'thrust_rate': sum(r['thrust_rate'] for r in all_rates) / len(all_rates),
+                'turn_rate': sum(r['turn_rate'] for r in all_rates) / len(all_rates),
+                'shoot_rate': sum(r['shoot_rate'] for r in all_rates) / len(all_rates),
+            }
+
         f.write("### Action Distribution & Strategy Evolution\n\n")
         f.write("Analysis of how the population's physical behavior has changed over time.\n\n")
         f.write("| Period | Thrust % | Turn % | Shoot % | Dominant Strategy |\n")
@@ -58,7 +71,7 @@ def write_behavioral_trends(f, generations_data: List[Dict[str, Any]]):
                 continue
 
             rates = get_action_rates(q)
-            label = classify_behavior(q)
+            label = classify_behavior(q, baseline_rates=baseline_rates)
             
             f.write(f"| Q{q['quarter']} | {rates['thrust_rate']*100:.1f}% | "
                     f"{rates['turn_rate']*100:.1f}% | {rates['shoot_rate']*100:.1f}% | "
@@ -77,6 +90,37 @@ def write_behavioral_trends(f, generations_data: List[Dict[str, Any]]):
                         f"{q.get('avg_turn_duration', 0):.1f}f | {q.get('avg_shoot_duration', 0):.1f}f | "
                         f"{q.get('avg_idle_rate', 0)*100:.1f}% | {q.get('avg_screen_wraps', 0):.1f} |\n")
             f.write("\n")
+
+    takeaways = [
+        f"Kills trend: {trend_stats(generations_data, 'avg_kills', True, AnalyticsConfig.PHASE_COUNT)['tag']}.",
+        f"Accuracy trend: {trend_stats(generations_data, 'avg_accuracy', True, AnalyticsConfig.PHASE_COUNT)['tag']}.",
+    ]
+    warnings = []
+    if 'avg_idle_rate' in generations_data[-1]:
+        idle_trend = trend_stats(generations_data, 'avg_idle_rate', higher_is_better=False, phase_count=AnalyticsConfig.PHASE_COUNT)
+        takeaways.append(f"Idle rate trend: {idle_trend['tag']}.")
+        if "regression" in idle_trend["tag"]:
+            warnings.append("Idle rate is increasing; agents are spending more time with no actions.")
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "avg_kills",
+            "avg_steps",
+            "avg_accuracy",
+            "avg_asteroid_dist",
+            "avg_thrust_frames",
+            "avg_turn_frames",
+            "avg_shoot_frames",
+            "avg_thrust_duration",
+            "avg_turn_duration",
+            "avg_shoot_duration",
+            "avg_idle_rate",
+            "avg_screen_wraps",
+        ])
+    )
 
 def write_intra_episode_analysis(f, generations_data: List[Dict[str, Any]]):
     """Analyze score distribution within episodes.
@@ -109,11 +153,24 @@ def write_intra_episode_analysis(f, generations_data: List[Dict[str, Any]]):
         pct = (score / total_score) * 100
         
         # Simple heuristic for play style based on when they score
-        style = ""
-        if i == 0 and pct > 40: style = "Sprinter"
-        elif i == 3 and pct > 40: style = "Survivor"
-        else: style = "Balanced"
+        style = "Balanced"
+        if pct > (100 / len(quarters)) * 1.5:
+            style = "Front-loaded" if i == 0 else "Back-loaded" if i == len(quarters) - 1 else "Mid-loaded"
         
         f.write(f"| {labels[i]} | {score:.1f} | {pct:.1f}% | {style} |\n")
         
     f.write("\n")
+
+    takeaways = []
+    dominant = max(range(len(quarters)), key=lambda i: quarters[i])
+    dominant_share = (quarters[dominant] / total_score) * 100 if total_score else 0.0
+    takeaways.append(f"Highest scoring quarter: {labels[dominant]} ({dominant_share:.1f}% of episode reward).")
+
+    write_takeaways(f, takeaways, title="Intra-Episode Takeaways")
+    write_glossary(
+        f,
+        glossary_entries([
+            "avg_quarterly_scores",
+        ]),
+        title="Intra-Episode Glossary"
+    )

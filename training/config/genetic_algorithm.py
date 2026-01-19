@@ -18,7 +18,7 @@ class GAConfig:
     # Number of individuals in the population.
     # Smaller populations evolve faster but may lack diversity.
     # Larger populations explore more but cost more compute.
-    POPULATION_SIZE = 10
+    POPULATION_SIZE = 15
 
     # Total number of generations to train for.
     # Each generation: evaluate → select → crossover → mutate.
@@ -56,7 +56,7 @@ class GAConfig:
 
     # Number of rollouts per individual for fitness averaging.
     # Higher = more robust fitness estimates but slower evaluation.
-    SEEDS_PER_AGENT = 5
+    SEEDS_PER_AGENT = 20
 
     # Maximum steps per rollout episode.
     # Episodes end early if the agent dies.

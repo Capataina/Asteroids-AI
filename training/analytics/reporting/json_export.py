@@ -5,8 +5,9 @@ Handles saving raw training data as JSON.
 """
 
 import json
+import math
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 from training.analytics.collection.models import AnalyticsData
 
@@ -71,8 +72,70 @@ def save_json(output_path: str, data: AnalyticsData, summary: Dict[str, Any]) ->
         'distributions_data': data.distributions_data,
     }
 
+    def _sanitize(obj: Any) -> Tuple[Any, int]:
+        """
+        Recursively sanitize non-finite floats (NaN/Inf) to keep JSON strict.
+
+        Returns:
+            (sanitized_object, replacements_count)
+        """
+        if obj is None:
+            return None, 0
+
+        if isinstance(obj, float):
+            if not math.isfinite(obj):
+                return None, 1
+            return obj, 0
+
+        if np is not None and isinstance(obj, np.floating):
+            value = float(obj)
+            if not math.isfinite(value):
+                return None, 1
+            return value, 0
+
+        if isinstance(obj, (str, int, bool)):
+            return obj, 0
+
+        if np is not None and isinstance(obj, np.integer):
+            return int(obj), 0
+
+        if np is not None and isinstance(obj, np.bool_):
+            return bool(obj), 0
+
+        if isinstance(obj, datetime):
+            return obj.isoformat(), 0
+
+        if isinstance(obj, list):
+            out = []
+            count = 0
+            for item in obj:
+                sanitized_item, c = _sanitize(item)
+                out.append(sanitized_item)
+                count += c
+            return out, count
+
+        if isinstance(obj, tuple):
+            sanitized_list, count = _sanitize(list(obj))
+            return sanitized_list, count
+
+        if isinstance(obj, dict):
+            out = {}
+            count = 0
+            for key, value in obj.items():
+                sanitized_value, c = _sanitize(value)
+                out[key] = sanitized_value
+                count += c
+            return out, count
+
+        sanitized = _json_default(obj)
+        return _sanitize(sanitized)
+
+    export_data, nonfinite_replacements = _sanitize(export_data)
+    if nonfinite_replacements:
+        export_data["export_nonfinite_replacements"] = nonfinite_replacements
+
     with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(export_data, f, indent=2, default=_json_default)
+        json.dump(export_data, f, indent=2, default=_json_default, allow_nan=False)
 
     print(f"[OK] Raw training data saved to: {output_path}")
     return output_path

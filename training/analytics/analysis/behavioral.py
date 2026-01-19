@@ -6,6 +6,8 @@ Provides functions for analyzing kill efficiency and behavioral trends.
 
 from typing import List, Dict, Any, Tuple
 
+from training.analytics.analysis.phases import split_generations
+
 
 def calculate_kill_efficiency(generations_data: List[Dict[str, Any]]) -> Dict[str, float]:
     """Calculate kill efficiency metrics for a phase of training.
@@ -142,14 +144,9 @@ def calculate_reward_evolution(generations_data: List[Dict[str, Any]]) -> Dict[s
     if not generations_data or 'avg_reward_breakdown' not in generations_data[-1]:
         return {}
 
-    n = len(generations_data)
-    num_phases = min(10, n)
-    phase_size = max(1, n // num_phases)
-
-    first_phase = generations_data[:phase_size]
-    mid_idx = n // 2
-    mid_phase = generations_data[mid_idx - phase_size // 2:mid_idx + phase_size // 2] or generations_data[mid_idx:mid_idx + 1]
-    last_phase = generations_data[-phase_size:]
+    phases = split_generations(generations_data, phase_count=4)
+    if not phases:
+        return {}
 
     components = list(generations_data[-1].get('avg_reward_breakdown', {}).keys())
     if not components:
@@ -161,9 +158,9 @@ def calculate_reward_evolution(generations_data: List[Dict[str, Any]]) -> Dict[s
 
     result = {}
     for comp in components:
-        first_val = avg_component(first_phase, comp)
-        mid_val = avg_component(mid_phase, comp)
-        last_val = avg_component(last_phase, comp)
+        phase_values = [avg_component(p["data"], comp) for p in phases]
+        first_val = phase_values[0] if phase_values else 0.0
+        last_val = phase_values[-1] if phase_values else 0.0
 
         if first_val != 0:
             pct_change = ((last_val - first_val) / abs(first_val)) * 100
@@ -171,10 +168,10 @@ def calculate_reward_evolution(generations_data: List[Dict[str, Any]]) -> Dict[s
             pct_change = 100 if last_val > 0 else -100 if last_val < 0 else 0
 
         result[comp] = {
-            'first': first_val,
-            'mid': mid_val,
-            'last': last_val,
-            'pct_change': pct_change,
+            "phases": phase_values,
+            "first": first_val,
+            "last": last_val,
+            "pct_change": pct_change,
         }
 
     return result

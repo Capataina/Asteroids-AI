@@ -4,7 +4,9 @@ Heatmap generator for spatial analytics.
 
 import math
 from typing import List, Tuple, Dict, Any
+
 from training.config.analytics import AnalyticsConfig
+from training.analytics.reporting.sections.common import write_takeaways, write_glossary
 
 def generate_ascii_heatmap(points: List[Tuple[int, int]], width: int = 800, height: int = 600, rows: int = 30, cols: int = 120) -> List[str]:
     """Generate an ASCII heatmap from a list of points.
@@ -145,3 +147,16 @@ def write_heatmaps(f, generations_data: List[Dict[str, Any]], width: int, height
     else:
         f.write("**Kill Zone Heatmap:** (No kills recorded)\n\n")
 
+    takeaways = [
+        f"Heatmaps aggregate spatial samples over the last {num_gens} generations.",
+        "Best-agent and population heatmaps highlight spatial biases and kill zones.",
+    ]
+    write_takeaways(f, takeaways, title="Heatmap Takeaways")
+    write_glossary(
+        f,
+        [
+            ("Position heatmap", "Density of sampled player positions during evaluation."),
+            ("Kill heatmap", "Density of player positions at kill events (proxy for engagement zones)."),
+        ],
+        title="Heatmap Glossary",
+    )

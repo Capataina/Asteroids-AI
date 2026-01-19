@@ -6,6 +6,9 @@ Generates fresh game generalization analysis.
 
 from typing import List, Dict, Any
 
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+
 
 def _reward_shares(breakdown: Dict[str, float]) -> Dict[str, float]:
     positive = {k: v for k, v in breakdown.items() if v > 0}
@@ -103,3 +106,26 @@ def write_generalization_analysis(f, generations_data: List[Dict[str, Any]]):
         f.write(f"| {g['generation']} | {shift*100:6.1f}% | {top_str} |\n")
 
     f.write("\n")
+
+    takeaways = []
+    warnings = []
+
+    if valid_ratios:
+        takeaways.append(f"Average fitness ratio {avg_ratio:.2f} (range {min_ratio:.2f} to {max_ratio:.2f}).")
+        if avg_ratio < 0.7 * max(0.01, max_ratio):
+            warnings.append("Generalization ratios are low relative to peak training performance.")
+        if min_ratio < 0.5 * max(0.01, avg_ratio):
+            warnings.append("Some generations show severe generalization drop-off.")
+    else:
+        takeaways.append("No valid generalization ratios recorded yet.")
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "fitness_ratio",
+            "generalization_grade",
+            "avg_reward_breakdown",
+        ])
+    )

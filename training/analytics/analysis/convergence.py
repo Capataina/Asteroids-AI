@@ -6,6 +6,8 @@ Provides functions for analyzing training convergence and stagnation patterns.
 
 from typing import List, Dict, Any, Tuple
 
+from training.analytics.analysis.phases import split_generations
+
 
 def analyze_stagnation_periods(generations_data: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Analyze stagnation periods throughout training.
@@ -74,19 +76,24 @@ def analyze_convergence(generations_data: List[Dict[str, Any]],
     avg_std_dev = sum(g['std_dev'] for g in recent_gens) / len(recent_gens)
     avg_range = sum(g['best_fitness'] - g['min_fitness'] for g in recent_gens) / len(recent_gens)
 
-    # Calculate diversity trend
-    if len(generations_data) >= 20:
-        early_std = sum(g['std_dev'] for g in generations_data[:10]) / 10
-        late_std = sum(g['std_dev'] for g in generations_data[-10:]) / 10
+    phases = split_generations(generations_data, phase_count=4)
+    if phases:
+        early_std = sum(g['std_dev'] for g in phases[0]['data']) / len(phases[0]['data'])
+        late_std = sum(g['std_dev'] for g in phases[-1]['data']) / len(phases[-1]['data'])
         diversity_change = ((late_std - early_std) / max(1, early_std)) * 100
     else:
         diversity_change = 0
 
-    # Determine status
-    if avg_std_dev < 300:
+    # Determine status relative to run distribution
+    std_values = [g['std_dev'] for g in generations_data]
+    std_values_sorted = sorted(std_values)
+    p25 = std_values_sorted[max(0, int(0.25 * (len(std_values_sorted) - 1)))]
+    p75 = std_values_sorted[max(0, int(0.75 * (len(std_values_sorted) - 1)))]
+
+    if avg_std_dev <= p25:
         status = 'converging'
-    elif avg_std_dev < 800:
-        status = 'moderate'
+    elif avg_std_dev <= p75:
+        status = 'balanced'
     else:
         status = 'exploring'
 
@@ -110,36 +117,27 @@ def analyze_learning_progress(generations_data: List[Dict[str, Any]]) -> Dict[st
     if len(generations_data) < 5:
         return {}
 
-    n = len(generations_data)
-    early_n = max(1, n // 10)
-    early = generations_data[:early_n]
-    late = generations_data[-early_n:]
+    phases = split_generations(generations_data, phase_count=4)
+    if len(phases) < 2:
+        return {}
 
-    early_best_avg = sum(g['best_fitness'] for g in early) / len(early)
-    late_best_avg = sum(g['best_fitness'] for g in late) / len(late)
-    early_avg_avg = sum(g['avg_fitness'] for g in early) / len(early)
-    late_avg_avg = sum(g['avg_fitness'] for g in late) / len(late)
+    first = phases[0]["data"]
+    last = phases[-1]["data"]
+
+    early_best_avg = sum(g['best_fitness'] for g in first) / len(first)
+    late_best_avg = sum(g['best_fitness'] for g in last) / len(last)
+    early_avg_avg = sum(g['avg_fitness'] for g in first) / len(first)
+    late_avg_avg = sum(g['avg_fitness'] for g in last) / len(last)
 
     best_improvement = ((late_best_avg - early_best_avg) / max(1, abs(early_best_avg))) * 100
     avg_improvement = ((late_avg_avg - early_avg_avg) / max(1, abs(early_avg_avg))) * 100
 
-    # Determine verdict
-    if best_improvement > 50 and avg_improvement > 30:
-        verdict = 'strong'
-    elif best_improvement > 20 or avg_improvement > 20:
-        verdict = 'moderate'
-    elif best_improvement > 0 or avg_improvement > 0:
-        verdict = 'weak'
-    else:
-        verdict = 'none'
-
     return {
-        'early_n': early_n,
+        'phase_count': len(phases),
         'early_best_avg': early_best_avg,
         'late_best_avg': late_best_avg,
         'early_avg_avg': early_avg_avg,
         'late_avg_avg': late_avg_avg,
         'best_improvement': best_improvement,
         'avg_improvement': avg_improvement,
-        'verdict': verdict,
     }

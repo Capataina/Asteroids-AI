@@ -1,46 +1,32 @@
 """
-Decile breakdown report section.
+Phase breakdown report section.
 
-Generates training progress broken down by decile (10 equal phases).
+Generates training progress broken down by fixed phases.
 """
 
 from typing import List, Dict, Any
 
+from training.analytics.analysis.phases import split_generations
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+from training.config.analytics import AnalyticsConfig
+
 
 def write_decile_breakdown(f, generations_data: List[Dict[str, Any]]):
-    """Write training progress broken down by decile (10 equal phases).
-
-    Args:
-        f: File handle to write to
-        generations_data: List of generation data dictionaries
-    """
-    n = len(generations_data)
-    if n < 10:
-        # For short runs, use fewer phases
-        if n < 5:
-            f.write("Not enough data for decile breakdown (need at least 5 generations).\n\n")
-            return
-        num_phases = n
-    else:
-        num_phases = 10
-
-    phase_size = max(1, n // num_phases)
+    """Write training progress broken down by phases."""
+    phases = split_generations(generations_data, phase_count=AnalyticsConfig.PHASE_COUNT)
+    if not phases:
+        f.write("Not enough data for phase breakdown.\n\n")
+        return
 
     f.write("| Phase | Gens | Best Fit | Avg Fit | Avg Kills | Avg Acc | Avg Steps | Diversity |\n")
     f.write("|-------|------|----------|---------|-----------|---------|-----------|----------|\n")
 
-    for phase in range(num_phases):
-        start_idx = phase * phase_size
-        end_idx = min(start_idx + phase_size, n)
-        if phase == num_phases - 1:
-            end_idx = n  # Include all remaining in last phase
-
-        phase_data = generations_data[start_idx:end_idx]
+    for phase in phases:
+        phase_data = phase["data"]
         if not phase_data:
             continue
 
-        start_gen = phase_data[0]['generation']
-        end_gen = phase_data[-1]['generation']
         best_fit = max(g['best_fitness'] for g in phase_data)
         avg_fit = sum(g['avg_fitness'] for g in phase_data) / len(phase_data)
         avg_kills = sum(g.get('avg_kills', 0) for g in phase_data) / len(phase_data)
@@ -48,10 +34,28 @@ def write_decile_breakdown(f, generations_data: List[Dict[str, Any]]):
         avg_steps = sum(g.get('avg_steps', 0) for g in phase_data) / len(phase_data)
         diversity = sum(g.get('std_dev', 0) for g in phase_data) / len(phase_data)
 
-        pct_start = int((phase / num_phases) * 100)
-        pct_end = int(((phase + 1) / num_phases) * 100)
-
-        f.write(f"| {pct_start}-{pct_end}% | {start_gen}-{end_gen} | {best_fit:.0f} | {avg_fit:.0f} | "
-                f"{avg_kills:.1f} | {avg_acc*100:.0f}% | {avg_steps:.0f} | {diversity:.0f} |\n")
+        f.write(
+            f"| {phase['label']} | {phase['gen_start']}-{phase['gen_end']} | {best_fit:.0f} | "
+            f"{avg_fit:.0f} | {avg_kills:.1f} | {avg_acc*100:.0f}% | {avg_steps:.0f} | {diversity:.0f} |\n"
+        )
 
     f.write("\n")
+
+    takeaways = [
+        "Phase breakdown uses equal 25% blocks for run-normalized comparisons.",
+    ]
+    warnings: List[str] = []
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "best_fitness",
+            "avg_fitness",
+            "avg_kills",
+            "avg_accuracy",
+            "avg_steps",
+            "std_dev",
+        ])
+    )

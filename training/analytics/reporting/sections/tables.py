@@ -6,6 +6,9 @@ Generates detailed generation tables.
 
 from typing import List, Dict, Any
 
+from training.analytics.reporting.sections.common import write_takeaways, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+
 
 def write_generation_table(f, generations_data: List[Dict[str, Any]],
                            limit: int = 30, include_behavior: bool = False):
@@ -50,6 +53,29 @@ def write_generation_table(f, generations_data: List[Dict[str, Any]],
 
     f.write("\n</details>\n\n")
 
+    if recent:
+        takeaways = [
+            f"Recent table covers {len(recent)} generations ending at Gen {recent[-1]['generation']}.",
+            f"Latest best fitness: {recent[-1].get('best_fitness', 0):.1f}.",
+        ]
+        write_takeaways(f, takeaways, title="Recent Table Takeaways")
+        write_glossary(
+            f,
+            glossary_entries([
+                "best_fitness",
+                "avg_fitness",
+                "min_fitness",
+                "median_fitness",
+                "std_dev",
+                "best_improvement",
+                "avg_improvement",
+                "avg_kills",
+                "avg_steps",
+                "avg_accuracy",
+            ]),
+            title="Recent Table Glossary"
+        )
+
 
 def write_best_generations(f, generations_data: List[Dict[str, Any]],
                            include_behavior: bool = False):
@@ -86,3 +112,19 @@ def write_best_generations(f, generations_data: List[Dict[str, Any]],
             f.write(f"{gen_data['min_fitness']:<12.2f} |\n")
 
     f.write("\n</details>\n\n")
+
+    if sorted_gens:
+        takeaways = [
+            f"Top generation is Gen {sorted_gens[0]['generation']} with best fitness {sorted_gens[0]['best_fitness']:.1f}.",
+        ]
+        write_takeaways(f, takeaways, title="Top Generations Takeaways")
+        write_glossary(
+            f,
+            glossary_entries([
+                "best_fitness",
+                "avg_fitness",
+                "min_fitness",
+                "avg_accuracy",
+            ]),
+            title="Top Generations Glossary"
+        )

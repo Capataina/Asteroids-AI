@@ -43,6 +43,7 @@ Asteroids AI/
 │   ├── StateEncoder.py                  # Abstract encoder contract (encode/get_state_size/reset/clone)
 │   ├── encoders/
 │   │   ├── HybridEncoder.py             # Hybrid “fovea + raycasts” fixed-size encoder (used by GA training)
+│   │   ├── TemporalStackEncoder.py       # Temporal stack wrapper (N frames + deltas)
 │   │   └── VectorEncoder.py             # Legacy/baseline fixed-size encoder (not used by current training script)
 │   └── rewards/                         # RewardComponent implementations
 │
@@ -52,9 +53,10 @@ Asteroids AI/
 │   │   └── train_es.py                  # Main ES entry point: sample -> evaluate -> playback -> update (+ analytics)
 │   ├── config/
 │   │   ├── genetic_algorithm.py         # GAConfig hyperparameters (population, seeds, mutation/crossover)
-│   │   ├── evolution_strategies.py      # ESConfig hyperparameters (sigma schedule, CRN, antithetic sampling, AdamW, elitism)
+│   │   ├── evolution_strategies.py      # ESConfig hyperparameters (CMA-ES + legacy classic ES)
 │   │   ├── rewards.py                   # Training reward preset (ComposableRewardCalculator assembly)
 │   │   ├── analytics.py                 # AnalyticsConfig: report section toggles + windows
+│   │   ├── pareto.py                    # ParetoConfig for multi-objective ranking (shared)
 │   │   └── novelty.py                   # NoveltyConfig: novelty/diversity selection weighting + archive params
 │   ├── core/
 │   │   ├── population_evaluator.py      # Parallel evaluation for GA (ThreadPoolExecutor + NNAgent)
@@ -68,13 +70,18 @@ Asteroids AI/
 │   │   │   ├── selection.py             # Tournament selection
 │   │   │   └── operators.py             # BLX-alpha crossover + gaussian/uniform mutation
 │   │   └── evolution_strategies/
-│   │       ├── driver.py                # ESDriver: sample perturbations + gradient update (AdamW) + elitism + adaptive sigma
+│   │       ├── driver.py                # ESDriver (classic ES, present but unused by train_es.py)
+│   │       ├── cmaes_driver.py          # CMAESDriver: diagonal CMA-ES update used by train_es.py
 │   │       └── fitness_shaping.py       # Rank transformation + utility computation
 │   ├── components/
 │   │   ├── novelty.py                   # Behavior vector + kNN novelty scoring
 │   │   ├── diversity.py                 # Reward diversity (entropy) scoring + warnings
 │   │   ├── archive.py                   # BehaviorArchive for novelty history
 │   │   └── selection.py                 # Combined selection score (fitness + novelty + diversity)
+│   │   ├── pareto/                      # Multi-objective ranking utilities
+│   │       ├── objectives.py            # Objective extraction (kills/time_alive/accuracy)
+│   │       ├── ranking.py               # Pareto fronts + crowding distance
+│   │       ├── utility.py               # Ordering helper for selection/update
 │   └── analytics/
 │       ├── analytics.py                 # TrainingAnalytics facade
 │       ├── collection/                  # Data collection + schema model
@@ -108,11 +115,11 @@ Asteroids AI/
 | **Game (Windowed)** (`Asteroids.py`, `game/`)  | Real-time simulation + rendering + debug overlays, with flags to support training playback parity. |
 | **Game (Headless)** (`game/headless_game.py`)  | Fast seeded simulation for parallel rollouts without rendering.                                    |
 | **Interfaces** (`interfaces/`)                 | Stable contracts around state encoding, action mapping, reward composition, and episode metrics (ActionInterface enforces mutually exclusive turning). |
-| **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `VectorEncoder`).         |
+| **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `TemporalStackEncoder`, `VectorEncoder`). |
 | **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA and ES training scripts currently use `NNAgent` (NumPy). |
 | **Training Core** (`training/core/`)           | Executes evaluation/playback orchestration and wires game + interfaces + agents.                   |
 | **Training Methods** (`training/methods/`)     | Algorithm-specific optimization logic; GA and ES are implemented.                                  |
-| **Shared Components** (`training/components/`) | Method-agnostic novelty/diversity scoring utilities used during selection.                         |
+| **Shared Components** (`training/components/`) | Method-agnostic novelty/diversity scoring plus Pareto ranking utilities.                           |
 | **Analytics** (`training/analytics/`)          | Records generation data, exports JSON, and generates the markdown training report.                 |
 
 ### Dependency Direction & Data Flow (Implemented)
@@ -120,7 +127,7 @@ Asteroids AI/
 - **Game** is the lowest layer; training/agents should not reach into entity internals except through trackers/encoders.
 - **Interfaces** depend on game state to provide: state encoding inputs, action mapping, reward components, and metrics tracking.
 - **Encoders** depend on `EnvironmentTracker` (and constants in `game/globals.py`) to produce model inputs.
-- **Agents** depend on encoder outputs: GA agents output an action vector `[left, right, thrust, shoot]` in `[0, 1]`.
+- **Agents** depend on encoder outputs: GA and ES agents currently output an action vector `[turn, thrust, shoot]` in `[0, 1]` (turn is interpreted as signed turn after remapping).
 - **Training** wires game + interfaces + agents + method logic and runs evaluation/evolution loops.
 - **Analytics** consumes aggregated metrics produced by the training loop and emits human/machine-readable reports.
 
@@ -173,17 +180,17 @@ Game state
 
 - **Infrastructure setup**
 
-  - Encoder: `HybridEncoder(num_rays=16, num_fovea_asteroids=3)` (same as GA).
+  - Encoder: `TemporalStackEncoder(HybridEncoder(num_rays=16, num_fovea_asteroids=3))` when `ESConfig.USE_TEMPORAL_STACK=True` (base encoder is shared with GA).
   - Action mapping: `ActionInterface(action_space_type="boolean")` (same as GA).
   - Reward preset: `training/config/rewards.py:create_reward_calculator()` (same as GA for fair comparison).
-  - Driver: `training/methods/evolution_strategies/driver.py:ESDriver(...)` (manages mean + sigma + gradient updates).
+  - Driver: `training/methods/evolution_strategies/cmaes_driver.py:CMAESDriver(...)` (diagonal CMA-ES mean/sigma/cov updates with Pareto-ranked selection).
   - Analytics: `training/analytics/analytics.py:TrainingAnalytics` (same pipeline as GA).
   - Display: `training/core/display_manager.py:DisplayManager` (same playback infrastructure).
 
 - **Sampling phase**
 
-  - `ESDriver.sample_population()` generates Gaussian perturbations around the mean.
-  - If `USE_ANTITHETIC=True`, generates paired `+epsilon` and `-epsilon` perturbations for variance reduction.
+  - `CMAESDriver.sample_population()` samples candidates from a diagonal Gaussian around the mean.
+  - If `USE_ANTITHETIC=True`, generates paired `+epsilon`/`-epsilon` samples for variance reduction.
   - Returns candidate parameter vectors for evaluation.
 
 - **Evaluation phase**
@@ -199,11 +206,10 @@ Game state
   - Same infrastructure as GA for generalization capture.
 
 - **Update phase**
-  - `ESDriver.update(...)` performs:
-    - Rank-based fitness transformation (if `USE_RANK_TRANSFORMATION=True`).
-    - Gradient estimation: `grad = (1/(N*sigma)) * Σ (utility_i * epsilon_i)`.
-    - Mean update: AdamW (when `USE_ADAMW=True`) or SGD (when `USE_ADAMW=False`) is applied to update `theta`.
-    - Weight decay, adaptive sigma decay, and optional elite pull/injection are applied based on `ESConfig`.
+  - `CMAESDriver.update(...)` performs:
+    - Pareto ranking over (`kills`, `time_alive`, `accuracy`) to select top-mu parents.
+    - Mean update using weighted recombination of selected steps.
+    - Step-size and diagonal covariance updates via CMA-ES evolution paths.
 
 ## Implemented Outputs / Artifacts (if applicable)
 
@@ -223,7 +229,6 @@ Game state
 
 ## Planned / Missing / To Be Changed
 
-- [x] Evolution Strategies method: ES implemented under `training/methods/evolution_strategies/`; training script currently uses shared NumPy policy/evaluator (TF components are present but unused).
 - [ ] NEAT method: Implement variable-topology genomes/speciation/innovation tracking consistent with `README.md` direction.
 - [ ] Multi-method training dashboard: Parallel training/display infrastructure consistent with `README.md` ("single environment, multiple minds").
 - [ ] Checkpointing/resume: Persist method state (e.g., GA population + ES mean + best genome) so long runs can resume and be replayed.

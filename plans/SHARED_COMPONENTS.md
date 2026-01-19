@@ -16,6 +16,15 @@ This document covers training components designed to be reusable across **all op
 | Selection score  | `training/components/selection.py` | Combines fitness + novelty + diversity into a single scalar score for parent selection.             |
 | Configuration    | `training/config/novelty.py`       | Provides weights and archive parameters via `NoveltyConfig`.                                        |
 
+### Pareto Objective Modules (Implemented)
+
+| Module | File | Granular Responsibility |
+| --- | --- | --- |
+| Pareto config | `training/config/pareto.py` | Defines objective list and accuracy threshold for Pareto ranking. |
+| Objective extraction | `training/components/pareto/objectives.py` | Builds per-candidate objective vectors (`kills`, `time_alive`, `softmin_ttc`, `accuracy`). |
+| Pareto ranking | `training/components/pareto/ranking.py` | Computes Pareto fronts and crowding distance. |
+| Pareto ordering | `training/components/pareto/utility.py` | Orders candidates by Pareto front + crowding for method adapters. |
+
 ### Inputs Required From Evaluation (Implemented)
 
 The novelty/diversity system is based on **reward-agnostic** behavior signals and the per-agent reward breakdown:
@@ -30,6 +39,18 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 | `avg_asteroid_dist` | `training/core/population_evaluator.py` | Engagement distance proxy (how close it stays to threats).      |
 | `screen_wraps`      | `training/core/population_evaluator.py` | Area coverage proxy (how much it traverses the toroidal world). |
 | `reward_breakdown`  | `training/core/population_evaluator.py` | Per-component reward totals used for diversity entropy.         |
+
+### Pareto Inputs (Implemented)
+
+| Input Signal | Source (Current) | Meaning |
+| --- | --- | --- |
+| `hits` | `training/core/population_evaluator.py` | Total bullet hits per episode (averaged across seeds). |
+| `kills` | `training/core/population_evaluator.py` | Total kills per episode (averaged across seeds). |
+| `time_alive` | `training/core/population_evaluator.py` | Time alive per episode (seconds, averaged). |
+| `accuracy` | `training/core/population_evaluator.py` | Hits/shots ratio with minimum-shot threshold handling. |
+| `softmin_ttc` | `training/core/population_evaluator.py` | Soft-min time-to-collision proxy that weights all asteroids (seconds, averaged). |
+
+- `softmin_ttc` blends all asteroid TTCs using an exponential weighting so the closest threat dominates without ignoring others.
 
 ### Behavior Vector (Implemented)
 
@@ -118,6 +139,27 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - [ ] Extend behavior characterization (output saturation): Incorporate `output_saturation` into the behavior vector so novelty can discourage always-on saturated control policies.
 - [ ] Method parity integration: Ensure ES/NEAT selection/update logic can reuse the same novelty/diversity signals for fair comparison.
 
+### ES-Oriented Integration Roadmap (Easy / Medium / Hard)
+
+#### Easy
+
+- [ ] ES novelty/diversity kill-switch: Add a single configuration surface to disable novelty and diversity for ES runs (true ablation, not just “weight=0.0”).
+- [ ] Bonus magnitude diagnostics: Log per-generation novelty/diversity bonus means and maxes for both GA and ES so “selection pressure” is visible and comparable.
+- [ ] Seed-noise penalty option: Add an optional selection penalty proportional to per-agent `fitness_std` (across seeds) to favor robust behaviors over seed-lucky ones.
+- [ ] Degenerate-style guardrails: Add optional penalties for extreme `turn_balance`, near-zero `turn_switch_rate`, and near-constant shoot usage so novelty does not reward “weird but useless” behaviors.
+
+#### Medium
+
+- [ ] Method-parity normalization: Normalize novelty and diversity scores into a comparable scale across GA and ES so weights have consistent meaning.
+- [ ] Archive hygiene rules: Add archive admission rules that reject behaviors that are novel but dominated by degenerate control signatures (spin-lock / always-shoot / never-move).
+- [ ] Behavior vector temporal extensions: Extend the behavior vector with temporal stability features (turn streaks, switch frequency, cooldown usage) so novelty promotes controllable strategies, not just action-rate differences.
+
+#### Hard
+
+- [ ] Random scalarization schedules: Support rotating objective weights per generation as an alternative multi-objective strategy (method-agnostic; same objective vector, different scalarization).
+- [ ] Method adapters: Provide explicit adapter hooks for GA and future NEAT so the same Pareto/scalarization layer can drive selection/update consistently across methods.
+- [ ] Strategy clustering pipeline: Convert behavior vectors into clustered archetypes and expose cluster shares as a first-class training signal for selection pressure and analysis.
+
 ## Notes / Design Considerations (optional)
 
 - Novelty and diversity address different failure modes:
@@ -127,6 +169,7 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - Both systems are designed to be reward-preset agnostic:
   - Behavior novelty uses action/engagement metrics independent of reward values.
   - Diversity uses entropy over whatever reward components are active.
+- ES sensitivity warning: Because ES can use rank transformation, novelty/diversity bonuses must be scaled to reliably change ranks without overwhelming the base skill signal.
 
 ## Discarded / Obsolete / No Longer Relevant
 

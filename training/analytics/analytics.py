@@ -20,6 +20,7 @@ from training.analytics.collection.collectors import (
     record_fresh_game as _record_fresh_game,
     record_distributions as _record_distributions
 )
+from training.analytics.analysis.phases import split_generations
 from training.analytics.reporting.markdown import MarkdownReporter
 from training.analytics.reporting.json_export import save_json as _save_json
 
@@ -139,9 +140,16 @@ class TrainingAnalytics:
         all_avg = [g['avg_fitness'] for g in self._data.generations_data]
         all_min = [g['min_fitness'] for g in self._data.generations_data]
 
-        # Calculate improvement trends
-        early_avg = sum(all_avg[:10]) / min(10, len(all_avg)) if all_avg else 0
-        late_avg = sum(all_avg[-10:]) / min(10, len(all_avg[-10:])) if all_avg else 0
+        # Calculate improvement trends using phase-based windows
+        phases = split_generations(self._data.generations_data, phase_count=4)
+        if phases:
+            early_vals = [g.get('avg_fitness', 0) for g in phases[0]["data"]]
+            late_vals = [g.get('avg_fitness', 0) for g in phases[-1]["data"]]
+            early_avg = sum(early_vals) / len(early_vals) if early_vals else 0
+            late_avg = sum(late_vals) / len(late_vals) if late_vals else 0
+        else:
+            early_avg = 0
+            late_avg = 0
 
         # Behavioral metrics summary (if available)
         has_behavior = 'avg_kills' in self._data.generations_data[-1]

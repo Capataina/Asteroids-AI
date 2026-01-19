@@ -7,6 +7,17 @@ Adds diagnostics for turning, aiming, danger exposure, traversal, and shooting q
 from typing import List, Dict, Any
 
 from training.config.analytics import AnalyticsConfig
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+from training.analytics.reporting.insights import trend_stats
+
+
+def _percentile(values: List[float], pct: float) -> float:
+    if not values:
+        return 0.0
+    values = sorted(values)
+    idx = int(round((pct / 100.0) * (len(values) - 1)))
+    return values[max(0, min(len(values) - 1, idx))]
 
 
 def write_control_diagnostics(f, generations_data: List[Dict[str, Any]]):
@@ -19,6 +30,7 @@ def write_control_diagnostics(f, generations_data: List[Dict[str, Any]]):
         f.write("No control diagnostics available.\n\n")
         return
 
+    f.write("## Control Diagnostics\n\n")
     f.write("### Control Snapshot (Latest Generation)\n\n")
     f.write("| Category | Metric | Value |\n")
     f.write("|----------|--------|-------|\n")
@@ -64,3 +76,59 @@ def write_control_diagnostics(f, generations_data: List[Dict[str, Any]]):
             f"{gen.get('avg_coverage_ratio', 0.0)*100:6.1f}% |\n"
         )
     f.write("\n")
+
+    takeaways: List[str] = []
+    warnings: List[str] = []
+
+    turn_bias = trend_stats(generations_data, 'avg_turn_balance', higher_is_better=False, phase_count=AnalyticsConfig.PHASE_COUNT)
+    frontness = trend_stats(generations_data, 'avg_frontness', higher_is_better=True, phase_count=AnalyticsConfig.PHASE_COUNT)
+    danger = trend_stats(generations_data, 'avg_danger_exposure_rate', higher_is_better=False, phase_count=AnalyticsConfig.PHASE_COUNT)
+
+    takeaways.append(f"Turn balance trend: {turn_bias['tag']} ({turn_bias['confidence']}).")
+    takeaways.append(f"Aim alignment trend: {frontness['tag']} ({frontness['confidence']}).")
+    takeaways.append(f"Danger exposure trend: {danger['tag']} ({danger['confidence']}).")
+
+    turn_balance_series = [g.get('avg_turn_balance', 0.0) for g in generations_data]
+    bias_p75 = _percentile([abs(v) for v in turn_balance_series], 75)
+    if abs(latest.get('avg_turn_balance', 0.0)) > bias_p75 and bias_p75 > 0:
+        warnings.append("Turn bias is high vs run baseline (one-direction dominance).")
+
+    if latest.get('avg_frontness_at_shot', 0.0) < max(0.05, latest.get('avg_frontness', 0.0) * 0.6):
+        warnings.append("Frontness at shot lags overall frontness (aiming during shots is weak).")
+
+    if latest.get('avg_turn_deadzone_rate', 0.0) > _percentile([g.get('avg_turn_deadzone_rate', 0.0) for g in generations_data], 75):
+        warnings.append("Turn deadzone rate is high; turning inputs are often too small to actuate.")
+
+    if "regression" in danger["tag"]:
+        warnings.append("Agents are spending more time in danger zones over training.")
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "avg_turn_deadzone_rate",
+            "avg_turn_balance",
+            "avg_turn_switch_rate",
+            "avg_turn_streak",
+            "avg_max_turn_streak",
+            "avg_frontness",
+            "avg_frontness_at_shot",
+            "avg_frontness_at_hit",
+            "avg_shot_distance",
+            "avg_hit_distance",
+            "avg_danger_exposure_rate",
+            "avg_danger_entries",
+            "avg_danger_reaction_time",
+            "avg_danger_wraps",
+            "avg_distance_traveled",
+            "avg_speed",
+            "avg_speed_std",
+            "avg_coverage_ratio",
+            "avg_shots_per_kill",
+            "avg_shots_per_hit",
+            "avg_cooldown_usage_rate",
+            "avg_cooldown_ready_rate",
+            "avg_fitness_std",
+        ])
+    )

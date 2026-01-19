@@ -4,7 +4,10 @@ Population health analysis.
 Provides functions for analyzing population diversity and health metrics.
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, List as ListType
+
+from training.analytics.analysis.phases import split_generations
+from training.analytics.analysis.convergence import analyze_stagnation_periods
 
 
 def calculate_diversity_metrics(generations_data: List[Dict[str, Any]],
@@ -21,8 +24,11 @@ def calculate_diversity_metrics(generations_data: List[Dict[str, Any]],
     if len(generations_data) < 5:
         return {}
 
-    recent = generations_data[-recent_count:]
-    early = generations_data[:recent_count]
+    phases = split_generations(generations_data, phase_count=4)
+    if not phases:
+        return {}
+    early = phases[0]["data"]
+    recent = phases[-1]["data"]
 
     avg_std_recent = sum(g['std_dev'] for g in recent) / len(recent)
     avg_std_early = sum(g['std_dev'] for g in early) / len(early)
@@ -57,8 +63,11 @@ def calculate_fitness_trends(generations_data: List[Dict[str, Any]],
     if len(generations_data) < 5:
         return {}
 
-    recent = generations_data[-recent_count:]
-    early = generations_data[:recent_count]
+    phases = split_generations(generations_data, phase_count=4)
+    if not phases:
+        return {}
+    early = phases[0]["data"]
+    recent = phases[-1]["data"]
 
     # Floor trend (min fitness improvement)
     min_first = sum(g['min_fitness'] for g in early) / len(early)
@@ -104,35 +113,52 @@ def assess_population_health(generations_data: List[Dict[str, Any]]) -> Tuple[st
     warnings = []
     diversity_index = diversity.get('diversity_index', 0.5)
     elite_gap = diversity.get('elite_gap', 1.0)
-    floor_trend = trends.get('floor_trend', 0)
+    floor_trend = trends.get('floor_trend', 0.0)
 
-    # Calculate stagnation
-    max_fit = float('-inf')
-    last_improvement_gen = 0
+    # Build historical baselines for relative thresholds
+    diversity_series: ListType[float] = []
+    elite_gap_series: ListType[float] = []
     for g in generations_data:
-        if g['best_fitness'] > max_fit:
-            max_fit = g['best_fitness']
-            last_improvement_gen = g['generation']
-    
-    current_gen = generations_data[-1]['generation']
-    stagnation = current_gen - last_improvement_gen
+        avg_fit = g.get('avg_fitness', 0.0)
+        std = g.get('std_dev', 0.0)
+        diversity_series.append(std / max(1.0, abs(avg_fit)))
+        elite_gap_series.append((g.get('best_fitness', 0.0) - avg_fit) / max(1.0, abs(avg_fit)))
 
-    if stagnation > 20:
+    def _percentile(values: ListType[float], pct: float) -> float:
+        if not values:
+            return 0.0
+        values = sorted(values)
+        idx = int(round((pct / 100.0) * (len(values) - 1)))
+        return values[max(0, min(len(values) - 1, idx))]
+
+    low_div = _percentile(diversity_series, 15)
+    high_div = _percentile(diversity_series, 85)
+    high_gap = _percentile(elite_gap_series, 85)
+
+    # Stagnation relative to history
+    stag_stats = analyze_stagnation_periods(generations_data)
+    current_stag = generations_data[-1].get('generations_since_improvement', 0)
+    avg_stag = stag_stats.get('avg_stagnation', 0.0)
+    max_stag = stag_stats.get('max_stagnation', 0)
+
+    health_status = 'Healthy'
+
+    if current_stag > max(5, avg_stag * 1.5, max_stag):
         health_status = 'Warning'
-        warnings.append(f"High stagnation ({stagnation} gens) - population stuck")
-    elif diversity_index < 0.2:
+        warnings.append(f"Stagnation spike ({current_stag} gens) vs historical mean {avg_stag:.1f}")
+    if diversity_index < low_div:
         health_status = 'Warning'
-        warnings.append('Low diversity - population may be prematurely converged')
-    elif diversity_index > 1.0:
+        warnings.append("Diversity compressed vs run baseline (risk of premature convergence)")
+    elif diversity_index > high_div:
         health_status = 'Warning'
-        warnings.append('High diversity - population may be too chaotic')
-    elif elite_gap > 3.0:
-        health_status = 'Warning'
-        warnings.append('High elite gap - knowledge not spreading to population')
-    elif floor_trend < 0:
-        health_status = 'Watch'
-        warnings.append('Floor declining - worst agents getting worse')
-    else:
-        health_status = 'Healthy'
+        warnings.append("Diversity inflated vs run baseline (population may be too chaotic)")
+
+    if elite_gap > high_gap:
+        warnings.append("Elite gap unusually high vs run baseline (knowledge not spreading)")
+
+    if floor_trend < 0:
+        warnings.append("Fitness floor trending down (weakest agents worsening)")
+        if health_status == 'Healthy':
+            health_status = 'Watch'
 
     return health_status, warnings

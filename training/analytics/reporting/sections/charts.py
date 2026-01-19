@@ -6,6 +6,11 @@ Generates ASCII fitness progression chart.
 
 from typing import List, Dict, Any
 
+from training.analytics.reporting.insights import trend_stats
+from training.analytics.reporting.sections.common import write_takeaways, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+from training.config.analytics import AnalyticsConfig
+
 
 def write_ascii_chart(f, generations_data: List[Dict[str, Any]]):
     """Generate ASCII chart of fitness progression.
@@ -62,3 +67,21 @@ def write_ascii_chart(f, generations_data: List[Dict[str, Any]]):
     f.write("         " + "-" * len(sampled) + "\n")
     f.write(f"         Gen 1{' ' * (len(sampled) - 15)}Gen {generations_data[-1]['generation']}\n")
     f.write("```\n\n")
+
+    best_trend = trend_stats(generations_data, 'best_fitness', higher_is_better=True, phase_count=AnalyticsConfig.PHASE_COUNT)
+    avg_trend = trend_stats(generations_data, 'avg_fitness', higher_is_better=True, phase_count=AnalyticsConfig.PHASE_COUNT)
+
+    write_takeaways(
+        f,
+        [
+            f"Best fitness trend: {best_trend['tag']} ({best_trend['confidence']}).",
+            f"Average fitness trend: {avg_trend['tag']} ({avg_trend['confidence']}).",
+        ]
+    )
+    write_glossary(
+        f,
+        glossary_entries([
+            "best_fitness",
+            "avg_fitness",
+        ])
+    )

@@ -4,7 +4,7 @@ Behavioral classification logic for agents.
 Analyzes action metrics to assign descriptive labels to agent strategies.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 def get_action_rates(metrics: Dict[str, Any]) -> Dict[str, float]:
     """Calculate normalized action rates per step.
@@ -30,7 +30,7 @@ def get_action_rates(metrics: Dict[str, Any]) -> Dict[str, float]:
         'shoot_rate': shoot / steps
     }
 
-def classify_behavior(metrics: Dict[str, Any]) -> str:
+def classify_behavior(metrics: Dict[str, Any], baseline_rates: Optional[Dict[str, float]] = None) -> str:
     """Classify agent behavior based on action patterns.
     
     Args:
@@ -44,14 +44,27 @@ def classify_behavior(metrics: Dict[str, Any]) -> str:
     turn = rates['turn_rate']
     shoot = rates['shoot_rate']
     
-    # Thresholds
-    HIGH_SHOOT = 0.15  # Shooting > 15% of frames
-    LOW_SHOOT = 0.02
-    
-    HIGH_MOVE = 0.10   # Thrusting > 10% of frames
-    LOW_MOVE = 0.01
-    
-    HIGH_TURN = 0.30   # Turning > 30% of frames
+    # Thresholds (relative to run baseline when available)
+    if baseline_rates:
+        base_shoot = max(0.01, baseline_rates.get('shoot_rate', 0.05))
+        base_thrust = max(0.01, baseline_rates.get('thrust_rate', 0.05))
+        base_turn = max(0.05, baseline_rates.get('turn_rate', 0.15))
+
+        HIGH_SHOOT = base_shoot * 1.5
+        LOW_SHOOT = base_shoot * 0.5
+
+        HIGH_MOVE = base_thrust * 1.5
+        LOW_MOVE = base_thrust * 0.5
+
+        HIGH_TURN = base_turn * 1.5
+    else:
+        HIGH_SHOOT = 0.15  # Shooting > 15% of frames
+        LOW_SHOOT = 0.02
+
+        HIGH_MOVE = 0.10   # Thrusting > 10% of frames
+        LOW_MOVE = 0.01
+
+        HIGH_TURN = 0.30   # Turning > 30% of frames
     
     label = "Unknown"
     

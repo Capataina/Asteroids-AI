@@ -11,15 +11,12 @@ from training.analytics.analysis.population import (
     calculate_fitness_trends,
     assess_population_health
 )
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
 
 
 def write_population_health(f, generations_data: List[Dict[str, Any]]):
-    """Write population health dashboard.
-
-    Args:
-        f: File handle to write to
-        generations_data: List of generation data dictionaries
-    """
+    """Write population health dashboard."""
     if len(generations_data) < 5:
         f.write("Not enough data for population health analysis.\n\n")
         return
@@ -38,32 +35,42 @@ def write_population_health(f, generations_data: List[Dict[str, Any]]):
     iqr_early = trends.get('iqr_early', 0)
     iqr_recent = trends.get('iqr_recent', 0)
 
-    status_icon = '🟢' if health_status == 'Healthy' else '🟡' if health_status == 'Watch' else '🔴'
-    f.write(f"### Current Status: {status_icon} {health_status}\n\n")
+    f.write(f"### Current Status: {health_status}\n\n")
 
-    f.write("| Metric | Value | Trend (Recent) | Status |\n")
-    f.write("|--------|-------|----------------|--------|\n")
+    f.write("| Metric | Value | Trend (Recent) |\n")
+    f.write("|--------|-------|----------------|\n")
 
-    div_status = "🟢 Good" if 0.3 <= diversity_index <= 0.7 else "🟡 Watch" if 0.2 <= diversity_index <= 1.0 else "🔴 Warning"
-    div_trend = "↓ Decreasing" if avg_std_recent < avg_std_early else "↑ Increasing" if avg_std_recent > avg_std_early else "→ Stable"
-    f.write(f"| Diversity Index | {diversity_index:.2f} | {div_trend} | {div_status} |\n")
+    div_trend = "Increasing" if avg_std_recent > avg_std_early else "Decreasing" if avg_std_recent < avg_std_early else "Stable"
+    f.write(f"| Diversity Index | {diversity_index:.2f} | {div_trend} |\n")
+    f.write(f"| Elite Gap | {elite_gap:.2f} | Stable |\n")
 
-    gap_status = "🟢 Good" if 0.5 <= elite_gap <= 2.0 else "🟡 Watch" if elite_gap <= 3.0 else "🔴 Warning"
-    f.write(f"| Elite Gap | {elite_gap:.2f} | → | {gap_status} |\n")
-
-    floor_status = "🟢 Good" if floor_trend >= 0 else "🟡 Watch"
-    f.write(f"| Min Fitness Trend | {floor_trend:+.1f} | {'↑' if floor_trend > 0 else '↓'} | {floor_status} |\n")
-
-    ceiling_status = "🟢 Good" if ceiling_trend > 0 else "🟡 Watch"
-    f.write(f"| Max Fitness Trend | {ceiling_trend:+.1f} | {'↑' if ceiling_trend > 0 else '↓'} | {ceiling_status} |\n")
+    floor_dir = "Up" if floor_trend > 0 else "Down" if floor_trend < 0 else "Flat"
+    ceiling_dir = "Up" if ceiling_trend > 0 else "Down" if ceiling_trend < 0 else "Flat"
+    f.write(f"| Min Fitness Trend | {floor_trend:+.1f} | {floor_dir} |\n")
+    f.write(f"| Max Fitness Trend | {ceiling_trend:+.1f} | {ceiling_dir} |\n")
 
     iqr_change = iqr_recent - iqr_early
-    f.write(f"| IQR (p75-p25) | {iqr_recent:.0f} | {'↓' if iqr_change < 0 else '↑'} {abs(iqr_change):.0f} | 🟢 |\n")
+    iqr_dir = "Widening" if iqr_change > 0 else "Narrowing" if iqr_change < 0 else "Stable"
+    f.write(f"| IQR (p75-p25) | {iqr_recent:.0f} | {iqr_dir} |\n")
 
     f.write("\n")
 
-    if warnings:
-        f.write("### Warnings\n\n")
-        for w in warnings:
-            f.write(f"- ⚠️ {w}\n")
-        f.write("\n")
+    takeaways = [
+        f"Health status is {health_status}.",
+        f"Diversity index at {diversity_index:.2f} with {div_trend.lower()} spread.",
+        f"Fitness floor trend {floor_trend:+.1f}, ceiling trend {ceiling_trend:+.1f}.",
+    ]
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "std_dev",
+            "avg_fitness",
+            "best_fitness",
+            "min_fitness",
+            "p25_fitness",
+            "p75_fitness",
+        ])
+    )

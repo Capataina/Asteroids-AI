@@ -6,6 +6,11 @@ Analyzes computational performance (timing) and genetic operator statistics.
 
 from typing import List, Dict, Any
 
+from training.analytics.analysis.phases import split_generations
+from training.analytics.reporting.sections.common import write_takeaways, write_warnings, write_glossary
+from training.analytics.reporting.glossary import glossary_entries
+from training.config.analytics import AnalyticsConfig
+
 def write_computational_performance(f, generations_data: List[Dict[str, Any]]):
     """Write computational performance analysis.
 
@@ -38,23 +43,43 @@ def write_computational_performance(f, generations_data: List[Dict[str, Any]]):
     f.write(f"- **Evaluation (Simulation):** {avg_eval:.2f}s ({eval_pct:.1f}%)\n")
     f.write(f"- **Evolution (GA Operators):** {avg_evol:.4f}s ({evol_pct:.1f}%)\n\n")
     
-    f.write("| Gen Range | Avg Eval Time | Avg Evol Time | Total Time |\n")
-    f.write("|-----------|---------------|---------------|------------|\n")
-    
-    # Group by deciles
-    chunk_size = max(1, len(generations_data) // 10)
-    for i in range(0, len(generations_data), chunk_size):
-        chunk = generations_data[i:i+chunk_size]
+    f.write("| Phase | Gen Range | Avg Eval Time | Avg Evol Time | Total Time |\n")
+    f.write("|-------|-----------|---------------|---------------|------------|\n")
+
+    phases = split_generations(generations_data, phase_count=AnalyticsConfig.PHASE_COUNT)
+    for phase in phases:
+        chunk = phase["data"]
         start = chunk[0]['generation']
         end = chunk[-1]['generation']
-        
+
         c_eval = sum(g.get('evaluation_duration', 0) for g in chunk) / len(chunk)
         c_evol = sum(g.get('evolution_duration', 0) for g in chunk) / len(chunk)
         c_total = sum(g.get('total_gen_duration', 0) for g in chunk) / len(chunk)
-        
-        f.write(f"| {start}-{end} | {c_eval:.2f}s | {c_evol:.4f}s | {c_total:.2f}s |\n")
-        
+
+        f.write(f"| {phase['label']} | {start}-{end} | {c_eval:.2f}s | {c_evol:.4f}s | {c_total:.2f}s |\n")
+
     f.write("\n")
+
+    takeaways = [
+        f"Evaluation accounts for {eval_pct:.1f}% of generation time.",
+        f"Evolution accounts for {evol_pct:.1f}% of generation time.",
+    ]
+    warnings = []
+    if eval_pct > 90:
+        warnings.append("Evaluation dominates runtime; optimization gains likely come from faster rollouts.")
+    if evol_pct > 20:
+        warnings.append("Evolution time is a sizable share; operator optimization could help.")
+
+    write_takeaways(f, takeaways)
+    write_warnings(f, warnings)
+    write_glossary(
+        f,
+        glossary_entries([
+            "evaluation_duration",
+            "evolution_duration",
+            "total_gen_duration",
+        ])
+    )
 
 def write_genetic_operator_stats(f, generations_data: List[Dict[str, Any]]):
     """Write genetic operator statistics.
@@ -85,3 +110,73 @@ def write_genetic_operator_stats(f, generations_data: List[Dict[str, Any]]):
     f.write(f"- **Mutations:** {avg_mut:.1f} ({(avg_mut/pop_size)*100:.1f}%)\n")
     f.write(f"- **Elites Preserved:** {avg_elite:.1f}\n\n")
 
+    write_takeaways(
+        f,
+        [
+            f"Recent crossover rate: {(avg_cross/pop_size)*100:.1f}%.",
+            f"Recent mutation rate: {(avg_mut/pop_size)*100:.1f}%.",
+        ],
+        title="Operator Takeaways",
+    )
+    write_glossary(
+        f,
+        [
+            ("Crossovers", "Number of crossover events per generation."),
+            ("Mutations", "Number of mutation events per generation."),
+            ("Elites", "Individuals preserved without mutation."),
+        ],
+        title="Operator Glossary",
+    )
+
+
+def write_es_optimizer_stats(f, generations_data: List[Dict[str, Any]]):
+    """Write ES optimizer diagnostics when available."""
+    if not generations_data:
+        return
+
+    has_es_stats = 'cov_diag_mean' in generations_data[-1] or 'sigma' in generations_data[-1]
+    if not has_es_stats:
+        return
+
+    recent = generations_data[-10:]
+    def _avg(key: str) -> float:
+        return sum(g.get(key, 0.0) for g in recent) / len(recent)
+
+    avg_sigma = _avg('sigma')
+    avg_cov_mean = _avg('cov_diag_mean')
+    avg_cov_std = _avg('cov_diag_std')
+    avg_cov_mean_abs = _avg('cov_diag_mean_abs_dev')
+    avg_cov_max_abs = _avg('cov_diag_max_abs_dev')
+    avg_cov_scale = _avg('cov_lr_scale')
+    avg_cov_rate = _avg('cov_lr_effective_rate')
+
+    f.write("## ES Optimizer Diagnostics\n\n")
+    f.write("**Recent Averages (Last 10 Generations):**\n")
+    f.write(f"- **Sigma:** {avg_sigma:.5f}\n")
+    f.write(f"- **Cov diag mean:** {avg_cov_mean:.5f}\n")
+    f.write(f"- **Cov diag std:** {avg_cov_std:.6f}\n")
+    f.write(f"- **Cov diag mean abs dev:** {avg_cov_mean_abs:.6f}\n")
+    f.write(f"- **Cov diag max abs dev:** {avg_cov_max_abs:.6f}\n")
+    f.write(f"- **Cov lr scale:** {avg_cov_scale:.2f}\n")
+    f.write(f"- **Cov lr effective rate:** {avg_cov_rate:.6f}\n\n")
+
+    write_takeaways(
+        f,
+        [
+            "CMA-ES step-size and diagonal covariance movement are tracked across recent generations.",
+        ],
+        title="Optimizer Takeaways",
+    )
+    write_glossary(
+        f,
+        glossary_entries([
+            "sigma",
+            "cov_diag_mean",
+            "cov_diag_std",
+            "cov_diag_mean_abs_dev",
+            "cov_diag_max_abs_dev",
+            "cov_lr_scale",
+            "cov_lr_effective_rate",
+        ]),
+        title="Optimizer Glossary",
+    )

@@ -22,6 +22,7 @@ class DisplayManager:
         
         self.fresh_game_start_kills = 0
         self.fresh_game_start_shots = 0
+        self.fresh_game_start_hits = 0
         
         # Create info text
         self.info_text = arcade.Text(
@@ -64,6 +65,7 @@ class DisplayManager:
         # Track starting state
         self.fresh_game_start_kills = self.game.metrics_tracker.total_kills
         self.fresh_game_start_shots = self.game.metrics_tracker.total_shots_fired
+        self.fresh_game_start_hits = self.game.metrics_tracker.total_hits
 
         print(f"Testing best agent in fresh game (training fitness={self.display_fitness:.2f}, all-time best={self.best_fitness:.2f})...")
 
@@ -146,7 +148,8 @@ class DisplayManager:
 
         fresh_kills = metrics.total_kills - self.fresh_game_start_kills
         fresh_shots = metrics.total_shots_fired - self.fresh_game_start_shots
-        fresh_accuracy = fresh_kills / fresh_shots if fresh_shots > 0 else 0.0
+        fresh_hits = metrics.total_hits - self.fresh_game_start_hits
+        fresh_accuracy = fresh_hits / fresh_shots if fresh_shots > 0 else 0.0
         fresh_fitness = reward_calc.score
 
         fresh_game_data = {
@@ -154,6 +157,7 @@ class DisplayManager:
             'kills': fresh_kills,
             'steps_survived': self.best_agent_steps,
             'shots_fired': fresh_shots,
+            'hits': fresh_hits,
             'accuracy': fresh_accuracy,
             'time_alive_seconds': metrics.time_alive,
             'cause_of_death': cause_of_death,

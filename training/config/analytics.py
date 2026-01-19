@@ -36,6 +36,9 @@ class AnalyticsConfig:
     ENABLE_NEURAL_ANALYSIS = True # Saturation & Entropy
     ENABLE_RISK_ANALYSIS = True   # Min proximity tracking
     ENABLE_CONTROL_DIAGNOSTICS = True # Turn/aim/danger diagnostics
+
+    # --- Phase Settings ---
+    PHASE_COUNT = 4  # Default report phases (25% each)
     
     # --- Window Sizes (Granular) ---
     # Number of recent generations to include in analysis/visualization
@@ -60,3 +63,4 @@ class AnalyticsConfig:
     
     # --- Visual Settings ---
     CHART_WIDTH = 50  # Character width for ASCII bars
+    SPARKLINE_WIDTH = 20  # Quick trend sparkline columns (5% bins)

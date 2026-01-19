@@ -77,6 +77,7 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
     if behavioral_metrics:
         gen_data['avg_kills'] = behavioral_metrics.get('avg_kills', 0)
         gen_data['avg_steps'] = behavioral_metrics.get('avg_steps_survived', 0)
+        gen_data['avg_time_alive'] = behavioral_metrics.get('avg_time_alive', 0.0)
         gen_data['avg_accuracy'] = behavioral_metrics.get('avg_accuracy', 0)
         gen_data['avg_shots'] = behavioral_metrics.get('avg_shots_fired', 0)
         gen_data['avg_hits'] = behavioral_metrics.get('avg_hits', 0)
@@ -229,6 +230,7 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
     sorted_frontness_shot = sorted([m.get('frontness_at_shot', 0.0) for m in per_agent_metrics])
     sorted_danger_exposure = sorted([m.get('danger_exposure_rate', 0.0) for m in per_agent_metrics])
     sorted_reaction_time = sorted([m.get('avg_reaction_time', 0.0) for m in per_agent_metrics])
+    sorted_softmin_ttc = sorted([m.get('softmin_ttc', 0.0) for m in per_agent_metrics])
     sorted_coverage = sorted([m.get('coverage_ratio', 0.0) for m in per_agent_metrics])
     sorted_distance_traveled = sorted([m.get('distance_traveled', 0.0) for m in per_agent_metrics])
     sorted_speed = sorted([m.get('avg_speed', 0.0) for m in per_agent_metrics])
@@ -261,6 +263,7 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
         'frontness_at_shot_values': sorted_frontness_shot,
         'danger_exposure_rate_values': sorted_danger_exposure,
         'reaction_time_values': sorted_reaction_time,
+        'softmin_ttc_values': sorted_softmin_ttc,
         'coverage_ratio_values': sorted_coverage,
         'distance_traveled_values': sorted_distance_traveled,
         'avg_speed_values': sorted_speed,
@@ -288,6 +291,7 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
     std_accuracy = std_dev([m.get('accuracy', 0) for m in per_agent_metrics])
     std_frontness = std_dev([m.get('frontness_avg', 0.0) for m in per_agent_metrics])
     std_danger = std_dev([m.get('danger_exposure_rate', 0.0) for m in per_agent_metrics])
+    std_softmin_ttc = std_dev([m.get('softmin_ttc', 0.0) for m in per_agent_metrics])
     std_turn_deadzone = std_dev([m.get('turn_deadzone_rate', 0.0) for m in per_agent_metrics])
     std_coverage = std_dev([m.get('coverage_ratio', 0.0) for m in per_agent_metrics])
     std_fitness_std = std_dev([m.get('fitness_std', 0.0) for m in per_agent_metrics])
@@ -304,6 +308,7 @@ def record_distributions(data: AnalyticsData, generation: int, fitness_values: L
             gen_data['std_dev_accuracy'] = std_accuracy
             gen_data['std_dev_frontness'] = std_frontness
             gen_data['std_dev_danger_exposure_rate'] = std_danger
+            gen_data['std_dev_softmin_ttc'] = std_softmin_ttc
             gen_data['std_dev_turn_deadzone_rate'] = std_turn_deadzone
             gen_data['std_dev_coverage_ratio'] = std_coverage
             gen_data['std_dev_fitness_std'] = std_fitness_std

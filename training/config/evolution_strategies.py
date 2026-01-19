@@ -47,6 +47,28 @@ class ESConfig:
     WEIGHT_DECAY = 0.0025
 
     # ==========================================================================
+    # CMA-ES (Diagonal) Parameters
+    # ==========================================================================
+
+    # Optimizer type for ES training.
+    # Options: "cmaes" (default), "classic"
+    OPTIMIZER = "cmaes"
+
+    # Initial CMA-ES sigma (step size). Defaults to SIGMA if left as None.
+    CMAES_SIGMA = 0.15
+
+    # Number of parents (mu). If None, uses POPULATION_SIZE // 2.
+    CMAES_MU = None
+
+    # Minimum diagonal covariance value (numerical stability).
+    CMAES_COV_MIN = 1e-6
+    # Target aggregate covariance learning rate (c1 + cmu) for diagonal CMA-ES.
+    # If set, the base c1/cmu values are scaled up to reach this target in high dimensions.
+    CMAES_COV_TARGET_RATE = 1e-3
+    # Maximum scaling factor applied to c1/cmu when targeting CMAES_COV_TARGET_RATE.
+    CMAES_COV_MAX_SCALE = 1e4
+
+    # ==========================================================================
     # Sigma Schedule
     # ==========================================================================
 
@@ -102,6 +124,28 @@ class ESConfig:
     # Seeds change across generations to maintain generalization pressure.
     USE_COMMON_SEEDS = True
 
+    # ======================================================================
+    # Noise Handling (ES)
+    # ======================================================================
+
+    # Re-evaluate top-K candidates with extra seeds to reduce seed luck.
+    NOISE_HANDLING_ENABLED = True
+    NOISE_HANDLING_TOP_K = 5
+    NOISE_HANDLING_EXTRA_SEEDS = 1
+    NOISE_HANDLING_SEED_OFFSET = 100000
+
+    # ======================================================================
+    # Restarts (ES)
+    # ======================================================================
+
+    # Restart search when best fitness stagnates for too long.
+    RESTART_ENABLED = True
+    RESTART_PATIENCE = 12
+    RESTART_MIN_GENERATIONS = 5
+    RESTART_COOLDOWN = 5
+    RESTART_SIGMA_MULTIPLIER = 1.0
+    RESTART_USE_BEST_CANDIDATE = True
+
     # ==========================================================================
     # Neural Network Architecture
     # ==========================================================================
@@ -110,6 +154,19 @@ class ESConfig:
     # Must match GA for fair comparison.
     # Total params = input*hidden + hidden + hidden*output + output.
     HIDDEN_LAYER_SIZE = 24
+
+    # ==========================================================================
+    # Temporal Encoding
+    # ==========================================================================
+
+    # Wrap the base encoder with temporal stacking (N frames) and deltas.
+    USE_TEMPORAL_STACK = True
+
+    # Number of frames to stack (N).
+    TEMPORAL_STACK_SIZE = 4
+
+    # Include frame-to-frame deltas (N-1) after the stacked frames.
+    TEMPORAL_INCLUDE_DELTAS = True
 
     # ==========================================================================
     # Initialization

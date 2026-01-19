@@ -62,7 +62,8 @@ class ActionInterface:
     if self.action_space_type not in ["boolean", "continuous"]:
       raise ValueError(f"Invalid action space type: {self.action_space_type}")
 
-    turn_threshold = 0.4
+    # No deadzone: any signed turn value should actuate left/right.
+    turn_threshold = 0.0
     left_pressed = False
     right_pressed = False
 
