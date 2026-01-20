@@ -28,7 +28,8 @@ Asteroids AI/
 │       ├── feedforward.py               # FeedforwardPolicy NumPy MLP unpacking + forward pass
 │       ├── feedforward_tf.py            # FeedforwardPolicyTF TensorFlow Keras MLP for ES
 │       └── linear.py                    # LinearPolicy (present, currently unused)
-│   └── reinforcement_learning/           # RL agents (folder exists; currently empty placeholder)
+│   └── reinforcement_learning/
+│       └── sac_agent.py                 # SACAgent: inference wrapper for GNN-SAC
 │
 ├── game/
 │   ├── globals.py                       # Physics/constants shared by windowed + headless
@@ -48,6 +49,7 @@ Asteroids AI/
 │   ├── RewardCalculator.py              # ComposableRewardCalculator + per-component tracking
 │   ├── StateEncoder.py                  # Abstract encoder contract (encode/get_state_size/reset/clone)
 │   ├── encoders/
+│   │   ├── GraphEncoder.py              # Graph payload encoder for GNN-SAC
 │   │   ├── HybridEncoder.py             # Hybrid “fovea + raycasts” fixed-size encoder (used by GA training)
 │   │   ├── TemporalStackEncoder.py       # Temporal stack wrapper (N frames + deltas)
 │   │   └── VectorEncoder.py             # Legacy/baseline fixed-size encoder (not used by current training script)
@@ -57,11 +59,15 @@ Asteroids AI/
 │   ├── scripts/
 │   │   ├── train_ga.py                  # Main GA entry point: evaluate -> playback -> evolve (+ analytics)
 │   │   ├── train_es.py                  # Main ES entry point: sample -> evaluate -> playback -> update (+ analytics)
-│   │   └── train_neat.py                # Main NEAT entry point: evaluate -> playback -> evolve (+ analytics)
+│   │   ├── train_neat.py                # Main NEAT entry point: evaluate -> playback -> evolve (+ analytics)
+│   │   ├── train_gnn_sac.py             # Main GNN-SAC entry point: collect -> learn -> log (+ analytics)
+│   │   ├── view_gnn_sac.py              # Windowed viewer for best-so-far SAC playback
+│   │   └── simulate_gnn_sac.py          # Single-process training + best-so-far playback
 │   ├── config/
 │   │   ├── genetic_algorithm.py         # GAConfig hyperparameters (population, seeds, mutation/crossover)
 │   │   ├── evolution_strategies.py      # ESConfig hyperparameters (CMA-ES + legacy classic ES)
 │   │   ├── neat.py                      # NEATConfig hyperparameters (speciation, mutation, population)
+│   │   ├── sac.py                       # SACConfig hyperparameters (GNN-SAC)
 │   │   ├── rewards.py                   # Training reward preset (ComposableRewardCalculator assembly)
 │   │   ├── analytics.py                 # AnalyticsConfig: report section toggles + windows
 │   │   ├── pareto.py                    # ParetoConfig for multi-objective ranking (shared)
@@ -85,6 +91,10 @@ Asteroids AI/
 │   │       ├── driver.py                # NEATDriver: speciation, crossover, mutation, population evolution
 │   │       ├── innovation.py            # InnovationTracker for connection ids and split tracking
 │   │       └── species.py               # Species state and stagnation tracking
+│   │   ├── sac/
+  - Networks: `training/methods/sac/networks.py` provides GNN backbone + actor/critics.
+│   │   │   ├── replay_buffer.py        # Graph-native replay buffer
+│   │   │   └── learner.py              # SAC learner/update logic
 │   ├── components/
 │   │   ├── novelty.py                   # Behavior vector + kNN novelty scoring
 │   │   ├── diversity.py                 # Reward diversity (entropy) scoring + warnings
@@ -130,10 +140,10 @@ Asteroids AI/
 | **Game (Windowed)** (`Asteroids.py`, `game/`)  | Real-time simulation + rendering + debug overlays, with flags to support training playback parity. |
 | **Game (Headless)** (`game/headless_game.py`)  | Fast seeded simulation for parallel rollouts without rendering.                                    |
 | **Interfaces** (`interfaces/`)                 | Stable contracts around state encoding, action mapping, reward composition, and episode metrics (ActionInterface enforces mutually exclusive turning). |
-| **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `TemporalStackEncoder`, `VectorEncoder`). |
-| **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA and ES training scripts currently use `NNAgent` (NumPy). |
+| **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors or graph payloads (currently `HybridEncoder`, `TemporalStackEncoder`, `VectorEncoder`, `GraphEncoder`). |
+| **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA/ES use `NNAgent` (NumPy) while SAC playback uses `SACAgent`. |
 | **Training Core** (`training/core/`)           | Executes evaluation/playback orchestration and wires game + interfaces + agents.                   |
-| **Training Methods** (`training/methods/`)     | Algorithm-specific optimization logic; GA, ES, and NEAT are implemented.                           |
+| **Training Methods** (`training/methods/`)     | Algorithm-specific optimization logic; GA, ES, NEAT, and SAC are implemented.                      |
 | **Shared Components** (`training/components/`) | Method-agnostic novelty/diversity scoring plus Pareto ranking utilities.                           |
 | **Analytics** (`training/analytics/`)          | Records generation data, exports JSON, and generates the markdown training report.                 |
 
@@ -142,7 +152,7 @@ Asteroids AI/
 - **Game** is the lowest layer; training/agents should not reach into entity internals except through trackers/encoders.
 - **Interfaces** depend on game state to provide: state encoding inputs, action mapping, reward components, and metrics tracking.
 - **Encoders** depend on `EnvironmentTracker` (and constants in `game/globals.py`) to produce model inputs.
-- **Agents** depend on encoder outputs: GA and ES agents currently output an action vector `[turn, thrust, shoot]` in `[0, 1]` (turn is interpreted as signed turn after remapping).
+- **Agents** depend on encoder outputs: GA/ES/NEAT output `[turn, thrust, shoot]` in `[0, 1]` (turn remapped to signed), while SAC outputs signed turn in `[-1, 1]` with thrust in `[0, 1]`.
 - **Training** wires game + interfaces + agents + method logic and runs evaluation/evolution loops.
 - **Analytics** consumes aggregated metrics produced by the training loop and emits human/machine-readable reports.
 
@@ -257,6 +267,46 @@ Game state
     - Crossover alignment by innovation id.
     - Structural mutations (add-node, add-connection) and weight perturbation.
 
+### Core Execution Flow (Implemented: GNN-SAC)
+
+`training/scripts/train_gnn_sac.py` orchestrates GNN-SAC training in a headless loop:
+
+- **Infrastructure setup**
+
+  - Encoder: `interfaces/encoders/GraphEncoder.py:GraphEncoder(...)` (graph payload).
+  - Reward preset: `training/config/rewards.py:create_reward_calculator()` (shared preset).
+  - Networks: `training/methods/sac/networks.py` provides GNN backbone + actor/critics.
+  - Replay: `training/methods/sac/replay_buffer.py:ReplayBuffer(...)`.
+  - Analytics: `training/analytics/analytics.py:TrainingAnalytics`.
+
+- **Collection phase**
+
+  - `HeadlessAsteroidsGame` runs step-based rollouts with `continuous_control_mode=True`.
+  - Transitions are stored as graph payloads with actions `[turn, thrust, shoot]`.
+
+- **Update phase**
+
+  - `SACLearner.update(...)` runs critic, actor, and entropy-temperature updates.
+  - Target critics are updated via Polyak averaging (`SACConfig.TAU`).
+
+- **Logging phase**
+
+  - `TrainingAnalytics.record_generation(...)` logs interval snapshots using episode-return windows.
+
+### Core Execution Flow (Implemented: GNN-SAC Simulated)
+
+`training/scripts/simulate_gnn_sac.py` runs headless training and windowed playback in one process:
+
+- **Training loop**
+
+  - Headless training steps run in the background using `SACConfig.TRAIN_STEPS_PER_FRAME` per render frame.
+  - Fixed-seed evaluation runs every `SACConfig.EVAL_EVERY_EPISODES` to update the best snapshot.
+
+- **Playback loop**
+
+  - Windowed `AsteroidsGame` playback uses `DisplayManager` + `SACAgent` with the best snapshot.
+  - Viewer seeds rotate per episode using `SACConfig.VIEWER_SEED_MODE`.
+
 ## Implemented Outputs / Artifacts (if applicable)
 
 - `training_summary.md`: Markdown report generated by `TrainingAnalytics.generate_markdown_report(...)`.
@@ -265,12 +315,14 @@ Game state
 - `training_data_es.json`: JSON export generated by ES training via `TrainingAnalytics.save_json(...)`.
 - `training_summary_neat.md`: Markdown report generated by NEAT training via `TrainingAnalytics.generate_markdown_report(...)`.
 - `training_data_neat.json`: JSON export generated by NEAT training via `TrainingAnalytics.save_json(...)`.
+- `training_summary_sac.md`: Markdown report generated by GNN-SAC training via `TrainingAnalytics.generate_markdown_report(...)`.
+- `training_data_sac.json`: JSON export generated by GNN-SAC training via `TrainingAnalytics.save_json(...)`.
+- `training/sac_checkpoints/best_sac.pt`: Best-so-far GNN-SAC checkpoint (GNN + actor weights + eval metadata).
 - `training/neat_artifacts/*`: Best-genome JSON and DOT exports produced by NEAT training.
 
 ## In Progress / Partially Implemented
 
 - [ ] `interfaces/EnvironmentTracker.get_tick()`: References `game.time`, but the game objects do not define `time`; this method is unused/broken.
-- [ ] `interfaces/ActionInterface(action_space_type="continuous")`: Exists, but currently thresholds exactly like `"boolean"` (no true continuous controls yet).
 - [ ] `interfaces/encoders/VectorEncoder.py`: Provides `encode/get_state_size/reset/clone` but does not inherit `StateEncoder` (duck-typed compatibility only).
 - [ ] `training/core/population_evaluator.py`: Type hints `VectorEncoder` for `state_encoder`, but evaluation works with any encoder that supports `clone/reset/encode`.
 - [ ] Novelty/diversity analytics visibility: GA computes novelty/diversity for selection, but the markdown report does not yet visualize these signals.
@@ -282,12 +334,10 @@ Game state
 - [ ] Checkpointing/resume: Persist method state (e.g., GA population + ES mean + best genome) so long runs can resume and be replayed.
 - [ ] Unified evaluator interface: Consider consolidating `population_evaluator.py` and `population_evaluator_tf.py` with a policy factory pattern.
 - [ ] Curriculum hooks (future): Add environment-level difficulty knobs and training hooks for progressive difficulty, while keeping the progression metric as an open design decision.
-- [ ] RL stack (GNN + SAC): Implement a step-based off-policy RL method using a graph encoder and SAC while reusing the shared reward + analytics pipelines.
-- [ ] True continuous control path: Implement analog turning/thrust application in both headless and windowed game loops while preserving the current boolean control path for GA/ES/NEAT compatibility.
 
 ## Notes / Design Considerations (optional)
 
-- Windowed gameplay uses global `random` for spawns; headless rollouts use an isolated `random.Random(seed)` per rollout for reproducibility.
+- Windowed gameplay uses per-instance RNG (`AsteroidsGame.rng`) so playback can be seeded; headless rollouts use an isolated `random.Random(seed)` per rollout for reproducibility.
 - Windowed playback uses `manual_spawning` + fixed stepping to reduce drift between headless training and fresh-game evaluation.
 
 ## Discarded / Obsolete / No Longer Relevant

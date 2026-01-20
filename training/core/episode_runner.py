@@ -95,13 +95,25 @@ class EpisodeRunner:
       action = self.action_interface.normalize(action)
 
       # Convert to game input
-      game_input = self.action_interface.to_game_input(action)
-
-      # Apply to game (set left_pressed, etc.)
-      self.game.left_pressed = game_input["left_pressed"]
-      self.game.right_pressed = game_input["right_pressed"]
-      self.game.up_pressed = game_input["up_pressed"]
-      self.game.space_pressed = game_input["space_pressed"]
+      if self.action_interface.action_space_type == "continuous":
+        game_input = self.action_interface.to_game_input_continuous(action)
+        self.game.continuous_control_mode = True
+        self.game.turn_magnitude = game_input["turn_magnitude"]
+        self.game.thrust_magnitude = game_input["thrust_magnitude"]
+        self.game.shoot_requested = game_input["shoot"]
+        # Clear boolean inputs to avoid mixed control paths.
+        self.game.left_pressed = False
+        self.game.right_pressed = False
+        self.game.up_pressed = False
+        self.game.space_pressed = False
+      else:
+        game_input = self.action_interface.to_game_input(action)
+        self.game.continuous_control_mode = False
+        # Apply to game (set left_pressed, etc.)
+        self.game.left_pressed = game_input["left_pressed"]
+        self.game.right_pressed = game_input["right_pressed"]
+        self.game.up_pressed = game_input["up_pressed"]
+        self.game.space_pressed = game_input["space_pressed"]
 
       # Step game (call game.on_update())
       self.game.on_update(self.frame_delay)

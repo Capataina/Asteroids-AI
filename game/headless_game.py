@@ -52,11 +52,17 @@ class HeadlessAsteroidsGame:
         self.bullet_list = []
         self.player = None
 
-        # Key states
+        # Key states (boolean control mode - GA/ES/NEAT)
         self.left_pressed = False
         self.right_pressed = False
         self.up_pressed = False
         self.space_pressed = False
+
+        # Continuous control mode (SAC/RL)
+        self.continuous_control_mode = False
+        self.turn_magnitude = 0.0      # [-1, 1]: negative = left, positive = right
+        self.thrust_magnitude = 0.0    # [0, 1]: proportional thrust
+        self.shoot_requested = False   # Boolean shoot request
 
         # Track player's last position
         self.last_player_x = 0
@@ -216,19 +222,29 @@ class HeadlessAsteroidsGame:
                             self.player_list.remove(self.player)
                     break
         
-        # Handle continuous input
+        # Handle player input
         if self.player in self.player_list:
-            if self.left_pressed:
-                self.player.rotate_left()
-            if self.right_pressed:
-                self.player.rotate_right()
-            if self.up_pressed:
-                self.player.thrust_forward()
-            if self.space_pressed:
-                bullet = self.player.shoot()
-                if bullet:
-                    self.bullet_list.append(bullet)
-                    self.metrics_tracker.total_shots_fired += 1
+            if self.continuous_control_mode:
+                # Analog control path (SAC/RL)
+                self.player.apply_continuous_controls(self.turn_magnitude, self.thrust_magnitude)
+                if self.shoot_requested:
+                    bullet = self.player.shoot()
+                    if bullet:
+                        self.bullet_list.append(bullet)
+                        self.metrics_tracker.total_shots_fired += 1
+            else:
+                # Boolean control path (GA/ES/NEAT) - unchanged
+                if self.left_pressed:
+                    self.player.rotate_left()
+                if self.right_pressed:
+                    self.player.rotate_right()
+                if self.up_pressed:
+                    self.player.thrust_forward()
+                if self.space_pressed:
+                    bullet = self.player.shoot()
+                    if bullet:
+                        self.bullet_list.append(bullet)
+                        self.metrics_tracker.total_shots_fired += 1
         
         # Update trackers
         self.metrics_tracker.time_alive += delta_time

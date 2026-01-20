@@ -52,6 +52,23 @@ class Player(arcade.Sprite):
         self.change_x += math.sin(angle_rad) * self.acceleration
         self.change_y += math.cos(angle_rad) * self.acceleration
 
+    def apply_continuous_controls(self, turn_magnitude: float, thrust_magnitude: float):
+        """
+        Apply analog/continuous controls for RL agents.
+
+        Args:
+            turn_magnitude: Signed turn value in [-1, 1]. Negative = left, positive = right.
+            thrust_magnitude: Thrust value in [0, 1]. Proportional acceleration.
+        """
+        # Proportional rotation: scale rotation_speed by turn magnitude
+        self.angle += turn_magnitude * self.rotation_speed
+
+        # Proportional thrust: scale acceleration by thrust magnitude
+        if thrust_magnitude > 0:
+            angle_rad = math.radians(self.angle)
+            self.change_x += math.sin(angle_rad) * self.acceleration * thrust_magnitude
+            self.change_y += math.cos(angle_rad) * self.acceleration * thrust_magnitude
+
     def shoot(self):
         """Fire a bullet if the cooldown is up."""
         if self.shoot_timer <= 0:

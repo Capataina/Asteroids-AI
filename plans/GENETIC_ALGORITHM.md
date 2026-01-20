@@ -188,7 +188,6 @@ Each agent's metrics are averaged across its seeds and returned in `per_agent_me
 
 - [ ] Checkpointing/resume: Training exports analytics but does not persist the GA population/genomes for resuming runs.
 - [ ] Novelty/diversity reporting: Novelty/diversity influences selection, but the markdown report does not explicitly visualize these signals.
-- [ ] `ActionInterface(action_space_type="continuous")`: Exists but behaves identically to boolean thresholding.
 - [ ] Encoder/test drift: `VectorEncoder` still exists and some legacy code assumes it, while current training uses `HybridEncoder`.
 - [ ] `GAConfig.NUM_NEAREST_ASTEROIDS`: Remains in config but is not used by the current `HybridEncoder` training setup.
 

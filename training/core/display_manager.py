@@ -7,7 +7,7 @@ class DisplayManager:
     """
     Manages the visual display of the best agent in the game window.
     """
-    def __init__(self, game, episode_runner, analytics):
+    def __init__(self, game, episode_runner, analytics, max_steps: int | None = None):
         self.game = game
         self.episode_runner = episode_runner
         self.analytics = analytics
@@ -18,7 +18,7 @@ class DisplayManager:
         
         self.showing_best_agent = False
         self.best_agent_steps = 0
-        self.best_agent_max_steps = GAConfig.MAX_STEPS
+        self.best_agent_max_steps = max_steps if max_steps is not None else GAConfig.MAX_STEPS
         
         self.fresh_game_start_kills = 0
         self.fresh_game_start_shots = 0
@@ -93,18 +93,29 @@ class DisplayManager:
         
         self.episode_runner.action_interface.validate(action)
         action = self.episode_runner.action_interface.normalize(action)
-        game_input = self.episode_runner.action_interface.to_game_input(action)
-        
-        self.game.left_pressed = game_input["left_pressed"]
-        self.game.right_pressed = game_input["right_pressed"]
-        self.game.up_pressed = game_input["up_pressed"]
-        self.game.space_pressed = game_input["space_pressed"]
+        if self.episode_runner.action_interface.action_space_type == "continuous":
+            game_input = self.episode_runner.action_interface.to_game_input_continuous(action)
+            self.game.continuous_control_mode = True
+            self.game.turn_magnitude = game_input["turn_magnitude"]
+            self.game.thrust_magnitude = game_input["thrust_magnitude"]
+            self.game.shoot_requested = game_input["shoot"]
+            self.game.left_pressed = False
+            self.game.right_pressed = False
+            self.game.up_pressed = False
+            self.game.space_pressed = False
+        else:
+            game_input = self.episode_runner.action_interface.to_game_input(action)
+            self.game.continuous_control_mode = False
+            self.game.left_pressed = game_input["left_pressed"]
+            self.game.right_pressed = game_input["right_pressed"]
+            self.game.up_pressed = game_input["up_pressed"]
+            self.game.space_pressed = game_input["space_pressed"]
         
         # Step game
         self.game.external_control = False
         # FORCE fixed time step to match training simulation exactly
         # Arcade provides variable delta_time, but training assumes fixed 1/60s
-        self.game.on_update(GAConfig.FRAME_DELAY)
+        self.game.on_update(self.episode_runner.frame_delay)
         self.game.external_control = True
 
         # Update trackers

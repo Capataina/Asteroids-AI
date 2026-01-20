@@ -22,6 +22,14 @@ The game engine is the simulated world used by both humans (windowed play) and t
 | `manual_spawning` | `AsteroidsGame` | When `True`, asteroid spawns are driven by the same per-step timer logic used in headless mode (improves parity). |
 | `external_control` | `AsteroidsGame` | When `True`, `AsteroidsGame.on_update(...)` returns early to avoid double-updating during training playback (training loop steps explicitly). |
 
+### Continuous Control (Implemented)
+
+| Control Surface | Location | Meaning |
+|---|---|---|
+| `continuous_control_mode` | `AsteroidsGame`, `HeadlessAsteroidsGame` | Enables analog turn/thrust control instead of boolean key presses. |
+| `turn_magnitude`, `thrust_magnitude`, `shoot_requested` | `AsteroidsGame`, `HeadlessAsteroidsGame` | Per-step analog turn/thrust magnitudes and a discrete shoot flag. |
+| `Player.apply_continuous_controls(...)` | `game/classes/player.py` | Applies proportional rotation and thrust based on analog control values. |
+
 ### Core Entities (Implemented)
 
 | Entity | File | Granular Responsibilities |
@@ -64,7 +72,7 @@ Key constants live in `game/globals.py`:
 
 ### Randomness & Determinism (Implemented)
 
-- Windowed spawn randomness uses module-level `random` (`AsteroidsGame.spawn_asteroid`).
+- Windowed spawn randomness uses a per-instance RNG (`AsteroidsGame.rng`) so playback can be seeded via `AsteroidsGame.set_seed(...)`.
 - Headless spawn randomness uses a per-instance `random.Random(random_seed)` to avoid cross-thread interference and allow deterministic replay per seed.
 
 ### Headless Parity Fix: Lifetime Expiration (Implemented)
@@ -88,7 +96,6 @@ Key constants live in `game/globals.py`:
 
 ## In Progress / Partially Implemented
 
-- [ ] Deterministic parity (windowed vs headless RNG): Windowed mode does not provide a seedable RNG surface comparable to headless mode’s `random_seed`.
 - [ ] True frame-rate independence: Motion is primarily “per update step”; training and playback rely on fixed stepping for consistency.
 
 ## Planned / Missing / To Be Changed
@@ -98,8 +105,6 @@ Key constants live in `game/globals.py`:
 - [ ] Progressive difficulty schedule (future): Define a curriculum schedule that increases difficulty as policies improve, while keeping metric selection and comparability as an open design decision (not yet a committed goal).
 - [ ] Wrap-aware collisions: Detect collisions that occur across the screen edge (toroidal overlap) rather than only after wrapping positions.
 - [ ] Per-tick event hooks: Expose "shots fired this tick", "asteroids destroyed this tick", etc., for cleaner reward components and analytics.
-- [ ] True continuous control (RL): Add analog turning/thrust application (per-step magnitudes) in both windowed and headless game loops while preserving boolean key input for manual play and existing agents.
-- [ ] Control-mode parity (RL): Ensure analog controls behave identically in windowed playback and headless rollouts (same units, same `delta_time` semantics).
 
 ## Notes / Design Considerations (optional)
 

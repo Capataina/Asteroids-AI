@@ -196,6 +196,12 @@ Additional distribution stats:
 
 - `training_summary.md`: Comprehensive report including control diagnostics, reward balance, generalization transfer gaps, trends, distributions, heatmaps, risk, and neural sections (as enabled by `AnalyticsConfig`).
 - `training_data.json`: Machine-readable export of all recorded analytics data for offline analysis.
+- `training_summary_es.md`: ES run report produced by the same analytics exporter pipeline.
+- `training_data_es.json`: ES run JSON export produced by the same analytics exporter pipeline.
+- `training_summary_neat.md`: NEAT run report produced by the same analytics exporter pipeline.
+- `training_data_neat.json`: NEAT run JSON export produced by the same analytics exporter pipeline.
+- `training_summary_sac.md`: SAC run report produced by the same analytics exporter pipeline.
+- `training_data_sac.json`: SAC run JSON export produced by the same analytics exporter pipeline.
 
 ## In Progress / Partially Implemented
 
@@ -217,8 +223,6 @@ Additional distribution stats:
 
 ### RL Method Support (Planned)
 
-- [ ] RL run artifacts: Add consistent artifact names for RL runs (e.g., `training_data_sac.json`, `training_summary_sac.md`) produced by the same analytics exporter APIs.
-- [ ] RL config capture: Persist RL-specific config (graph caps, device, framework versions) into the analytics `config` block for reproducibility.
 - [ ] RL action health metrics: Record continuous action statistics (turn/thrust magnitude + saturation + entropy) as first-class generation/interval keys.
 - [ ] RL embedding health metrics: Record state-embedding variance and similarity diagnostics so embedding collapse can be detected without manual inspection.
 - [ ] RL learner stability metrics: Record actor/critic losses, Q-value scale, alpha (temperature), and gradient norms so training instability is visible in reports.

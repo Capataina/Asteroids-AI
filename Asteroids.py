@@ -19,8 +19,10 @@ from interfaces.rewards.AccuracyBonus import AccuracyBonus
 from interfaces.rewards.KPMBonus import KPMBonus
 
 class AsteroidsGame(arcade.Window):
-    def __init__(self, width, height, title):
+    def __init__(self, width, height, title, random_seed: int | None = None):
         super().__init__(width, height, title)
+        # Seedable RNG for deterministic spawn behavior when desired.
+        self.rng = random.Random(random_seed) if random_seed is not None else random.Random()
 
         # Set game variables
         self.player_list = None
@@ -31,12 +33,18 @@ class AsteroidsGame(arcade.Window):
         # Score object for performance reasons
         self.score_text = None
 
-        # Key states
+        # Key states (boolean control mode - GA/ES/NEAT)
         self.left_pressed = False
         self.right_pressed = False
         self.up_pressed = False
         self.space_pressed = False
-        
+
+        # Continuous control mode (SAC/RL)
+        self.continuous_control_mode = False
+        self.turn_magnitude = 0.0      # [-1, 1]: negative = left, positive = right
+        self.thrust_magnitude = 0.0    # [0, 1]: proportional thrust
+        self.shoot_requested = False   # Boolean shoot request
+
         # Debug state
         self.debug_mode = globals.COLLISION_DEBUG_ENABLED
 
@@ -118,6 +126,10 @@ class AsteroidsGame(arcade.Window):
         self.metrics_tracker.reset()
         self.reward_calculator.reset()
 
+    def set_seed(self, random_seed: int | None) -> None:
+        """Reset the game's RNG seed for deterministic spawning."""
+        self.rng = random.Random(random_seed) if random_seed is not None else random.Random()
+
     def setup(self):
         # Run this only once, this doesn't add much anyway tbh
         arcade.set_background_color(arcade.color.BLACK)
@@ -125,7 +137,7 @@ class AsteroidsGame(arcade.Window):
         self.reset_game()
 
     def spawn_asteroid(self, delta_time: float):
-        roll = random.random()
+        roll = self.rng.random()
 
         if roll < 0.4:
             # 40% => small
@@ -141,7 +153,8 @@ class AsteroidsGame(arcade.Window):
         asteroid = Asteroid(
             screen_width=self.width,
             screen_height=self.height,
-            scale=scale
+            scale=scale,
+            rng=self.rng
         )
         self.asteroid_list.append(asteroid)
 
@@ -248,18 +261,29 @@ class AsteroidsGame(arcade.Window):
                     # During AI training, just remove the player and let training loop handle reset
                     self.player.remove_from_sprite_lists()
 
-        # Handle continuous input because the library is weird and "lightweight" (lowkey bad)
-        if self.left_pressed:
-            self.player.rotate_left()
-        if self.right_pressed:
-            self.player.rotate_right()
-        if self.up_pressed:
-            self.player.thrust_forward()
-        if self.space_pressed:
-            bullet = self.player.shoot()
-            if bullet:
-                self.bullet_list.append(bullet)
-                self.metrics_tracker.total_shots_fired += 1
+        # Handle player input
+        if self.player in self.player_list:
+            if self.continuous_control_mode:
+                # Analog control path (SAC/RL)
+                self.player.apply_continuous_controls(self.turn_magnitude, self.thrust_magnitude)
+                if self.shoot_requested:
+                    bullet = self.player.shoot()
+                    if bullet:
+                        self.bullet_list.append(bullet)
+                        self.metrics_tracker.total_shots_fired += 1
+            else:
+                # Boolean control path (GA/ES/NEAT and manual play) - unchanged
+                if self.left_pressed:
+                    self.player.rotate_left()
+                if self.right_pressed:
+                    self.player.rotate_right()
+                if self.up_pressed:
+                    self.player.thrust_forward()
+                if self.space_pressed:
+                    bullet = self.player.shoot()
+                    if bullet:
+                        self.bullet_list.append(bullet)
+                        self.metrics_tracker.total_shots_fired += 1
 
         # Manual asteroid spawning (matches headless game timing exactly)
         if self.manual_spawning:

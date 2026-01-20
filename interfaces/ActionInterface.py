@@ -52,7 +52,21 @@ class ActionInterface:
     Returns:
       The normalized action.
     """
-    # Clamp values to [0, 1] range (don't call validate, just normalize)
+    # Continuous mode uses a mixed range: turn in [-1, 1], thrust/shoot in [0, 1].
+    if self.action_space_type == "continuous":
+      if len(action) == 3:
+        turn = max(-1.0, min(float(action[0]), 1.0))
+        thrust = max(0.0, min(float(action[1]), 1.0))
+        shoot = max(0.0, min(float(action[2]), 1.0))
+        return [turn, thrust, shoot]
+      if len(action) == 4:
+        left = max(0.0, min(float(action[0]), 1.0))
+        right = max(0.0, min(float(action[1]), 1.0))
+        thrust = max(0.0, min(float(action[2]), 1.0))
+        shoot = max(0.0, min(float(action[3]), 1.0))
+        return [left, right, thrust, shoot]
+
+    # Boolean mode: clamp values to [0, 1] range (don't call validate, just normalize)
     return [max(0.0, min(float(value), 1.0)) for value in action]
 
   def to_game_input(self, action: List[float]) -> Dict[str, bool]:
@@ -98,6 +112,41 @@ class ActionInterface:
       "right_pressed": right_pressed,
       "up_pressed": up_pressed,
       "space_pressed": space_pressed,
+    }
+
+  def to_game_input_continuous(self, action: List[float]) -> Dict[str, float]:
+    """
+    Convert action to continuous game input (for SAC/RL with analog control).
+
+    Args:
+      action: [turn, thrust, shoot] in [0, 1] range
+
+    Returns:
+      Dict with:
+        - turn_magnitude: float in [-1, 1] (negative = left, positive = right)
+        - thrust_magnitude: float in [0, 1]
+        - shoot: bool
+    """
+    if len(action) == 3:
+      # Signed turn: accept either [-1, 1] directly or [0, 1] to be remapped.
+      turn_raw = float(action[0])
+      if turn_raw < 0.0 or turn_raw > 1.0:
+        turn_magnitude = max(-1.0, min(1.0, turn_raw))
+      else:
+        turn_magnitude = (turn_raw * 2.0) - 1.0
+      thrust_magnitude = max(0.0, min(1.0, float(action[1])))
+      shoot = float(action[2]) > 0.5
+    else:
+      # Legacy 4-action format: derive signed turn from left/right difference
+      turn_magnitude = float(action[1]) - float(action[0])  # right - left
+      turn_magnitude = max(-1.0, min(1.0, turn_magnitude))
+      thrust_magnitude = max(0.0, min(1.0, float(action[2])))
+      shoot = float(action[3]) > 0.5
+
+    return {
+      "turn_magnitude": turn_magnitude,
+      "thrust_magnitude": thrust_magnitude,
+      "shoot": shoot,
     }
 
   def get_action_space_size(self) -> int:

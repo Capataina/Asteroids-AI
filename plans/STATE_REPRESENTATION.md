@@ -22,6 +22,7 @@ State representation defines the information boundary between the game simulatio
 | `HybridEncoder`        | `interfaces/encoders/HybridEncoder.py`         |                                        `47` | `training/scripts/train_ga.py` (base), `train_es.py` (base)  | Hybrid ??oFovea + Raycasts??? representation to reduce degenerate spinning/turret behaviors while preserving precise targeting. |
 | `TemporalStackEncoder` | `interfaces/encoders/TemporalStackEncoder.py`  | `base_size * (2N-1)` (default `217` at N=4) | `training/scripts/train_es.py`                               | Wraps a base encoder with N-frame stacking plus per-frame deltas for temporal awareness.                                   |
 | `VectorEncoder`        | `interfaces/encoders/VectorEncoder.py`         |          `3 + 4*N` (default `35` for `N=8`) | Not used by current training script                          | Baseline egocentric object-list encoding (player + nearest asteroids).                                                      |
+| `GraphEncoder`         | `interfaces/encoders/GraphEncoder.py`          |                    `GraphPayload` (variable) | `training/scripts/train_gnn_sac.py`                          | Graph payload encoder for GNN-SAC (player node, asteroid nodes, asteroid->player edges).                                   |
 
 ### `HybridEncoder` (Implemented)
 
@@ -95,6 +96,28 @@ State representation defines the information boundary between the game simulatio
 - **Padding for missing asteroids**:
   - `[1.0, 0.0, 0.0, 0.0]` (safe “far away, non-threatening” defaults).
 
+### `GraphEncoder` (Implemented)
+
+**Graph payload structure**
+
+- `player_features` (5 floats):
+  - `vel_x`, `vel_y` (normalized)
+  - `heading_sin`, `heading_cos`
+  - `shoot_cooldown_frac` (0..1)
+- `asteroid_features` (N x 3):
+  - `scale`
+  - `vel_x`, `vel_y` (normalized)
+- `edge_attr` (N x 7) for directed `asteroid -> player` edges:
+  - wrapped `dx`, wrapped `dy` (normalized)
+  - `dist` (normalized)
+  - `bearing_sin`, `bearing_cos`
+  - relative velocity `rel_vx`, `rel_vy` (normalized)
+
+**Cardinality**
+
+- Default: all asteroids are included.
+- Optional cap: `max_asteroids` keeps the nearest K by wrapped distance.
+
 ### Debug Visualizations (Implemented)
 
 - `game/debug/visuals.py:draw_hybrid_encoder_debug(...)`: Draws the `HybridEncoder` raycast fan and highlights hit distances in the windowed game.
@@ -129,10 +152,6 @@ AsteroidsGame / HeadlessAsteroidsGame
 - [ ] Add ray time-to-collision (TTC) features (shared): Add per-ray predictive TTC estimates to represent imminent collisions explicitly (industry-standard avoidance signal).
 - [ ] Add aim-alignment features (shared): Provide a compact "frontness" / best-ray index signal (e.g., weighted by which ray has the nearest hit) to support aiming reward shaping without new object detectors.
 - [ ] Encoder schema versioning (shared): Version encoder output layouts so ray-count/layout changes are tracked and old genomes/checkpoints can be invalidated intentionally.
-- [ ] Variable-cardinality representations: Add graph-based or set-based encoders for methods that can consume variable entity counts.
-- [ ] Graph encoder (GNN-SAC): Add `interfaces/encoders/GraphEncoder.py` that converts `EnvironmentTracker` state into a framework-agnostic graph payload (not a fixed-size vector).
-- [ ] Graph encoder (toroidal deltas): Implement canonical wrapped `(dx, dy)` computation so “near across screen edge” is encoded as near for every entity relationship.
-- [ ] Graph encoder (cardinality config): Add `MAX_ASTEROIDS` configuration with default “all asteroids” and deterministic selection when capped (e.g., K nearest by wrapped distance).
 - [ ] Encoder benchmarking harness: Standardize offline tests that validate normalization ranges and output stability across game modes (windowed vs headless).
 
 ### ES-Oriented Observability Roadmap (Easy / Medium / Hard)
