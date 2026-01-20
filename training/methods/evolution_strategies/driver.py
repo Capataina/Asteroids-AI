@@ -377,7 +377,7 @@ class ESDriver:
 
         # Novelty bonus
         if ESConfig.ENABLE_NOVELTY and self.behavior_archive is not None:
-            behavior_vectors = [m.get('behavior_vector', [0.0] * 7) for m in per_agent_metrics]
+            behavior_vectors = [m.get('behavior_vector', [0.0] * 11) for m in per_agent_metrics]
             novelty_scores = compute_population_novelty(
                 behavior_vectors,
                 self.behavior_archive.get_behaviors(),

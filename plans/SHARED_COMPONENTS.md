@@ -2,7 +2,9 @@
 
 ## Scope / Purpose
 
-This document covers training components designed to be reusable across **all optimization methods** (GA now, ES/NEAT later). These components encourage human-like play and reduce convergence to degenerate local minima by shaping selection pressure using behavior novelty and reward diversity signals in addition to raw fitness.
+This document covers training components designed to be reusable across **evolutionary / selection-based optimization methods** (GA now, ES/NEAT later). These components encourage human-like play and reduce convergence to degenerate local minima by shaping **selection pressure** using behavior novelty and reward diversity signals in addition to raw fitness.
+
+- RL note: SAC-based RL does not use these signals for gradient updates, but it can still log compatible behavioral metrics for analysis and comparability.
 
 ## Current Implemented System
 
@@ -138,6 +140,26 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - [ ] Extend behavior characterization (aim alignment): Add an aim-alignment metric (e.g., time with an asteroid in the front rays / best-ray index distribution) as a behavior dimension.
 - [ ] Extend behavior characterization (output saturation): Incorporate `output_saturation` into the behavior vector so novelty can discourage always-on saturated control policies.
 - [ ] Method parity integration: Ensure ES/NEAT selection/update logic can reuse the same novelty/diversity signals for fair comparison.
+
+### NEAT-Oriented Integration Roadmap (Easy / Medium / Hard)
+
+#### Easy
+
+- [x] NEAT novelty bonus mode: Add a NEAT selection mode that uses behavior novelty as an additive parent-selection bonus.
+- [x] NEAT diversity bonus mode: Add a NEAT selection mode that uses reward diversity as an additive parent-selection bonus.
+- [x] NEAT bonus diagnostics: Export per-generation novelty/diversity bonus magnitude summaries so selection pressure is measurable.
+- [ ] NEAT degenerate guardrails: Add optional selection penalties for extreme spin-lock and always-shoot regimes using existing evaluator metrics.
+
+#### Medium
+
+- [ ] NEAT novelty-first mode: Add an optional selection mode where novelty is primary and fitness is secondary to explore watchable behaviors.
+- [ ] NEAT archive admission rules: Add archive admission rules that reject behaviors that are novel but dominated by degenerate control signatures.
+- [ ] NEAT behavior-descriptor stability: Version behavior-vector normalization so archives remain comparable across encoder/reward changes.
+
+#### Hard
+
+- [ ] NEAT quality-diversity archive: Add a MAP-Elites-style archive keyed by behavior descriptors to preserve distinct strategies.
+- [ ] NEAT multi-objective adapter: Add a NEAT adapter that can use Pareto ranking utilities for reproduction allocation across species.
 
 ### ES-Oriented Integration Roadmap (Easy / Medium / Hard)
 

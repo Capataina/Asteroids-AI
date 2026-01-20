@@ -135,6 +135,7 @@ class DisplayManager:
             if self.game.debug_mode:
                 import game.debug.visuals
                 game.debug.visuals.draw_hybrid_encoder_debug(self.episode_runner.state_encoder, self.game)
+                game.debug.visuals.draw_target_lock_debug(self.game)
 
     def _stop_display(self):
         self.showing_best_agent = False

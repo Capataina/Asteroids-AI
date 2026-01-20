@@ -2,17 +2,23 @@ from typing import List, Dict
 import math
 
 class ActionInterface:
-  def __init__(self, action_space_type: str):
+  def __init__(self, action_space_type: str, turn_deadzone: float = 0.0):
     """
     Initialize the action interface.
-    
+
     Args:
       action_space_type: The type of action space to use.
+      turn_deadzone: Deadzone threshold for turn input. Turn values within
+                     [-deadzone, +deadzone] will result in no turning.
+                     Default 0.0 means any non-zero turn value triggers turning.
+                     A small value like 0.03 allows the AI to express "don't turn"
+                     without requiring perfect 0.5 output from sigmoid.
     """
-    
+
     if action_space_type not in ["boolean", "continuous"]:
       raise ValueError(f"Invalid action space type: {action_space_type}")
     self.action_space_type = action_space_type
+    self.turn_deadzone = turn_deadzone
 
   def validate(self, action: List[float]) -> bool:
     """
@@ -62,8 +68,9 @@ class ActionInterface:
     if self.action_space_type not in ["boolean", "continuous"]:
       raise ValueError(f"Invalid action space type: {self.action_space_type}")
 
-    # No deadzone: any signed turn value should actuate left/right.
-    turn_threshold = 0.0
+    # Use configurable deadzone: turn values within [-deadzone, +deadzone] result in no turning.
+    # This allows AI to express "don't turn" without requiring exact 0.5 output.
+    turn_threshold = self.turn_deadzone
     left_pressed = False
     right_pressed = False
 

@@ -50,12 +50,12 @@ ES maintains a probability distribution over parameter space (Gaussian with mean
 
 - Formula: `input*hidden + hidden + hidden*output + output`.
 - Current default sizes (temporal enabled):
-  - Base input: `HybridEncoder.get_state_size() = 31`
-  - Temporal stack: `N=4`, include deltas -> input size `31 * (2N - 1) = 217`
+  - Base input: `HybridEncoder.get_state_size() = 47`
+  - Temporal stack: `N=4`, include deltas -> input size `47 * (2N - 1) = 329`
   - Hidden: `ESConfig.HIDDEN_LAYER_SIZE = 24`
   - Output: `3` (signed turn, thrust, shoot)
-  - Parameter count: `217*24 + 24 + 24*3 + 3 = 5307`
-- If temporal stacking is disabled, input size returns to `31` (param count `843`).
+  - Parameter count: `329*24 + 24 + 24*3 + 3 = 7995`
+- If temporal stacking is disabled, input size returns to `47` (param count `1227`).
 
 ### ES Hyperparameters (Implemented)
 
@@ -303,7 +303,7 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 
 **Observability (temporal information without changing the optimizer):**
 
-- [ ] Predictive perception features: Add time-to-collision (TTC) and/or per-ray closing-speed features to represent imminent collision risk explicitly.
+- [ ] Predictive perception features: Add time-to-collision (TTC) features to represent imminent collision risk explicitly (per-ray closing-speed is already emitted by `HybridEncoder.encode_rays(...)`).
 
 **Controllability (structured action heads and smoothing):**
 

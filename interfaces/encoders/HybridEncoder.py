@@ -62,8 +62,8 @@ class HybridEncoder(StateEncoder):
         return result
 
     def get_state_size(self) -> int:
-        # Player (3) + Fovea (3*4) + Rays (16) = 3 + 12 + 16 = 31 inputs
-        return 3 + (self.num_fovea_asteroids * 4) + self.num_rays
+        # Player (3) + Fovea (3*4) + Rays (16*2) = 3 + 12 + 32 = 47 inputs
+        return 3 + (self.num_fovea_asteroids * 4) + (self.num_rays * 2)
 
     def reset(self) -> None:
         pass
@@ -152,85 +152,109 @@ class HybridEncoder(StateEncoder):
         return result
 
     def encode_rays(self, env_tracker: EnvironmentTracker, player: Player) -> List[float]:
-        """Cast egocentric rays to detect asteroids."""
+        """
+        Cast egocentric rays to detect asteroids.
+        
+        Returns [distance, closing_speed] for each ray.
+        Handles toroidal wrapping by adding 'ghost' targets.
+        """
         asteroids = env_tracker.get_all_asteroids()
         if not asteroids:
-            return [1.0] * self.num_rays
+            # Default: max distance, 0 closing speed
+            return [1.0, 0.0] * self.num_rays
 
-        # Pre-calculate relative asteroid positions (wrapped)
-        # This optimization avoids re-calculating wrap for every ray
+        # Pre-calculate relative asteroid positions (including wrapped ghosts)
         targets = []
+        w = self.screen_width
+        h = self.screen_height
+        
+        offsets = [
+            (0, 0), (w, 0), (-w, 0), 
+            (0, h), (0, -h), 
+            (w, h), (w, -h), (-w, h), (-w, -h)
+        ]
+
         for ast in asteroids:
-            rel_x = ast.center_x - player.center_x
-            rel_y = ast.center_y - player.center_y
-            if abs(rel_x) > self.screen_width / 2:
-                rel_x = -1 * math.copysign(self.screen_width - abs(rel_x), rel_x)
-            if abs(rel_y) > self.screen_height / 2:
-                rel_y = -1 * math.copysign(self.screen_height - abs(rel_y), rel_y)
-            
+            base_rel_x = ast.center_x - player.center_x
+            base_rel_y = ast.center_y - player.center_y
             radius = globals.ASTEROID_BASE_RADIUS * ast.this_scale
-            targets.append((rel_x, rel_y, radius))
+            
+            # Use actual relative velocity for Doppler calculation
+            # V_rel = V_ast - V_player
+            rel_vx = ast.change_x - player.change_x
+            rel_vy = ast.change_y - player.change_y
+
+            for ox, oy in offsets:
+                tx = base_rel_x + ox
+                ty = base_rel_y + oy
+                
+                if abs(tx) > self.ray_max_distance + radius: continue
+                if abs(ty) > self.ray_max_distance + radius: continue
+                
+                dist_sq = tx*tx + ty*ty
+                if dist_sq < (self.ray_max_distance + radius)**2:
+                    targets.append((tx, ty, radius, rel_vx, rel_vy))
 
         rays = []
         angle_step = 360.0 / self.num_rays
-        
-        # Ray 0 is typically "Front" (same as player angle)
-        # We start at player.angle and sweep around
         start_angle = player.angle 
 
         for i in range(self.num_rays):
-            ray_angle_deg = start_angle - (i * angle_step) # Scan Left (-), or Right (+)? 
-            # Arcade angle: 0=Up (Y+), -90=Right (X+). 
-            # Standard Math: 0=Right (X+), 90=Up (Y+).
-            # Arcade Rotation: - is Left turn, + is Right turn.
-            # Let's match typical sensor sweep: 0, -22.5, -45... (Sweeping Left/CCW?)
-            # Or 0, +22.5, +45... (Sweeping Right/CW)
-            # Order matters for the Neural Network topology but consistency is key.
-            
+            ray_angle_deg = start_angle - (i * angle_step) 
             ray_rad = math.radians(ray_angle_deg)
-            ray_dx = math.sin(ray_rad) # Arcade 0 is Y+, so Sin is X component
-            ray_dy = math.cos(ray_rad) # Cos is Y component
+            # Ray direction unit vector
+            ray_dx = math.sin(ray_rad) 
+            ray_dy = math.cos(ray_rad) 
             
             min_dist = self.ray_max_distance
+            detected_closing_speed = 0.0 # Default if no hit
             
-            # Check intersection with all asteroids
-            for tx, ty, rad in targets:
-                # Math: Ray Intersection with Circle
-                # Ray Origin is (0,0) relative to player
-                # Ray Dir is (ray_dx, ray_dy)
-                # Circle Center is (tx, ty), Radius rad
-                
+            hit_found = False
+
+            # Check intersection with all targets
+            for tx, ty, rad, rvx, rvy in targets:
                 # Project Circle Center onto Ray
-                # t = Dot(Center, RayDir)
                 t = tx * ray_dx + ty * ray_dy
                 
-                if t < 0: 
-                    # Behind the ray start
-                    continue 
-                    
-                if t > self.ray_max_distance + rad:
-                    # Too far
-                    continue
+                if t < 0: continue 
+                if t > self.ray_max_distance + rad: continue
 
-                # Closest point on ray to circle center
                 closest_x = t * ray_dx
                 closest_y = t * ray_dy
-                
-                # Distance from closest point to circle center
                 dist_sq = (closest_x - tx)**2 + (closest_y - ty)**2
                 
                 if dist_sq < rad * rad:
-                    # Intersection!
-                    # Distance to intersection point = t - sqrt(rad^2 - dist_sq)
                     dt = math.sqrt(rad * rad - dist_sq)
                     hit_dist = t - dt
                     
-                    if hit_dist < 0: hit_dist = 0 # Inside asteroid
+                    if hit_dist < 0: hit_dist = 0
+                    
                     if hit_dist < min_dist:
                         min_dist = hit_dist
+                        # Calculate Projected Closing Speed (Doppler)
+                        # Project V_rel onto Ray Direction: Dot(V_rel, Ray_Dir)
+                        # Positive = Closing in along this ray
+                        # Negative = Moving away along this ray
+                        # Note: We want "Closing Speed" to be positive for danger
+                        # If V_rel opposes Ray_Dir, they are colliding head-on?
+                        # No, Ray points OUT. V_rel points relative motion.
+                        # If I move towards ast, V_ship is towards ast. V_rel = V_ast - V_ship.
+                        # V_rel will point TOWARDS the player (negative of ray dir).
+                        # So Dot(V_rel, Ray) will be NEGATIVE for closing.
+                        # Let's invert it so Positive = Danger (Closing).
+                        raw_closing = -(rvx * ray_dx + rvy * ray_dy)
+                        detected_closing_speed = raw_closing
+                        hit_found = True
             
-            # Normalize
-            rays.append(min_dist / self.ray_max_distance)
+            # Normalize inputs
+            norm_dist = min_dist / self.ray_max_distance
+            
+            if hit_found:
+                norm_speed = self._clamp(detected_closing_speed / self.max_relative_velocity, -1.0, 1.0)
+            else:
+                norm_speed = 0.0 # No object = 0 relative velocity
+            
+            rays.extend([norm_dist, norm_speed])
             
         return rays
 

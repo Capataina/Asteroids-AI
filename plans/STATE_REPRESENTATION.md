@@ -19,7 +19,7 @@ State representation defines the information boundary between the game simulatio
 
 | Encoder                | File                                           |                       Output Size (Default) | Used By (Current)                                            | Purpose                                                                                                                     |
 | ---------------------- | ---------------------------------------------- | ------------------------------------------: | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `HybridEncoder`        | `interfaces/encoders/HybridEncoder.py`         |                                        `31` | `training/scripts/train_ga.py` (base), `train_es.py` (base)  | Hybrid ??oFovea + Raycasts??? representation to reduce degenerate spinning/turret behaviors while preserving precise targeting. |
+| `HybridEncoder`        | `interfaces/encoders/HybridEncoder.py`         |                                        `47` | `training/scripts/train_ga.py` (base), `train_es.py` (base)  | Hybrid ??oFovea + Raycasts??? representation to reduce degenerate spinning/turret behaviors while preserving precise targeting. |
 | `TemporalStackEncoder` | `interfaces/encoders/TemporalStackEncoder.py`  | `base_size * (2N-1)` (default `217` at N=4) | `training/scripts/train_es.py`                               | Wraps a base encoder with N-frame stacking plus per-frame deltas for temporal awareness.                                   |
 | `VectorEncoder`        | `interfaces/encoders/VectorEncoder.py`         |          `3 + 4*N` (default `35` for `N=8`) | Not used by current training script                          | Baseline egocentric object-list encoding (player + nearest asteroids).                                                      |
 
@@ -44,12 +44,16 @@ State representation defines the information boundary between the game simulatio
    - Signed angle-to-target relative to ship heading (normalized `-1..1`).
    - Closing speed (normalized/clamped `-1..1`).
    - Asteroid size/scale (normalized `0..1`).
-3. **Peripheral rays (`num_rays` floats)**
-   - For each ray: normalized hit distance (`0..1`), where `1.0` indicates max range/no hit.
+3. **Peripheral rays (`num_rays * 2` floats)**
+   - For each ray:
+     - Normalized hit distance (`0..1`), where `1.0` indicates max range/no hit.
+     - Normalized closing speed (`-1..1`), projected relative velocity along ray (positive = closing).
 
 **Geometry & normalization**
 
-- **Toroidal geometry**: Relative asteroid positions are computed with screen-wrap shortest-path adjustment before distance/angle calculations.
+- **Toroidal geometry**:
+  - Fovea uses shortest-path wrapped coordinates.
+  - **Raycasts use "Ghost Targets":** Asteroids are virtually duplicated into the 8 surrounding grid spaces. Rays check intersection against all valid ghosts within range, ensuring visibility across screen edges ("the long way around").
 - **Ray intersection**: Rays intersect asteroid circles using explicit radii (`ASTEROID_BASE_RADIUS * scale`) to avoid reliance on sprite textures.
 - **Normalization bounds**:
   - Player terminal velocity is approximated by `PLAYER_ACCELERATION / (1 - PLAYER_FRICTION)`.
@@ -123,10 +127,12 @@ AsteroidsGame / HeadlessAsteroidsGame
 - [ ] Increase ray resolution (shared): Increase `HybridEncoder.num_rays` (e.g., 16 -> 32) to improve angular coverage and reduce blind-spot exploitation.
 - [ ] Add rear/side ray coverage (shared): Distribute rays to include rear and lateral directions (not only forward-biased sweeps) so "spinning turret" policies cannot rely on unseen approaches.
 - [ ] Add ray time-to-collision (TTC) features (shared): Add per-ray predictive TTC estimates to represent imminent collisions explicitly (industry-standard avoidance signal).
-- [ ] Add per-ray closing-speed features (shared): Add per-ray relative approach speed so the agent can distinguish “near but receding” from “far but rapidly closing”.
 - [ ] Add aim-alignment features (shared): Provide a compact "frontness" / best-ray index signal (e.g., weighted by which ray has the nearest hit) to support aiming reward shaping without new object detectors.
 - [ ] Encoder schema versioning (shared): Version encoder output layouts so ray-count/layout changes are tracked and old genomes/checkpoints can be invalidated intentionally.
 - [ ] Variable-cardinality representations: Add graph-based or set-based encoders for methods that can consume variable entity counts.
+- [ ] Graph encoder (GNN-SAC): Add `interfaces/encoders/GraphEncoder.py` that converts `EnvironmentTracker` state into a framework-agnostic graph payload (not a fixed-size vector).
+- [ ] Graph encoder (toroidal deltas): Implement canonical wrapped `(dx, dy)` computation so “near across screen edge” is encoded as near for every entity relationship.
+- [ ] Graph encoder (cardinality config): Add `MAX_ASTEROIDS` configuration with default “all asteroids” and deterministic selection when capped (e.g., K nearest by wrapped distance).
 - [ ] Encoder benchmarking harness: Standardize offline tests that validate normalization ranges and output stability across game modes (windowed vs headless).
 
 ### ES-Oriented Observability Roadmap (Easy / Medium / Hard)
@@ -155,3 +161,4 @@ AsteroidsGame / HeadlessAsteroidsGame
 ## Discarded / Obsolete / No Longer Relevant
 
 - The “Hybrid Raycast Encoder (Fovea design)” is no longer speculative; it is implemented as `interfaces/encoders/HybridEncoder.py` and used by the GA training script.
+- The “per-ray closing-speed features” plan item is no longer pending; `HybridEncoder.encode_rays(...)` already emits a closing-speed value per ray alongside hit distance.

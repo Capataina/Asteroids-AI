@@ -173,7 +173,7 @@ class GADriver:
             return fitnesses
 
         # Extract behavior vectors and diversity scores
-        behavior_vectors = [m.get('behavior_vector', [0.0] * 7) for m in per_agent_metrics]
+        behavior_vectors = [m.get('behavior_vector', [0.0] * 11) for m in per_agent_metrics]
         diversity_scores = [m.get('reward_diversity', 0.0) for m in per_agent_metrics]
 
         # Compute behavior novelty scores

@@ -59,6 +59,16 @@ Genetic operator stats (recorded when provided by the method driver):
 - `avg_diversity`: average reward diversity score used for selection (when diversity is enabled).
 - `archive_size`: current size of the behavior archive (novelty history).
 
+NEAT operator stats (recorded when provided by the NEAT driver):
+
+- `species_count`, `species_min_size`, `species_max_size`, `species_median_size`
+- `species_pruned` (stagnation-based pruning count)
+- `avg_nodes`, `avg_connections`
+- `best_nodes`, `best_connections`
+- `compatibility_threshold`, `compatibility_mean`, `compatibility_p10`, `compatibility_p90`
+- `add_node_events`, `add_connection_events`, `weight_mutation_events`, `crossover_events`
+- `innovation_survival_rate`
+
 ES optimizer diagnostics (recorded when provided by CMA-ES):
 
 - `sigma`: CMA-ES global step size.
@@ -205,6 +215,74 @@ Additional distribution stats:
 - [ ] Evaluation seed-policy metadata: Record whether a generation used per-candidate seeds or common-random-numbers (CRN), and persist the exact seed set used.
 - [ ] Long-run storage strategy: Optional compression or chunked exports when `training_data.json` grows large.
 
+### RL Method Support (Planned)
+
+- [ ] RL run artifacts: Add consistent artifact names for RL runs (e.g., `training_data_sac.json`, `training_summary_sac.md`) produced by the same analytics exporter APIs.
+- [ ] RL config capture: Persist RL-specific config (graph caps, device, framework versions) into the analytics `config` block for reproducibility.
+- [ ] RL action health metrics: Record continuous action statistics (turn/thrust magnitude + saturation + entropy) as first-class generation/interval keys.
+- [ ] RL embedding health metrics: Record state-embedding variance and similarity diagnostics so embedding collapse can be detected without manual inspection.
+- [ ] RL learner stability metrics: Record actor/critic losses, Q-value scale, alpha (temperature), and gradient norms so training instability is visible in reports.
+- [ ] RL replay health metrics: Record replay size, warmup/learn start progress, and episode-length/reward distribution snapshots so data quality can be diagnosed.
+- [ ] RL report sections: Add dedicated report sections (or append blocks) for action health, embedding health, and learner stability alongside existing fitness/generalization sections.
+
+### RL Metrics (Planned: Concrete Keys)
+
+These keys are intended to be emitted by `train_gnn_sac.py` via `TrainingAnalytics.record_generation(...)` (or a periodic “interval” record) and exported in `training_data_sac.json`.
+
+- [ ] RL “generation” meaning: When reusing the GA/ES/NEAT `generations_data` schema, treat “generation” as a **reporting interval index** for RL (e.g., every N environment steps) rather than an evolutionary generation.
+- [ ] RL timebase keys: Record the absolute RL timebase alongside each interval so plots can be interpreted correctly.
+
+#### RL Action Health (Continuous-Control)
+
+- [ ] `turn_abs_mean`: Mean absolute `turn_value` over the logging window (detects “never turns” vs active control).
+- [ ] `turn_abs_p90`: 90th percentile absolute `turn_value` (detects whether high authority is ever used).
+- [ ] `turn_near_zero_rate`: Fraction of steps with `|turn_value| < eps` (detects turn collapse).
+- [ ] `turn_saturation_rate`: Fraction of steps with `|turn_value| > 0.95` (detects “always max turn” degeneracy).
+- [ ] `thrust_mean`: Mean `thrust_value` (detects always-on vs always-off thrust).
+- [ ] `thrust_zero_rate`: Fraction of steps with `thrust_value < eps` (detects “never thrust” collapse).
+- [ ] `thrust_saturation_rate`: Fraction of steps with `thrust_value > 0.95` (detects always-on thrust).
+- [ ] `shoot_prob_mean`: Mean shoot probability/logit-derived probability (detects shoot collapse).
+- [ ] `shoot_rate`: Fraction of steps where a shot is actually fired (environment-level realization).
+- [ ] `shoot_saturation_rate`: Fraction of steps with `shoot_prob < eps` or `shoot_prob > 1-eps` (detects probability collapse).
+- [ ] `policy_entropy_mean`: Mean policy entropy (continuous + shoot head) to detect exploration collapse.
+
+#### RL Timebase / Progress (Schema Compatibility)
+
+- [ ] `env_steps_total`: Total environment steps collected so far (monotonic).
+- [ ] `updates_total`: Total learner update steps performed so far (monotonic).
+- [ ] `episodes_total`: Total completed episodes so far (monotonic).
+
+#### RL Embedding Health (GNN Representation)
+
+- [ ] `state_emb_mean_norm`: Mean L2 norm of the state embedding batch (detects scale drift).
+- [ ] `state_emb_std_mean`: Mean per-dimension std of embeddings across batch/time (low values indicate collapse).
+- [ ] `state_emb_cosine_sim_mean`: Mean pairwise cosine similarity across a sampled embedding batch (high values indicate collapse).
+- [ ] `state_emb_cosine_sim_p90`: 90th percentile pairwise cosine similarity (detects partial collapse).
+
+#### RL Learner Stability (Optimization Diagnostics)
+
+- [ ] `critic_loss_mean`: Mean critic TD loss over the logging window.
+- [ ] `actor_loss_mean`: Mean actor loss over the logging window.
+- [ ] `alpha_value`: Current entropy temperature value (auto-tuning health).
+- [ ] `alpha_loss_mean`: Mean alpha loss over the logging window (auto-tuning stability).
+- [ ] `q1_mean`: Mean Q1 value on a sampled training batch (scale sanity).
+- [ ] `q2_mean`: Mean Q2 value on a sampled training batch (scale sanity).
+- [ ] `q_target_mean`: Mean target Q value on a sampled training batch (bootstrapping sanity).
+- [ ] `td_error_mean`: Mean TD error magnitude (learning progress proxy).
+- [ ] `td_error_std`: Stddev of TD error magnitude (instability proxy).
+- [ ] `actor_grad_norm`: Gradient norm of actor parameters (explosion/vanishing detection).
+- [ ] `critic_grad_norm`: Gradient norm of critic parameters (explosion/vanishing detection).
+- [ ] `grad_clip_hit_rate`: Fraction of updates where gradient clipping activated (too-hot learning detection).
+
+#### RL Replay / Data Health (Off-Policy Data Quality)
+
+- [ ] `replay_size`: Current number of transitions in replay (warmup visibility).
+- [ ] `learn_start_progress`: Fraction of warmup completed (`steps / LEARN_START_STEPS`).
+- [ ] `episode_len_mean`: Mean episode length over completed episodes (survivability proxy).
+- [ ] `episode_len_p90`: 90th percentile episode length (tail survivability proxy).
+- [ ] `reward_mean`: Mean reward per step over collected transitions (scale sanity).
+- [ ] `reward_std`: Stddev reward per step over collected transitions (noise proxy).
+
 ### Reporting Correctness & Interpretability (Easy)
 
 - [ ] Fresh-game training-fitness provenance: Store and print the exact scalar fitness value used as the denominator for `fitness_ratio` in each fresh-game record.
@@ -302,6 +380,24 @@ Additional distribution stats:
 
 - [ ] Multi-objective exports (method-agnostic): Extend schema to store per-candidate objective vectors and per-generation Pareto front summaries (front size, archetype mix, best-by-objective).
 - [ ] Pareto report sections (method-agnostic): Add report sections that summarize Pareto fronts and trade-offs (objective correlations, front progression, stability under validation seeds).
+
+### NEAT Reporting Support (Medium / Hard)
+
+#### Medium
+
+- [x] Species count series: Record the number of species per generation as a diversity signal for topology-growth runs.
+- [x] Species size distribution: Record per-generation min/median/max species sizes to detect collapse into a single species.
+- [x] Topology growth series: Record average node count per generation to measure structural growth over time.
+- [x] Topology growth series: Record average connection count per generation to measure structural growth over time.
+- [x] Operator event counts: Record per-generation counts of add-node, add-connection, crossover, and weight-mutation events.
+- [x] Compatibility threshold telemetry: Record the active compatibility threshold per generation to explain speciation dynamics.
+- [x] Species stagnation telemetry: Record the number of stagnant species pruned per generation to explain population resets.
+
+#### Hard
+
+- [ ] Genome identity tracking: Store a stable identifier (e.g., genome hash) for the fresh-tested genome to improve generalization provenance.
+- [ ] Genome artifact links: Store paths/filenames for best-genome JSON/DOT artifacts in the analytics export for replay and inspection.
+- [ ] Species-level dashboards: Add report tables/plots for best fitness per species and species lifetime to support debugging selection pressure.
 
 ## Notes / Design Considerations (optional)
 

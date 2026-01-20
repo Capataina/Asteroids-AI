@@ -18,11 +18,17 @@ Asteroids AI/
 │   ├── base_agent.py                    # BaseAgent contract: encoded_state -> action_vector
 │   ├── neuroevolution/
 │   │   ├── nn_agent.py                  # NNAgent: wraps FeedforwardPolicy for GA (NumPy, fixed-topology MLP)
-│   │   └── nn_agent_tf.py               # NNAgentTF: TensorFlow agent wrapper (present, currently unused by training scripts)
-│   └── policies/
+│   │   ├── nn_agent_tf.py               # NNAgentTF: TensorFlow agent wrapper (present, currently unused by training scripts)
+│   │   └── neat/
+│   │       ├── genes.py                 # NEAT node/connection gene primitives
+│   │       ├── genome.py                # NEAT genome: mutations, crossover, compatibility distance
+│   │       ├── network.py               # Feedforward NEAT network compilation + forward pass
+│   │       └── agent.py                 # NEATAgent wrapper for NEAT genomes
+│   ├── policies/
 │       ├── feedforward.py               # FeedforwardPolicy NumPy MLP unpacking + forward pass
 │       ├── feedforward_tf.py            # FeedforwardPolicyTF TensorFlow Keras MLP for ES
 │       └── linear.py                    # LinearPolicy (present, currently unused)
+│   └── reinforcement_learning/           # RL agents (folder exists; currently empty placeholder)
 │
 ├── game/
 │   ├── globals.py                       # Physics/constants shared by windowed + headless
@@ -50,10 +56,12 @@ Asteroids AI/
 ├── training/
 │   ├── scripts/
 │   │   ├── train_ga.py                  # Main GA entry point: evaluate -> playback -> evolve (+ analytics)
-│   │   └── train_es.py                  # Main ES entry point: sample -> evaluate -> playback -> update (+ analytics)
+│   │   ├── train_es.py                  # Main ES entry point: sample -> evaluate -> playback -> update (+ analytics)
+│   │   └── train_neat.py                # Main NEAT entry point: evaluate -> playback -> evolve (+ analytics)
 │   ├── config/
 │   │   ├── genetic_algorithm.py         # GAConfig hyperparameters (population, seeds, mutation/crossover)
 │   │   ├── evolution_strategies.py      # ESConfig hyperparameters (CMA-ES + legacy classic ES)
+│   │   ├── neat.py                      # NEATConfig hyperparameters (speciation, mutation, population)
 │   │   ├── rewards.py                   # Training reward preset (ComposableRewardCalculator assembly)
 │   │   ├── analytics.py                 # AnalyticsConfig: report section toggles + windows
 │   │   ├── pareto.py                    # ParetoConfig for multi-objective ranking (shared)
@@ -69,10 +77,14 @@ Asteroids AI/
 │   │   │   ├── driver.py                # GADriver: evolve population + adaptive mutation + novelty selection
 │   │   │   ├── selection.py             # Tournament selection
 │   │   │   └── operators.py             # BLX-alpha crossover + gaussian/uniform mutation
-│   │   └── evolution_strategies/
-│   │       ├── driver.py                # ESDriver (classic ES, present but unused by train_es.py)
-│   │       ├── cmaes_driver.py          # CMAESDriver: diagonal CMA-ES update used by train_es.py
-│   │       └── fitness_shaping.py       # Rank transformation + utility computation
+│   │   ├── evolution_strategies/
+│   │   │   ├── driver.py                # ESDriver (classic ES, present but unused by train_es.py)
+│   │   │   ├── cmaes_driver.py          # CMAESDriver: diagonal CMA-ES update used by train_es.py
+│   │   │   └── fitness_shaping.py       # Rank transformation + utility computation
+│   │   └── neat/
+│   │       ├── driver.py                # NEATDriver: speciation, crossover, mutation, population evolution
+│   │       ├── innovation.py            # InnovationTracker for connection ids and split tracking
+│   │       └── species.py               # Species state and stagnation tracking
 │   ├── components/
 │   │   ├── novelty.py                   # Behavior vector + kNN novelty scoring
 │   │   ├── diversity.py                 # Reward diversity (entropy) scoring + warnings
@@ -100,12 +112,15 @@ Asteroids AI/
 │   ├── SHARED_COMPONENTS.md
 │   ├── ANALYTICS.md
 │   ├── EVOLUTION_STRATEGIES.md
-│   └── NEAT.md
+│   ├── NEAT.md
+│   └── GNN_SAC.md
 │
 ├── training_data.json                   # Generated GA training metrics export
 ├── training_summary.md                  # Generated GA training report
 ├── training_data_es.json                # Generated ES training metrics export
-└── training_summary_es.md               # Generated ES training report
+├── training_summary_es.md               # Generated ES training report
+├── training_data_neat.json              # Generated NEAT training metrics export
+└── training_summary_neat.md             # Generated NEAT training report
 ```
 
 ### Subsystem Responsibilities (Implemented)
@@ -118,7 +133,7 @@ Asteroids AI/
 | **Encoders** (`interfaces/encoders/`)          | Transform game state into fixed-size vectors (currently `HybridEncoder`, `TemporalStackEncoder`, `VectorEncoder`). |
 | **Agents** (`ai_agents/`)                      | Implement the `BaseAgent` state->action contract; GA and ES training scripts currently use `NNAgent` (NumPy). |
 | **Training Core** (`training/core/`)           | Executes evaluation/playback orchestration and wires game + interfaces + agents.                   |
-| **Training Methods** (`training/methods/`)     | Algorithm-specific optimization logic; GA and ES are implemented.                                  |
+| **Training Methods** (`training/methods/`)     | Algorithm-specific optimization logic; GA, ES, and NEAT are implemented.                           |
 | **Shared Components** (`training/components/`) | Method-agnostic novelty/diversity scoring plus Pareto ranking utilities.                           |
 | **Analytics** (`training/analytics/`)          | Records generation data, exports JSON, and generates the markdown training report.                 |
 
@@ -211,12 +226,46 @@ Game state
     - Mean update using weighted recombination of selected steps.
     - Step-size and diagonal covariance updates via CMA-ES evolution paths.
 
+### Core Execution Flow (Implemented: NEAT)
+
+`training/scripts/train_neat.py` orchestrates NEAT training inside the arcade window:
+
+- **Infrastructure setup**
+
+  - Encoder: `HybridEncoder(num_rays=16, num_fovea_asteroids=3)` (same baseline as GA).
+  - Action mapping: `ActionInterface(action_space_type="boolean")` (same as GA/ES).
+  - Reward preset: `training/config/rewards.py:create_reward_calculator()` (same for comparability).
+  - Driver: `training/methods/neat/driver.py:NEATDriver(...)` (speciation + topology growth).
+  - Analytics: `training/analytics/analytics.py:TrainingAnalytics` (shared pipeline).
+  - Display: `training/core/display_manager.py:DisplayManager` (best-genome playback).
+
+- **Evaluation phase**
+
+  - `training/core/population_evaluator.py:evaluate_population_parallel(...)` evaluates genomes using an `agent_factory` hook that builds `NEATAgent` instances.
+  - Multi-seed averaging uses `NEATConfig.SEEDS_PER_AGENT` and optional CRN via `NEATConfig.USE_COMMON_SEEDS`.
+  - Returns fitnesses and behavior metrics for analytics and selection shaping.
+
+- **Playback (fresh game) phase**
+
+  - Best genome (Pareto-ranked for display) is played in the windowed game.
+  - Fresh-game metrics and generalization ratios are recorded via `TrainingAnalytics.record_fresh_game(...)`.
+
+- **Evolution phase**
+  - `NEATDriver.evolve(...)` performs:
+    - Compatibility-distance speciation with fitness sharing.
+    - Species stagnation tracking and pruning.
+    - Crossover alignment by innovation id.
+    - Structural mutations (add-node, add-connection) and weight perturbation.
+
 ## Implemented Outputs / Artifacts (if applicable)
 
 - `training_summary.md`: Markdown report generated by `TrainingAnalytics.generate_markdown_report(...)`.
 - `training_data.json`: JSON export generated by `TrainingAnalytics.save_json(...)` (schema + config + per-generation data + fresh-game data).
 - `training_summary_es.md`: Markdown report generated by ES training via `TrainingAnalytics.generate_markdown_report(...)`.
 - `training_data_es.json`: JSON export generated by ES training via `TrainingAnalytics.save_json(...)`.
+- `training_summary_neat.md`: Markdown report generated by NEAT training via `TrainingAnalytics.generate_markdown_report(...)`.
+- `training_data_neat.json`: JSON export generated by NEAT training via `TrainingAnalytics.save_json(...)`.
+- `training/neat_artifacts/*`: Best-genome JSON and DOT exports produced by NEAT training.
 
 ## In Progress / Partially Implemented
 
@@ -229,11 +278,12 @@ Game state
 
 ## Planned / Missing / To Be Changed
 
-- [ ] NEAT method: Implement variable-topology genomes/speciation/innovation tracking consistent with `README.md` direction.
 - [ ] Multi-method training dashboard: Parallel training/display infrastructure consistent with `README.md` ("single environment, multiple minds").
 - [ ] Checkpointing/resume: Persist method state (e.g., GA population + ES mean + best genome) so long runs can resume and be replayed.
 - [ ] Unified evaluator interface: Consider consolidating `population_evaluator.py` and `population_evaluator_tf.py` with a policy factory pattern.
 - [ ] Curriculum hooks (future): Add environment-level difficulty knobs and training hooks for progressive difficulty, while keeping the progression metric as an open design decision.
+- [ ] RL stack (GNN + SAC): Implement a step-based off-policy RL method using a graph encoder and SAC while reusing the shared reward + analytics pipelines.
+- [ ] True continuous control path: Implement analog turning/thrust application in both headless and windowed game loops while preserving the current boolean control path for GA/ES/NEAT compatibility.
 
 ## Notes / Design Considerations (optional)
 

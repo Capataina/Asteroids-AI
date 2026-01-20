@@ -17,17 +17,23 @@ def compute_behavior_vector(metrics: Dict, steps: int) -> List[float]:
     All values are normalized to [0, 1] for fair distance comparison.
     This vector describes WHAT the agent did, not how well it was rewarded.
 
+    The behavior vector includes turn dynamics to distinguish "spinner" agents
+    (always turning one direction, low switch rate, high streak length) from
+    "agile" agents (balanced turning, high switch rate, short streaks).
+
     Args:
         metrics: Dictionary containing agent evaluation metrics
         steps: Total steps the agent survived
 
     Returns:
-        List of 7 normalized behavior features
+        List of 11 normalized behavior features
     """
     if steps <= 0:
-        return [0.0] * 7
+        return [0.0] * 11
 
     return [
+        # === Original 7 features ===
+
         # Movement tendency - how often does it thrust?
         min(metrics.get('thrust_frames', 0) / steps, 1.0),
 
@@ -50,6 +56,30 @@ def compute_behavior_vector(metrics: Dict, steps: int) -> List[float]:
         # Area coverage - how much does it move around the screen?
         # Normalized by 20 wraps (arbitrary reasonable max)
         min(metrics.get('screen_wraps', 0) / 20.0, 1.0),
+
+        # === Turn dynamics (distinguishes spinner from agile turner) ===
+
+        # Turn switch rate - how often does the agent change turn direction?
+        # High = agile/reactive, Low = spinner
+        # Already [0, 1] as it's a rate
+        min(metrics.get('turn_switch_rate', 0.0), 1.0),
+
+        # Turn balance - does the agent favor one direction?
+        # Original range is [-1, +1], normalize to [0, 1]
+        # 0.5 = balanced, 0 = always left, 1 = always right
+        (metrics.get('turn_balance', 0.0) + 1.0) / 2.0,
+
+        # Average turn streak - how long does the agent hold one direction?
+        # Normalized by 200 frames (arbitrary max for "extreme spinner")
+        # High = spinner, Low = agile
+        min(metrics.get('avg_turn_streak', 0.0) / 200.0, 1.0),
+
+        # === Neural health ===
+
+        # Output saturation - are outputs stuck at extremes (>0.9 or <0.1)?
+        # High = binary slamming, Low = analog control
+        # Already [0, 1] as it's a rate
+        min(metrics.get('output_saturation', 0.0), 1.0),
     ]
 
 

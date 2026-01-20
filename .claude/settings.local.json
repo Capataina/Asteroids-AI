@@ -4,7 +4,8 @@
       "Bash(dir:*)",
       "Bash(wc:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(python tests/test_neat_xor.py:*)"
     ]
   }
 }

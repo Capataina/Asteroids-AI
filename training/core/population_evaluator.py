@@ -8,7 +8,7 @@ import concurrent.futures
 import random
 import math
 from collections import defaultdict
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Callable, Any
 from game.headless_game import HeadlessAsteroidsGame
 from game import globals
 from ai_agents.neuroevolution.nn_agent import NNAgent
@@ -29,19 +29,21 @@ def evaluate_single_agent(
     max_steps: int = 2000,
     frame_delay: float = 1.0 / 60.0,
     random_seed: int = None,
-    hidden_size: int = GAConfig.HIDDEN_LAYER_SIZE
+    hidden_size: int = GAConfig.HIDDEN_LAYER_SIZE,
+    agent_factory: Optional[Callable[[Any, VectorEncoder, ActionInterface], Any]] = None
 ) -> float:
     """
     Evaluate a single agent in a headless game instance.
 
     Args:
-        individual: Parameter vector for the agent (neural network weights)
+        individual: Parameter vector or genome-like object for the agent
         state_encoder: State encoder instance
         action_interface: Action interface instance
         max_steps: Maximum steps per episode
         frame_delay: Time delta per step
         random_seed: Random seed for reproducible asteroid spawning
         hidden_size: Number of hidden neurons in neural network
+        agent_factory: Optional callable to construct a custom agent for the individual
 
     Returns:
         Fitness score (total reward)
@@ -58,8 +60,11 @@ def evaluate_single_agent(
     )
     reward_calculator.reset()
 
-    # Create neural network agent
-    agent = NNAgent(individual, state_encoder, action_interface, hidden_size=hidden_size)
+    # Create agent (default: fixed-topology NNAgent)
+    if agent_factory is not None:
+        agent = agent_factory(individual, state_encoder, action_interface)
+    else:
+        agent = NNAgent(individual, state_encoder, action_interface, hidden_size=hidden_size)
     agent.reset()
 
     # Reset state encoder for this episode
@@ -110,7 +115,8 @@ def evaluate_single_agent(
     total_turn_streak = 0
     turn_streak_count = 0
     last_turn_sign = 0
-    turn_deadzone = 0.0
+    # Use the action interface's deadzone for consistent tracking
+    turn_deadzone = action_interface.turn_deadzone
 
     # Aim alignment tracking
     frontness_sum = 0.0
@@ -598,7 +604,8 @@ def evaluate_population_parallel(
     max_workers: int = None,
     generation_seed: int = None,
     seeds_per_agent: int = 3,
-    use_common_seeds: bool = False
+    use_common_seeds: bool = False,
+    agent_factory: Optional[Callable[[Any, StateEncoder, ActionInterface], Any]] = None
 ) -> Tuple[List[float], int, Dict, List[Dict]]:
     """
     Evaluate entire population in parallel with multiple seeds per agent.
@@ -607,7 +614,7 @@ def evaluate_population_parallel(
     is averaged. This selects for generalization rather than luck on one seed.
 
     Args:
-        population: List of parameter vectors
+        population: List of parameter vectors or genomes
         state_encoder: State encoder instance
         action_interface: Action interface instance
         max_steps: Maximum steps per episode
@@ -616,6 +623,7 @@ def evaluate_population_parallel(
         seeds_per_agent: Number of different seeds to evaluate each agent on (default: 3)
         use_common_seeds: If True, all agents use the same seed set (CRN for ES).
                           If False, each agent gets unique seeds (default, GA-style).
+        agent_factory: Optional callable to construct agents for non-vector genomes
 
     Returns:
         Tuple of:
@@ -662,7 +670,8 @@ def evaluate_population_parallel(
                 state_encoder,
                 action_interface,
                 max_steps,
-                random_seed=seed
+                random_seed=seed,
+                agent_factory=agent_factory
             )
             for agent_idx, individual, seed in all_eval_tasks
         ]
@@ -749,6 +758,7 @@ def evaluate_population_parallel(
                 agent_reward_breakdown[comp] += val / len(results)
 
         # Compute behavior vector for novelty calculation
+        # Includes turn dynamics to distinguish spinners from agile turners
         agent_metrics_for_behavior = {
             'thrust_frames': avg_thrust,
             'turn_frames': avg_turn,
@@ -757,6 +767,12 @@ def evaluate_population_parallel(
             'idle_rate': avg_idle_rate,
             'avg_asteroid_dist': avg_asteroid_dist,
             'screen_wraps': avg_screen_wraps,
+            # Turn dynamics (new)
+            'turn_switch_rate': avg_turn_switch_rate,
+            'turn_balance': avg_turn_balance,
+            'avg_turn_streak': avg_turn_streak,
+            # Neural health (new)
+            'output_saturation': avg_saturation,
         }
         behavior_vector = compute_behavior_vector(agent_metrics_for_behavior, avg_steps)
 

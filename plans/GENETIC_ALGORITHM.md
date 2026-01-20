@@ -27,10 +27,10 @@ The Genetic Algorithm is the currently implemented optimization method in Astero
 
 - Formula (as implemented): `input*hidden + hidden + hidden*output + output`.
 - Current default sizes:
-  - Input: `HybridEncoder.get_state_size() = 31` (see `plans/STATE_REPRESENTATION.md`)
+  - Input: `HybridEncoder.get_state_size() = 47` (see `plans/STATE_REPRESENTATION.md`)
   - Hidden: `GAConfig.HIDDEN_LAYER_SIZE = 24`
   - Output: `3` (signed turn, thrust, shoot)
-  - Parameter count: `31*24 + 24 + 24*3 + 3 = 843`
+  - Parameter count: `47*24 + 24 + 24*3 + 3 = 1227`
 
 ### State Encoding (Implemented)
 
@@ -38,7 +38,7 @@ The current GA training script uses `interfaces/encoders/HybridEncoder.py` (not 
 
 | Encoder         | File                                   | Default Size | Used In                        |
 | --------------- | -------------------------------------- | -----------: | ------------------------------ |
-| `HybridEncoder` | `interfaces/encoders/HybridEncoder.py` |         `31` | `training/scripts/train_ga.py` |
+| `HybridEncoder` | `interfaces/encoders/HybridEncoder.py` |         `47` | `training/scripts/train_ga.py` |
 
 **HybridEncoder feature layout (granular)**
 
@@ -51,8 +51,9 @@ The current GA training script uses `interfaces/encoders/HybridEncoder.py` (not 
   - Signed angle-to-target relative to ship heading (normalized).
   - Closing speed (normalized/clamped).
   - Asteroid size/scale (normalized).
-- Peripheral rays (16):
+- Peripheral rays (16 × 2):
   - Normalized ray hit distances (`1.0` indicates max range/no hit).
+  - Normalized ray closing speeds (positive indicates approaching threat along the ray).
 
 ### Action Space (Implemented)
 

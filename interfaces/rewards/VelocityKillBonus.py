@@ -15,6 +15,7 @@ class VelocityKillBonus(RewardComponent):
             bonus_per_kill: The maximum reward awarded for a kill at or above max_speed.
             max_speed_for_full_bonus: The speed at which the maximum bonus is awarded.
         """
+        self.name = "VelocityKillBonus"
         self.bonus_per_kill = bonus_per_kill
         self.max_speed = max_speed_for_full_bonus
         self.prev_total_kills = 0

@@ -41,7 +41,7 @@ def write_computational_performance(f, generations_data: List[Dict[str, Any]]):
     evol_pct = (avg_evol/avg_total)*100 if avg_total > 0 else 0.0
     
     f.write(f"- **Evaluation (Simulation):** {avg_eval:.2f}s ({eval_pct:.1f}%)\n")
-    f.write(f"- **Evolution (GA Operators):** {avg_evol:.4f}s ({evol_pct:.1f}%)\n\n")
+    f.write(f"- **Evolution (Operators):** {avg_evol:.4f}s ({evol_pct:.1f}%)\n\n")
     
     f.write("| Phase | Gen Range | Avg Eval Time | Avg Evol Time | Total Time |\n")
     f.write("|-------|-----------|---------------|---------------|------------|\n")
@@ -126,6 +126,75 @@ def write_genetic_operator_stats(f, generations_data: List[Dict[str, Any]]):
             ("Elites", "Individuals preserved without mutation."),
         ],
         title="Operator Glossary",
+    )
+
+    # NEAT-specific diagnostics (when available)
+    has_neat = 'species_count' in generations_data[-1] or 'avg_nodes' in generations_data[-1]
+    if not has_neat:
+        return
+
+    f.write("\n## NEAT Speciation & Topology Statistics\n\n")
+    recent = generations_data[-10:]
+
+    def _avg(key: str) -> float:
+        return sum(g.get(key, 0.0) for g in recent) / len(recent)
+
+    species_count = _avg('species_count')
+    species_min = _avg('species_min_size')
+    species_med = _avg('species_median_size')
+    species_max = _avg('species_max_size')
+    pruned = _avg('species_pruned')
+
+    avg_nodes = _avg('avg_nodes')
+    avg_conns = _avg('avg_connections')
+    best_nodes = _avg('best_nodes')
+    best_conns = _avg('best_connections')
+
+    thr = _avg('compatibility_threshold')
+    cmean = _avg('compatibility_mean')
+    cp10 = _avg('compatibility_p10')
+    cp90 = _avg('compatibility_p90')
+
+    add_node = _avg('add_node_events')
+    add_conn = _avg('add_connection_events')
+    wmut = _avg('weight_mutation_events')
+    innov_survival = _avg('innovation_survival_rate')
+
+    f.write("**Recent Averages (Last 10 Generations):**\n")
+    f.write(f"- **Species count:** {species_count:.2f}\n")
+    f.write(f"- **Species size (min/median/max):** {species_min:.1f} / {species_med:.1f} / {species_max:.1f}\n")
+    f.write(f"- **Species pruned:** {pruned:.2f}\n")
+    f.write(f"- **Topology (avg nodes / avg enabled conns):** {avg_nodes:.2f} / {avg_conns:.2f}\n")
+    f.write(f"- **Topology (best nodes / best enabled conns):** {best_nodes:.2f} / {best_conns:.2f}\n")
+    f.write(f"- **Compatibility (threshold / mean / p10 / p90):** {thr:.3f} / {cmean:.3f} / {cp10:.3f} / {cp90:.3f}\n")
+    f.write(f"- **Structural ops (add-node / add-conn):** {add_node:.2f} / {add_conn:.2f}\n")
+    f.write(f"- **Weight mutations (per-gen counter):** {wmut:.1f}\n")
+    f.write(f"- **Innovation survival rate:** {innov_survival:.2f}\n\n")
+
+    takeaways = [
+        "Species count and compatibility-distance stats indicate whether speciation is separating the population.",
+        "Topology growth (nodes/connections) indicates whether structure is changing, not just weights."
+    ]
+    warnings = []
+    if species_count <= 1.1:
+        warnings.append("Speciation appears collapsed (≈1 species); reduce compatibility threshold or enable/adapt thresholding.")
+    if thr > 0 and cmean / thr < 0.25:
+        warnings.append("Compatibility threshold is much larger than observed distances; most genomes will land in one species.")
+    if innov_survival < 0.2:
+        warnings.append("Low innovation survival; structural mutations may be getting eliminated too quickly.")
+
+    write_takeaways(f, takeaways, title="NEAT Takeaways")
+    write_warnings(f, warnings, title="NEAT Warnings")
+
+    write_glossary(
+        f,
+        [
+            ("Species count", "Number of species in the population (diversity via speciation)."),
+            ("Compatibility distance", "Speciation distance based on excess/disjoint genes and weight differences."),
+            ("Avg nodes/connections", "Mean topology size across the population (growth signal)."),
+            ("Innovation survival rate", "Fraction of newly created structural innovations that persist into the next generation."),
+        ],
+        title="NEAT Glossary",
     )
 
 

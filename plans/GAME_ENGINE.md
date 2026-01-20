@@ -98,6 +98,8 @@ Key constants live in `game/globals.py`:
 - [ ] Progressive difficulty schedule (future): Define a curriculum schedule that increases difficulty as policies improve, while keeping metric selection and comparability as an open design decision (not yet a committed goal).
 - [ ] Wrap-aware collisions: Detect collisions that occur across the screen edge (toroidal overlap) rather than only after wrapping positions.
 - [ ] Per-tick event hooks: Expose "shots fired this tick", "asteroids destroyed this tick", etc., for cleaner reward components and analytics.
+- [ ] True continuous control (RL): Add analog turning/thrust application (per-step magnitudes) in both windowed and headless game loops while preserving boolean key input for manual play and existing agents.
+- [ ] Control-mode parity (RL): Ensure analog controls behave identically in windowed playback and headless rollouts (same units, same `delta_time` semantics).
 
 ## Notes / Design Considerations (optional)
 

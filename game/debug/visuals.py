@@ -134,7 +134,7 @@ def draw_hybrid_encoder_debug(encoder, game):
         
         hit_dist = max_dist
         
-        # Check intersection
+        # Check intersection with all targets (including ghosts)
         for tx, ty, rad in targets:
             t = tx * ray_dx + ty * ray_dy
             if t < 0 or t > max_dist + rad: continue
@@ -151,11 +151,6 @@ def draw_hybrid_encoder_debug(encoder, game):
                     hit_dist = curr_hit
         
         # Draw Line
-        # Convert relative (wrapped) endpoint back to screen coordinates?
-        # No, for drawing we want to show the "Sensor View". 
-        # If we draw a line to a wrapped asteroid, it might streak across the screen.
-        # So we draw the ray from player center out to 'hit_dist'.
-        
         end_x = player.center_x + ray_dx * hit_dist
         end_y = player.center_y + ray_dy * hit_dist
         
@@ -168,4 +163,69 @@ def draw_hybrid_encoder_debug(encoder, game):
             color,
             1
         )
+
+def draw_target_lock_debug(game, cone_degrees=20.0, max_dist=500.0):
+    """
+    Visualize the TargetLockReward logic.
+    Draws the aiming cone and connects to the nearest target.
+    """
+    if not game.player or game.player not in game.player_list:
+        return
+        
+    player = game.player
+    
+    # 1. Draw Cone
+    # Left edge
+    angle_rad_l = math.radians(player.angle + cone_degrees)
+    lx = player.center_x + math.sin(angle_rad_l) * max_dist
+    ly = player.center_y + math.cos(angle_rad_l) * max_dist
+    arcade.draw_line(player.center_x, player.center_y, lx, ly, (0, 255, 255, 50), 1) # Cyan transparent
+    
+    # Right edge
+    angle_rad_r = math.radians(player.angle - cone_degrees)
+    rx = player.center_x + math.sin(angle_rad_r) * max_dist
+    ry = player.center_y + math.cos(angle_rad_r) * max_dist
+    arcade.draw_line(player.center_x, player.center_y, rx, ry, (0, 255, 255, 50), 1)
+
+    # 2. Find Nearest Target (Logic copied from TargetLockReward)
+    nearest = None
+    min_dist = float('inf')
+    
+    if game.asteroid_list:
+        for ast in game.asteroid_list:
+            rel_x = ast.center_x - player.center_x
+            rel_y = ast.center_y - player.center_y
+            
+            # Manual wrap
+            if abs(rel_x) > globals.SCREEN_WIDTH / 2:
+                rel_x = -1 * math.copysign(globals.SCREEN_WIDTH - abs(rel_x), rel_x)
+            if abs(rel_y) > globals.SCREEN_HEIGHT / 2:
+                rel_y = -1 * math.copysign(globals.SCREEN_HEIGHT - abs(rel_y), rel_y)
+                
+            dist = math.sqrt(rel_x**2 + rel_y**2)
+            if dist < min_dist:
+                min_dist = dist
+                nearest = (rel_x, rel_y, dist, ast) # Store relative pos
+
+    # 3. Draw Lock Status
+    if nearest and min_dist < max_dist:
+        rx, ry, dist, ast = nearest
+        
+        target_angle = math.degrees(math.atan2(rx, ry))
+        angle_diff = target_angle - player.angle
+        while angle_diff > 180: angle_diff -= 360
+        while angle_diff < -180: angle_diff += 360
+        
+        is_locked = abs(angle_diff) <= cone_degrees
+        
+        color = arcade.color.GREEN if is_locked else arcade.color.RED
+        
+        # Draw line to target (relative vector added to player center)
+        # Note: If wrapped, this draws a line "off screen" potentially, or across.
+        # Ideally we clip it to screen for visuals, but raw line is fine for debug.
+        target_draw_x = player.center_x + rx
+        target_draw_y = player.center_y + ry
+        
+        arcade.draw_line(player.center_x, player.center_y, target_draw_x, target_draw_y, color, 2)
+        arcade.draw_circle_outline(target_draw_x, target_draw_y, 20, color, 2)
 
