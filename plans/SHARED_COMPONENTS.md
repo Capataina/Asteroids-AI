@@ -133,6 +133,11 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 
 - [ ] Add report sections for novelty/diversity: Visualize archive growth, novelty trends, and diversity trends alongside fitness.
 - [ ] Adaptive archive threshold: Adjust novelty threshold dynamically based on archive fill rate and population novelty statistics.
+- [ ] Adaptive novelty-weight schedule: Adjust `NoveltyConfig.behavior_novelty_weight` based on behavior collapse signals (e.g., low population novelty, low action entropy).
+- [ ] Adaptive diversity-weight schedule: Adjust `NoveltyConfig.diversity_weight` based on reward concentration signals (high dominance / low entropy).
+- [ ] Adaptive novelty scaling: Adjust `NoveltyConfig.novelty_fitness_scale` so novelty bonuses remain rank-effective under changing fitness magnitudes.
+- [ ] Adaptive k-nearest schedule: Adjust `NoveltyConfig.k_nearest` based on population size and archive density (stability vs sensitivity).
+- [ ] Adaptive archive capacity schedule: Adjust `NoveltyConfig.archive_max_size` based on run length to avoid early saturation.
 - [ ] Behavior clustering: Cluster behavior vectors to identify distinct strategies and track their population share over time.
 - [ ] Extend behavior characterization (turn asymmetry): Add left-only/right-only/both-turn rates as explicit behavior dimensions to detect and penalize one-direction collapse in novelty pressure.
 - [ ] Extend behavior characterization (turn streaks): Add longest/mean same-direction turn streak length as a behavior dimension to distinguish "continuous spinner" from agile turning.
@@ -140,6 +145,8 @@ The novelty/diversity system is based on **reward-agnostic** behavior signals an
 - [ ] Extend behavior characterization (aim alignment): Add an aim-alignment metric (e.g., time with an asteroid in the front rays / best-ray index distribution) as a behavior dimension.
 - [ ] Extend behavior characterization (output saturation): Incorporate `output_saturation` into the behavior vector so novelty can discourage always-on saturated control policies.
 - [ ] Method parity integration: Ensure ES/NEAT selection/update logic can reuse the same novelty/diversity signals for fair comparison.
+- [ ] Adaptive Pareto objective schedule (shared): Rotate or reweight `ParetoConfig.OBJECTIVES` across training phases while logging the active objective set.
+- [ ] Adaptive Pareto risk sensitivity: Schedule `ParetoConfig.RISK_TAU` and `ParetoConfig.RISK_TTC_MAX` as difficulty changes or as policies become more stable.
 
 ### NEAT-Oriented Integration Roadmap (Easy / Medium / Hard)
 

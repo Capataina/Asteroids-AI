@@ -2,7 +2,7 @@
 Table of Contents generator for markdown reports.
 """
 
-def write_table_of_contents(f, has_behavior: bool, has_fresh_game: bool):
+def write_table_of_contents(f, has_behavior: bool, has_fresh_game: bool, has_sac: bool):
     """Write a clickable Table of Contents.
 
     Args:
@@ -40,6 +40,8 @@ def write_table_of_contents(f, has_behavior: bool, has_fresh_game: bool):
     f.write("- [Neural & Behavioral Complexity](#neural--behavioral-complexity)\n")
     f.write("- [Risk Profile Analysis](#risk-profile-analysis)\n")
     f.write("- [Control Diagnostics](#control-diagnostics)\n")
+    if has_sac:
+        f.write("- [Graph Neural Network and Soft Actor-Critic Diagnosis](#graph-neural-network-and-soft-actor-critic-diagnosis)\n")
     f.write("- [Convergence Analysis](#convergence-analysis)\n")
     
     if has_behavior:

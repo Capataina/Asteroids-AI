@@ -25,7 +25,7 @@ from game import globals
 REWARD_PRESETS = {
     "default": [
         # Survival - keep meaningful but avoid dominating the total reward.
-        (VelocitySurvivalBonus, {"reward_multiplier": 1.5, "max_velocity_cap": 15.0}),
+        # (VelocitySurvivalBonus, {"reward_multiplier": 1.5, "max_velocity_cap": 15.0}),
 
         # Kills - dynamic scaling; keep strong but not a runaway winner.
         (DistanceBasedKillReward, {"max_reward_per_kill": 15.0, "min_reward_fraction": 0.15}),
@@ -37,10 +37,10 @@ REWARD_PRESETS = {
         (TargetLockReward, {"aim_cone_degrees": 20.0, "reward_per_frame": 0.5, "max_distance": 500.0, "num_targets": 1}),
 
         # Exploration - small, consistent bonus to promote traversal.
-        (ExplorationBonus, {"screen_width": globals.SCREEN_WIDTH, "screen_height": globals.SCREEN_HEIGHT, "grid_rows": 3, "grid_cols": 4, "bonus_per_cell": 4.0}),
+        # (ExplorationBonus, {"screen_width": globals.SCREEN_WIDTH, "screen_height": globals.SCREEN_HEIGHT, "grid_rows": 3, "grid_cols": 4, "bonus_per_cell": 4.0}),
 
         # Death penalty - scaled to make early deaths meaningfully worse than late deaths.
-        (DeathPenalty, {"penalty": -150.0, "early_death_scale": 1.0}),
+        (DeathPenalty, {"penalty": -50.0, "early_death_scale": 1.0}),
     ]
 }
 

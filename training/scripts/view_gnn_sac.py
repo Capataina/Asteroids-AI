@@ -98,8 +98,15 @@ class SACViewer:
             return False
 
         checkpoint = torch.load(path, map_location=self.device)
-        self.learner.gnn.load_state_dict(checkpoint["gnn"])
-        self.learner.actor.load_state_dict(checkpoint["actor"])
+        try:
+            self.learner.gnn.load_state_dict(checkpoint["gnn"])
+            self.learner.actor.load_state_dict(checkpoint["actor"])
+            if "normalizer" in checkpoint:
+                self.learner.normalizer.load_state_dict(checkpoint["normalizer"])
+        except Exception as e:
+            print(f"[SAC] Failed to load checkpoint weights from {path}: {e}")
+            self.best_checkpoint_mtime = mtime
+            return False
         self.best_avg_return = float(checkpoint.get("avg_return", 0.0))
         self.best_step = int(checkpoint.get("step", 0))
         self.best_checkpoint_mtime = mtime

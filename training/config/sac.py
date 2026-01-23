@@ -22,9 +22,21 @@ class SACConfig:
     LEARN_START_STEPS = 5_000       # Steps before learning begins
     UPDATES_PER_STEP = 1            # Gradient updates per environment step
 
+    # === Reward Scaling ===
+    REWARD_SCALE = 0.2              # Multiplier applied to all rewards
+
+    # === Observation Normalization ===
+    OBS_NORM_ENABLED = True         # Normalize graph features with running stats
+    OBS_NORM_EPS = 1e-8             # Epsilon for normalization stability
+    OBS_NORM_CLIP = None            # Optional clip after normalization (None = no clip)
+
+    # === Action Smoothing ===
+    ACTION_SMOOTHING_ENABLED = False  # Apply EMA smoothing to actions
+    ACTION_SMOOTHING_ALPHA = 0.6      # EMA factor (higher = smoother)
+
     # === Learning Rates ===
     ACTOR_LR = 3e-4                 # Actor (and GNN) learning rate
-    CRITIC_LR = 3e-4                # Critic learning rate
+    CRITIC_LR = 1e-4                # Critic learning rate
     ALPHA_LR = 3e-4                 # Entropy temperature learning rate
 
     # === Entropy Tuning ===
@@ -42,8 +54,19 @@ class SACConfig:
     ACTOR_HIDDEN_DIM = 256          # Hidden dimension for actor MLP
     CRITIC_HIDDEN_DIM = 256         # Hidden dimension for critic MLPs
 
+    # === Critic Loss ===
+    CRITIC_LOSS = "huber"           # mse | huber
+    HUBER_DELTA = 1.0               # Huber delta when CRITIC_LOSS="huber"
+
     # === Stability ===
     GRAD_CLIP_NORM = 10.0           # Gradient clipping threshold
+    AGC_ENABLED = True              # Adaptive gradient clipping (per-parameter)
+    AGC_CLIP_FACTOR = 0.01          # Max grad norm as fraction of param norm
+    AGC_EPS = 1e-3                  # Epsilon for AGC param norm floor
+
+    # === Collectors ===
+    NUM_COLLECTORS = 1              # Parallel headless collectors
+    COLLECTOR_SEED_OFFSET = 10_000  # Seed offset between collectors
 
     # === Graph Encoder ===
     MAX_ASTEROIDS = None            # Maximum asteroids in graph (None = all)
@@ -59,6 +82,7 @@ class SACConfig:
     # === Evaluation / Best Tracking ===
     EVAL_EVERY_EPISODES = 5         # Evaluate current policy every N episodes
     EVAL_SEEDS = [1001, 1002, 1003, 1004, 1005]  # Fixed evaluation seeds
+    HOLDOUT_EVAL_SEEDS = []         # Optional held-out evaluation seeds
     BEST_CHECKPOINT_PATH = "training/sac_checkpoints/best_sac.pt"
 
     # === Viewer / Playback ===

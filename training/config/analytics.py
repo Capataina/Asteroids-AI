@@ -36,6 +36,7 @@ class AnalyticsConfig:
     ENABLE_NEURAL_ANALYSIS = True # Saturation & Entropy
     ENABLE_RISK_ANALYSIS = True   # Min proximity tracking
     ENABLE_CONTROL_DIAGNOSTICS = True # Turn/aim/danger diagnostics
+    ENABLE_SAC_DIAGNOSIS = True      # GNN-SAC specific diagnostics section
 
     # --- Phase Settings ---
     PHASE_COUNT = 4  # Default report phases (25% each)

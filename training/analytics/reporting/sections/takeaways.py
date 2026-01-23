@@ -130,6 +130,12 @@ def collect_report_takeaways(
     else:
         takeaways.append("Control Diagnostics: no control diagnostics recorded.")
 
+    # SAC Diagnostics
+    if _has_metric(generations_data, 'sac_eval_return_mean'):
+        takeaways.append("GNN-SAC Diagnosis: learner health, replay quality, action saturation, and eval trends reported.")
+    else:
+        takeaways.append("GNN-SAC Diagnosis: no SAC-specific diagnostics recorded.")
+
     # Convergence Analysis
     takeaways.append("Convergence Analysis: recent diversity and range trends summarized.")
 

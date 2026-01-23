@@ -83,6 +83,11 @@ def record_generation(data: AnalyticsData, generation: int, fitness_scores: List
         gen_data['avg_hits'] = behavioral_metrics.get('avg_hits', 0)
         gen_data['avg_shots_per_kill'] = behavioral_metrics.get('avg_shots_per_kill', 0.0)
         gen_data['avg_shots_per_hit'] = behavioral_metrics.get('avg_shots_per_hit', 0.0)
+
+        # SAC-only diagnostics (pass-through for sac_* prefixed metrics)
+        for key, value in behavioral_metrics.items():
+            if isinstance(key, str) and key.startswith("sac_"):
+                gen_data[key] = value
         
         # Action metrics
         gen_data['avg_thrust_frames'] = behavioral_metrics.get('avg_thrust_frames', 0)

@@ -39,6 +39,13 @@ Its purpose is to provide a **gold-standard, real continuous-control RL agent** 
 - Viewer: `training/scripts/view_gnn_sac.py` replays the best checkpoint continuously in the windowed game.
 - Viewer seeds: `SACConfig.VIEWER_SEED_MODE` drives per-episode seed changes for non-repetitive playback.
 - Single-process simulator: `training/scripts/simulate_gnn_sac.py` trains headless and replays the best snapshot in one windowed run.
+- Observation normalization: `training/methods/sac/normalization.py` tracks running stats for graph features and normalizes in the learner.
+- Reward scaling: `SACConfig.REWARD_SCALE` scales step and terminal rewards before replay storage and logging.
+- Action smoothing: `SACConfig.ACTION_SMOOTHING_*` optionally applies EMA smoothing to actions in training/eval/playback.
+- Adaptive gradient clipping: `SACLearner` optionally scales per-parameter gradients using AGC before global clipping.
+- Huber critic loss: `SACConfig.CRITIC_LOSS="huber"` reduces sensitivity to TD-error outliers vs pure MSE.
+- Parallel collectors: `SACConfig.NUM_COLLECTORS` runs multiple headless games in the training loop for broader data coverage.
+- Held-out evaluation: `SACConfig.HOLDOUT_EVAL_SEEDS` enables periodic evaluation on a separate seed set.
 
 ### Existing Infrastructure We Will Reuse (Implemented)
 
@@ -55,6 +62,18 @@ Its purpose is to provide a **gold-standard, real continuous-control RL agent** 
 | Parallel evaluator pattern | `training/core/population_evaluator.py` | Demonstrates step loop, per-step reward, and rich behavioral metric extraction. |
 | Playback + generalization capture | `training/core/display_manager.py` | Plays best policy in a “fresh game” and records generalization metrics. |
 | Analytics pipeline | `training/analytics/*` | Writes `training_data_*.json` and `training_summary_*.md` with extensive metrics. |
+
+### Diagnostics & Analytics (Implemented)
+
+- SAC reporting interval: Uses `TrainingAnalytics.record_generation(...)` to log RL metrics on a fixed step interval.
+- SAC timebase keys: Records `sac_env_steps_total` and `sac_updates_total` each interval for a true RL timebase.
+- Held-out eval metrics: `sac_eval_holdout_*` keys record validation returns on `HOLDOUT_EVAL_SEEDS` when configured.
+- Action health diagnostics: Logs turn/thrust/shoot mean/std and saturation/zero rates to detect control collapse.
+- Learner stability diagnostics: Logs critic/actor loss, TD-error tails, Q/target-Q stats, and gradient/clip rates.
+- Replay/data health diagnostics: Logs replay size, episode length distribution, and step/terminal reward stats.
+- Representation health diagnostics: Logs embedding norm/std/cosine similarity to detect collapse.
+- Drift diagnostics: Logs probe-set policy drift and critic/target gap to detect local minima or instability.
+- Weight snapshots: Logs mean/std/norm/zero-fraction for GNN/actor/critic weights per interval.
 
 ## Implemented Outputs / Artifacts (if applicable)
 
@@ -82,50 +101,9 @@ Its purpose is to provide a **gold-standard, real continuous-control RL agent** 
 
 ### D. Training System (Collector + Replay + Learner)
 
-#### D4. Evaluation, Playback, and Analytics Parity (Planned)
+#### D4. Evaluation, Playback, and Analytics Parity (Remaining)
 
 - [ ] Use `training/core/display_manager.py` infrastructure for 'fresh-game' playback and generalization capture.
-- [ ] Emit RL observability metrics: Record action/embedding/learner/replay health so 'stuckness' can be diagnosed from exports (no manual guessing).
-- [ ] RL logging interval mapping: Reuse the existing `generations_data` schema by treating 'generation' as an RL **reporting interval** (e.g., every N environment steps) and include `env_steps_total`/`updates_total` keys for a true timebase.
-
-#### D5. RL Observability Metrics (Planned: What We Record and Why)
-
-These metrics are recorded so we can detect common GNN+SAC failure modes (exploration collapse, embedding collapse, critic instability) directly in analytics.
-
-**Action health (continuous-control)**
-
-- [ ] Record mean absolute turn magnitude to detect “never turns”.
-- [ ] Record turn near-zero rate to detect turn collapse.
-- [ ] Record turn saturation rate to detect “always max turn”.
-- [ ] Record thrust mean to detect always-on/off thrust.
-- [ ] Record thrust zero rate to detect “never thrust”.
-- [ ] Record thrust saturation rate to detect always-max thrust.
-- [ ] Record shoot probability mean to detect shoot collapse.
-- [ ] Record realized shoot rate to detect “always shoot” vs “never shoot”.
-- [ ] Record policy entropy mean to detect exploration collapse.
-
-**Embedding health (GNN representation)**
-
-- [ ] Record embedding mean norm to detect representation scale drift.
-- [ ] Record embedding per-dimension std mean to detect representation collapse (low variance).
-- [ ] Record embedding cosine similarity statistics to detect “all states look the same”.
-
-**Learner stability (SAC optimization)**
-
-- [ ] Record critic TD loss mean to track value learning stability.
-- [ ] Record actor loss mean to track policy improvement stability.
-- [ ] Record alpha (temperature) value to track exploration pressure.
-- [ ] Record Q-value means to detect value scale blow-ups.
-- [ ] Record TD-error mean/std to detect instability vs progress.
-- [ ] Record actor/critic gradient norms to detect exploding/vanishing gradients.
-- [ ] Record gradient-clip hit rate to detect overly aggressive learning rates.
-
-**Replay/data health (off-policy data quality)**
-
-- [ ] Record replay size to make warmup/coverage visible.
-- [ ] Record learn-start progress to make “not learning yet” explicit.
-- [ ] Record episode length mean/p90 to track survivability distribution over time.
-- [ ] Record reward mean/std to track reward scale and noise over time.
 
 ### E. File & Module Layout (Implemented)
 
@@ -146,6 +124,7 @@ training/
   methods/
     sac/
       networks.py                # GNN backbone + actor + critics
+      normalization.py           # Running graph feature normalization
       replay_buffer.py           # Graph-native replay
       learner.py                 # SAC losses + optimizers + target updates
   scripts/
@@ -160,19 +139,10 @@ These are concrete upgrades we expect to matter for “rival strong human player
 
 #### F1. Environment Fidelity & Control (High Leverage)
 
-- [ ] Optional action smoothing (policy-side) to reduce oscillation without removing control authority.
 - [ ] Optional “shoot gating” heuristics for evaluation-only playback (kept off during training unless explicitly enabled).
-
-#### F2. Learning Stability (High Leverage)
-
-- [ ] Observation normalization for node/edge features.
-- [ ] Reward scaling/normalization options (logged and made explicit in run config).
-- [ ] Separate held-out evaluation seed set (periodic validation).
 
 #### F3. Sample Efficiency & Scaling (Medium/High)
 
-- [ ] Multiple parallel collectors (vectorized envs).
-- [ ] Configurable headless collector count: Add `NUM_COLLECTORS` (and seed offsets) so multiple headless games can run in parallel without changing the learner loop.
 - [ ] Prioritized replay (PER) as an optional module.
 - [ ] n-step returns as an optional module.
 - [ ] REDQ-style ensembles (optional, later).
@@ -182,6 +152,37 @@ These are concrete upgrades we expect to matter for “rival strong human player
 - [ ] Add bullets as nodes (optional) once asteroid-only baseline is stable.
 - [ ] Add kNN asteroid↔asteroid edges (optional) if multi-asteroid interaction prediction improves dodging.
 - [ ] Add explicit TTC edge attribute (optional) if learned avoidance is unstable.
+
+#### F5. Adaptive Training Controls (Planned)
+
+These items turn fixed SAC knobs into **data-driven / schedule-driven** knobs. Each is intended to be:
+
+- Logged every interval (so runs remain interpretable).
+- Deterministic given a seed + config (no hidden randomness).
+- Disable-able (true ablation).
+
+**Learning & optimization adaptivity**
+
+- [ ] Adaptive actor LR scheduler: adjust `ACTOR_LR` using a schedule (e.g., plateau on eval return or actor-loss stability).
+- [ ] Adaptive critic LR scheduler: adjust `CRITIC_LR` using a schedule (e.g., plateau on TD-error tails or critic-loss stability).
+- [ ] Adaptive alpha LR scheduler: adjust `ALPHA_LR` when entropy tuning oscillates (alpha volatility thresholds).
+- [ ] Adaptive update ratio: adjust `UPDATES_PER_STEP` to target a stable update/data ratio as replay grows.
+- [ ] Adaptive gradient clipping: adjust `GRAD_CLIP_NORM` when clip rate or grad norms are persistently unhealthy.
+
+**Exploration / policy output adaptivity**
+
+- [ ] Adaptive target entropy schedule: schedule `TARGET_ENTROPY` from exploratory early training to more deterministic late training.
+- [ ] Adaptive action smoothing alpha: adjust `ACTION_SMOOTHING_ALPHA` based on oscillation proxies (turn switches / saturation).
+
+**Reward / value-scale adaptivity**
+
+- [ ] Adaptive reward scaling: adapt `REWARD_SCALE` via a stable heuristic (e.g., target Q magnitude band) while keeping replay semantics consistent.
+
+**Data collection / evaluation adaptivity**
+
+- [ ] Adaptive collector scheduling: adjust `NUM_COLLECTORS` upward as training stabilizes to widen the state distribution.
+- [ ] Adaptive evaluation cadence: adjust `EVAL_EVERY_EPISODES` (more frequent early, less frequent later) without breaking best tracking.
+- [ ] Adaptive holdout evaluation policy: schedule/expand/rotate `HOLDOUT_EVAL_SEEDS` while logging the exact seed set used per eval.
 
 ### G. Dependency & Reproducibility (Planned)
 
@@ -284,11 +285,13 @@ This baseline is the first configuration to implement and log; tuning happens af
 | Warmup | `LEARN_START_STEPS` | `10_000` | Steps before learning begins. |
 | Update ratio | `UPDATES_PER_STEP` | `1` | Gradient steps per env step. |
 | Actor LR | `ACTOR_LR` | `3e-4` | Actor optimizer step size. |
-| Critic LR | `CRITIC_LR` | `3e-4` | Critic optimizer step size. |
+| Critic LR | `CRITIC_LR` | `1e-4` | Critic optimizer step size. |
 | Alpha LR | `ALPHA_LR` | `3e-4` | Entropy temperature LR (auto-tuning). |
 | Entropy | `TARGET_ENTROPY` | `-(action_dim)` | Target entropy heuristic baseline. |
 | Grad clip | `GRAD_CLIP_NORM` | `10.0` | Gradient norm cap (stability). |
-| Reward | `REWARD_SCALE` | `1.0` | Scalar multiplier applied to all rewards. |
+| Reward | `REWARD_SCALE` | `0.2` | Scalar multiplier applied to all rewards. |
+| Critic loss | `CRITIC_LOSS` | `huber` | TD loss type for critic updates (mse vs huber). |
+| Adaptive grad clip | `AGC_ENABLED` | `True` | Per-parameter AGC before global clipping. |
 | Graph cap | `MAX_ASTEROIDS` | `None` | All asteroids by default. |
 | Device | `DEVICE` | `cuda` if available | Training device selection. |
 

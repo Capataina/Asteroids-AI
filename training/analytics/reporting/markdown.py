@@ -46,6 +46,7 @@ from training.analytics.reporting.sections.neural import write_neural_analysis
 from training.analytics.reporting.sections.risk import write_risk_analysis
 from training.analytics.reporting.sections.control import write_control_diagnostics
 from training.analytics.reporting.sections.takeaways import collect_report_takeaways, write_report_takeaways
+from training.analytics.reporting.sections.sac_diagnosis import write_sac_diagnosis
 
 
 class MarkdownReporter:
@@ -71,6 +72,9 @@ class MarkdownReporter:
         """
         has_behavior = 'final_avg_kills' in summary
         has_fresh_game = 'avg_generalization_ratio' in summary
+        has_sac = 'sac' in str(self.data.config.get("method", "")).lower()
+        if not has_sac and self.data.generations_data:
+            has_sac = any(k.startswith("sac_") for k in self.data.generations_data[-1].keys())
 
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write("# Training Summary Report\n\n")
@@ -78,7 +82,7 @@ class MarkdownReporter:
             f.write(f"**Schema Version:** {self.data.SCHEMA_VERSION}\n\n")
             
             # Table of Contents
-            write_table_of_contents(f, has_behavior, has_fresh_game)
+            write_table_of_contents(f, has_behavior, has_fresh_game, has_sac)
 
             # Quick Trend Overview (Sparklines)
             if AnalyticsConfig.ENABLE_QUICK_TRENDS:
@@ -189,6 +193,10 @@ class MarkdownReporter:
             # Control Diagnostics
             if AnalyticsConfig.ENABLE_CONTROL_DIAGNOSTICS:
                 write_control_diagnostics(f, self.data.generations_data)
+
+            # SAC Diagnostics (GNN-SAC only)
+            if has_sac and AnalyticsConfig.ENABLE_SAC_DIAGNOSIS:
+                write_sac_diagnosis(f, self.data.generations_data, self.data.config)
 
             # Convergence Analysis
             if AnalyticsConfig.ENABLE_CONVERGENCE_ANALYSIS:

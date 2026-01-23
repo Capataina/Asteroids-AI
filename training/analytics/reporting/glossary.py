@@ -103,6 +103,23 @@ METRIC_GLOSSARY: Dict[str, Tuple[str, str]] = {
     # Generalization
     "fitness_ratio": ("Fitness ratio", "Fresh-game fitness divided by training fitness for the same generation."),
     "generalization_grade": ("Generalization grade", "Letter grade derived from generalization ratios."),
+
+    # SAC diagnostics
+    "sac_eval_return_mean": ("Eval return (mean)", "Average deterministic evaluation return on fixed seeds."),
+    "sac_eval_return_std": ("Eval return (std)", "Standard deviation of evaluation returns across fixed seeds."),
+    "sac_eval_holdout_return_mean": ("Holdout eval return (mean)", "Average deterministic evaluation return on held-out seeds."),
+    "sac_eval_holdout_return_std": ("Holdout eval return (std)", "Standard deviation of held-out evaluation returns across seeds."),
+    "sac_critic_loss_mean": ("Critic loss", "Mean critic loss across update steps in the reporting window."),
+    "sac_td_abs_p99": ("TD error p99", "99th percentile absolute TD error (outlier magnitude proxy)."),
+    "sac_alpha_mean": ("Entropy temperature (alpha)", "Mean entropy temperature value used in SAC updates."),
+    "sac_policy_entropy_mean": ("Policy entropy", "Mean policy entropy estimate from log-probabilities."),
+    "sac_turn_saturation_rate": ("Turn saturation rate", "Share of turn actions near full magnitude (|turn| > 0.95)."),
+    "sac_thrust_saturation_rate": ("Thrust saturation rate", "Share of thrust actions near extremes (<0.05 or >0.95)."),
+    "sac_shoot_saturation_rate": ("Shoot saturation rate", "Share of shoot actions near extremes (<0.05 or >0.95)."),
+    "sac_terminal_frac": ("Terminal fraction", "Fraction of steps that ended an episode (done/timeout)."),
+    "sac_embedding_cos_sim": ("Embedding cosine similarity", "Mean cosine similarity between state embeddings (high = collapse risk)."),
+    "sac_policy_drift": ("Policy drift", "Mean absolute change in actions on a fixed probe set vs previous log window."),
+    "sac_critic_target_gap": ("Critic/target gap", "Mean |Q - Q_target| on a fixed probe set (stability proxy)."),
 }
 
 

@@ -3,7 +3,7 @@ Neural network modules for GNN-SAC.
 
 Contains:
 - GNNBackbone: Graph neural network that processes game state graphs
-- Actor: Stochastic policy network with continuous turn/thrust and discrete shoot
+- Actor: Stochastic policy network with continuous turn/thrust/shoot
 - TwinCritics: Twin Q-networks for SAC value estimation
 """
 
@@ -149,7 +149,7 @@ class Actor(nn.Module):
     Outputs:
     - Turn: Squashed Gaussian distribution -> [-1, 1]
     - Thrust: Squashed Gaussian distribution -> [0, 1]
-    - Shoot: Bernoulli distribution (sampled during training, thresholded during eval)
+    - Shoot: Squashed Gaussian distribution -> [0, 1]
 
     The squashing correction (tanh for turn, sigmoid for thrust) is applied
     to compute proper log probabilities for the entropy bonus.
@@ -192,8 +192,9 @@ class Actor(nn.Module):
         self.thrust_mean = nn.Linear(hidden_dim, 1)
         self.thrust_log_std = nn.Linear(hidden_dim, 1)
 
-        # Shoot head: outputs logit for Bernoulli
-        self.shoot_logit = nn.Linear(hidden_dim, 1)
+        # Shoot head: outputs mean and log_std for Gaussian (squashed to [0, 1])
+        self.shoot_mean = nn.Linear(hidden_dim, 1)
+        self.shoot_log_std = nn.Linear(hidden_dim, 1)
 
     def forward(
         self,
@@ -209,7 +210,7 @@ class Actor(nn.Module):
 
         Returns:
             action: [batch_size, 3] - Actions [turn, thrust, shoot]
-                   turn in [-1, 1], thrust in [0, 1], shoot in {0, 1}
+                   turn in [-1, 1], thrust in [0, 1], shoot in [0, 1]
             log_prob: [batch_size, 1] - Log probability of the action
         """
         h = self.net(state)
@@ -224,15 +225,16 @@ class Actor(nn.Module):
         thrust_log_std = torch.clamp(self.thrust_log_std(h), self.log_std_min, self.log_std_max)
         thrust_std = torch.exp(thrust_log_std)
 
-        # === Shoot (Bernoulli) ===
-        shoot_logit = self.shoot_logit(h)
-        shoot_prob = torch.sigmoid(shoot_logit)
+        # === Shoot (squashed Gaussian -> [0, 1]) ===
+        shoot_mean = self.shoot_mean(h)
+        shoot_log_std = torch.clamp(self.shoot_log_std(h), self.log_std_min, self.log_std_max)
+        shoot_std = torch.exp(shoot_log_std)
 
         if deterministic:
             # Use mean actions
             turn = torch.tanh(turn_mean)
             thrust = torch.sigmoid(thrust_mean)
-            shoot = (shoot_logit > 0).float()
+            shoot = torch.sigmoid(shoot_mean)
             log_prob = torch.zeros(state.size(0), 1, device=state.device)
         else:
             # Sample from distributions
@@ -244,8 +246,9 @@ class Actor(nn.Module):
             thrust_sample = thrust_dist.rsample()
             thrust = torch.sigmoid(thrust_sample)
 
-            # Bernoulli sampling (not differentiable, but that's OK for discrete actions)
-            shoot = torch.bernoulli(shoot_prob)
+            shoot_dist = torch.distributions.Normal(shoot_mean, shoot_std)
+            shoot_sample = shoot_dist.rsample()
+            shoot = torch.sigmoid(shoot_sample)
 
             # === Compute log probabilities with squashing correction ===
             # For tanh squashing: log_prob = log_prob_gaussian - log(1 - tanh^2(x))
@@ -259,12 +262,9 @@ class Actor(nn.Module):
             log_prob_thrust = thrust_dist.log_prob(thrust_sample)
             log_prob_thrust = log_prob_thrust - torch.log(thrust * (1 - thrust) + 1e-6)
 
-            # Shoot log prob (Bernoulli)
-            log_prob_shoot = torch.where(
-                shoot > 0.5,
-                torch.log(shoot_prob + 1e-6),
-                torch.log(1 - shoot_prob + 1e-6)
-            )
+            # Shoot log prob
+            log_prob_shoot = shoot_dist.log_prob(shoot_sample)
+            log_prob_shoot = log_prob_shoot - torch.log(shoot * (1 - shoot) + 1e-6)
 
             # Sum log probs (assuming independence)
             log_prob = log_prob_turn + log_prob_thrust + log_prob_shoot

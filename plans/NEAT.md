@@ -112,6 +112,20 @@ Operator stats recorded into analytics each generation:
 
 ## Planned / Missing / To Be Changed
 
+### Adaptive Hyperparameter Roadmap (Planned)
+
+These items describe ways NEAT can move from fixed knobs to **adaptive schedules** (stagnation-aware, diversity-aware, or noise-aware), while keeping runs interpretable via explicit logging.
+
+- [ ] Adaptive weight mutation rate: schedule `WEIGHT_MUTATION_PROB` based on stagnation and species diversity.
+- [ ] Adaptive weight mutation magnitude: schedule `WEIGHT_MUTATION_SIGMA` based on stagnation and mutation success rates.
+- [ ] Adaptive structural mutation rates: schedule `ADD_NODE_PROB` and `ADD_CONNECTION_PROB` based on innovation survival and stagnation.
+- [ ] Adaptive crossover probability: schedule `CROSSOVER_PROB` based on within-species fitness spread and species stability.
+- [ ] Adaptive disabled-gene inheritance: schedule `INHERIT_DISABLED_PROB` to control how quickly pruning happens vs reactivation.
+- [ ] Adaptive species stagnation threshold: schedule `SPECIES_STAGNATION` based on overall population progress rate.
+- [ ] Adaptive seed-noise penalty: schedule `FITNESS_STD_PENALTY_RATIO` based on observed per-genome seed variance.
+- [ ] Adaptive evaluation budget: schedule `SEEDS_PER_AGENT` upward when rankings are unstable (seed variance spikes).
+- [ ] Adaptive speciation targets: schedule `TARGET_SPECIES` and/or `COMPATIBILITY_ADJUST_STEP` based on collapse risk (species_count trending to 1).
+
 ### NEAT Variants (Planned)
 
 - [ ] Recurrent NEAT: Allow recurrent connections and a stable evaluation scheme for cycles.

@@ -93,7 +93,9 @@ Asteroids AI/
 │   │       └── species.py               # Species state and stagnation tracking
 │   │   ├── sac/
   - Networks: `training/methods/sac/networks.py` provides GNN backbone + actor/critics.
+  - Normalization: `training/methods/sac/normalization.py` provides running graph feature scaling.
 │   │   │   ├── replay_buffer.py        # Graph-native replay buffer
+│   │   │   ├── normalization.py       # Running graph feature normalization
 │   │   │   └── learner.py              # SAC learner/update logic
 │   ├── components/
 │   │   ├── novelty.py                   # Behavior vector + kNN novelty scoring
@@ -276,6 +278,7 @@ Game state
   - Encoder: `interfaces/encoders/GraphEncoder.py:GraphEncoder(...)` (graph payload).
   - Reward preset: `training/config/rewards.py:create_reward_calculator()` (shared preset).
   - Networks: `training/methods/sac/networks.py` provides GNN backbone + actor/critics.
+  - Normalization: `training/methods/sac/normalization.py:GraphNormalizer(...)` scales graph features using running stats.
   - Replay: `training/methods/sac/replay_buffer.py:ReplayBuffer(...)`.
   - Analytics: `training/analytics/analytics.py:TrainingAnalytics`.
 
@@ -283,6 +286,7 @@ Game state
 
   - `HeadlessAsteroidsGame` runs step-based rollouts with `continuous_control_mode=True`.
   - Transitions are stored as graph payloads with actions `[turn, thrust, shoot]`.
+  - Optional parallel collectors are created via `SACConfig.NUM_COLLECTORS` with seed offsets for diverse rollouts.
 
 - **Update phase**
 

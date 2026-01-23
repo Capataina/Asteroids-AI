@@ -245,6 +245,19 @@ The current GA implementation uses entirely custom-written operators and selecti
 - [ ] Predictive ray features (shared): Add TTC/closing-speed features per ray to better support dodge behavior under the existing ES/GA policy structure.
 - [ ] Output saturation penalty (shared): Penalize sustained saturated NN outputs (especially near-constant shoot output) using existing `output_saturation` metrics.
 
+### Adaptive Hyperparameter Roadmap (Planned)
+
+These items describe ways the GA could move from fixed knobs to **adaptive schedules** (stagnation-aware, diversity-aware, or noise-aware), while keeping runs interpretable via explicit logging.
+
+- [ ] Adaptive mutation schedule controls: replace hard-coded adaptive mutation behavior with configurable patience/floor/ceiling for `MUTATION_PROBABILITY`.
+- [ ] Adaptive mutation magnitude controls: replace hard-coded adaptive sigma behavior with configurable patience/floor/ceiling for `MUTATION_GAUSSIAN_SIGMA`.
+- [ ] Adaptive crossover rate: schedule `CROSSOVER_PROBABILITY` based on diversity collapse or stagnation counters.
+- [ ] Adaptive crossover alpha: schedule `CROSSOVER_ALPHA` to widen exploration during stagnation and tighten during improvement.
+- [ ] Adaptive evaluation robustness: schedule `SEEDS_PER_AGENT` upward when generation-to-generation rankings are unstable.
+- [ ] Adaptive CRN mode: toggle `USE_COMMON_SEEDS` based on observed seed variance vs selection stability (logging the mode used per generation).
+- [ ] Adaptive episode budget: schedule `MAX_STEPS` (or early-termination thresholds) as a curriculum once base survivability is achieved.
+- [ ] Adaptive reward curriculum (shared): schedule reward preset weights in `training/config/rewards.py` over generations while logging the active reward configuration.
+
 ## Notes / Design Considerations (optional)
 
 - Training fitness is defined by `training/config/rewards.py` and is intentionally decoupled from the game's internal reward components.

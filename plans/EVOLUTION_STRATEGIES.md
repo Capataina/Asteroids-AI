@@ -252,6 +252,21 @@ ES records the same generation-level keys as GA, plus ES-specific metrics:
 
 ### Implementation Roadmap (Easy / Medium / Hard)
 
+### Adaptive Hyperparameter Roadmap (Planned)
+
+These items describe ways ES can move from fixed knobs to **adaptive schedules** (noise-aware, stagnation-aware, or diversity-aware), while keeping runs interpretable via explicit logging.
+
+- [ ] Adaptive classic-ES learning rate schedule: when `ESConfig.OPTIMIZER="classic"`, schedule `LEARNING_RATE` using plateau/stagnation heuristics.
+- [ ] Adaptive population size schedule: adjust `POPULATION_SIZE` based on gradient estimate noise (and log cost/benefit).
+- [ ] Adaptive seeds-per-agent schedule: adjust `SEEDS_PER_AGENT` when rankings are unstable (seed variance spikes).
+- [ ] Adaptive noise-handling schedule: adjust `NOISE_HANDLING_TOP_K` and `NOISE_HANDLING_EXTRA_SEEDS` based on observed seed noise and confirmation flips.
+- [ ] Adaptive restart policy: adjust `RESTART_PATIENCE` and `RESTART_SIGMA_MULTIPLIER` based on stagnation severity and sigma collapse.
+- [ ] Adaptive elite injection schedule: adjust `ELITE_INJECTION_FREQUENCY` based on drift away from known-good elites.
+- [ ] Adaptive elite pull schedule: adjust `ELITE_PULL_STRENGTH` and `ELITE_PULL_PATIENCE` based on stagnation length and update stability.
+- [ ] Adaptive novelty pressure schedule: adjust `NOVELTY_WEIGHT` based on behavior collapse (low diversity / low novelty).
+- [ ] Adaptive diversity pressure schedule: adjust `DIVERSITY_WEIGHT` based on reward concentration (high dominance / low entropy).
+- [ ] Adaptive objective set schedule (shared): rotate or reweight `ParetoConfig.OBJECTIVES` across phases while logging the active objective set.
+
 #### Easy (low-risk, high-leverage ES improvements)
 
 **Controllability (make behavior changes continuous rather than cliff-based):**

@@ -10,7 +10,7 @@ The analytics system captures, aggregates, and exports training metrics so Aster
 
 | Field | Type | Granular Meaning |
 |---|---|---|
-| `SCHEMA_VERSION` | `str` | Schema tag written into JSON exports for compatibility tracking (`"2.1"`). |
+| `SCHEMA_VERSION` | `str` | Schema tag written into JSON exports for compatibility tracking (`"2.3"`). |
 | `generations_data` | `List[dict]` | Ordered per-generation records (fitness stats plus optional behavior/spatial/operator/timing keys). |
 | `fresh_game_data` | `Dict[int, dict]` | Mapping `generation -> {fresh_game, generalization_metrics}` from windowed playback. |
 | `distributions_data` | `Dict[int, dict]` | Mapping `generation -> {distributions, distribution_stats}` with sorted per-agent value lists. |
@@ -133,6 +133,71 @@ Fresh-game generalization (recorded when a generation has windowed playback capt
 - `fresh_game`: dict of fresh-game performance (`fitness`, `kills`, `steps_survived`, `shots_fired`, `hits`, `accuracy`, `time_alive_seconds`, `cause_of_death`, `reward_breakdown`, etc.).
 - `generalization_metrics`: dict of ratios/deltas (`fitness_ratio`, `kills_ratio`, `steps_ratio`, `accuracy_delta`, `generalization_grade`).
 
+### SAC Diagnostics & Reporting (Implemented: GNN-SAC)
+
+SAC-specific diagnostics are stored as `sac_*` keys on each generation record and surfaced in a dedicated report section.
+
+Timebase + evaluation:
+
+- `sac_env_steps_total`: total environment steps collected so far (monotonic).
+- `sac_updates_total`: total learner updates applied so far (monotonic).
+- `sac_update_to_data_ratio`: updates per environment step.
+- `sac_eval_return_mean`: mean deterministic evaluation return on fixed seeds.
+- `sac_eval_return_std`: standard deviation of eval returns across seeds.
+- `sac_eval_seed_min`, `sac_eval_seed_max`: min/max eval return across seeds.
+- `sac_eval_returns`: per-seed eval return list (latest evaluation window).
+- `sac_eval_best_return`: best eval return observed so far.
+- `sac_eval_best_step`: step index where the best eval return occurred.
+- `sac_eval_since_improve`: eval cycles since last best.
+- `sac_eval_holdout_return_mean`: mean deterministic evaluation return on held-out seeds.
+- `sac_eval_holdout_return_std`: standard deviation of held-out eval returns.
+- `sac_eval_holdout_seed_min`, `sac_eval_holdout_seed_max`: min/max held-out eval return.
+- `sac_eval_holdout_returns`: per-seed held-out eval return list (latest window).
+
+Learner stability:
+
+- `sac_critic_loss_mean`: mean critic loss across update steps in the window.
+- `sac_actor_loss_mean`: mean actor loss across update steps in the window.
+- `sac_alpha_mean`: mean entropy temperature (alpha).
+- `sac_policy_entropy_mean`: mean policy entropy estimate from log-probabilities.
+- `sac_q1_mean`, `sac_q2_mean`: mean Q values on training batches.
+- `sac_q1_std`, `sac_q2_std`: standard deviation of Q values on training batches.
+- `sac_target_q_mean`, `sac_target_q_std`: mean/std of target Q values.
+- `sac_td_abs_mean`, `sac_td_abs_p90`, `sac_td_abs_p99`: TD error magnitude statistics.
+- `sac_critic_grad_norm`, `sac_actor_grad_norm`: gradient norms for critic/actor updates.
+- `sac_critic_clip_rate`, `sac_actor_clip_rate`: fraction of updates that exceeded the clip threshold.
+
+Action health:
+
+- `sac_turn_mean`, `sac_turn_std`: mean/std of signed turn values.
+- `sac_turn_zero_rate`: fraction of steps with near-zero turn.
+- `sac_turn_saturation_rate`: fraction of steps with near-max turn magnitude.
+- `sac_thrust_mean`, `sac_thrust_std`: mean/std of thrust values.
+- `sac_thrust_zero_rate`: fraction of steps with near-zero thrust.
+- `sac_thrust_saturation_rate`: fraction of steps near thrust extremes.
+- `sac_shoot_rate`: fraction of steps with shoot value > 0.
+- `sac_shoot_saturation_rate`: fraction of steps with shoot near 0/1.
+
+Replay/data health:
+
+- `sac_replay_size`: current replay buffer size.
+- `sac_step_reward_mean`, `sac_step_reward_std`: step reward distribution.
+- `sac_step_reward_p90`, `sac_step_reward_p99`: upper-tail step reward diagnostics.
+- `sac_terminal_reward_mean`, `sac_terminal_reward_std`: terminal reward distribution.
+- `sac_terminal_frac`: fraction of steps that end episodes.
+- `sac_episode_steps_mean`, `sac_episode_steps_p90`, `sac_episode_steps_p99`: episode length distribution.
+
+Representation/parameter diagnostics:
+
+- `sac_embedding_norm`: mean embedding norm across updates.
+- `sac_embedding_dim_std`: mean per-dimension embedding standard deviation.
+- `sac_embedding_cos_sim`: mean embedding cosine similarity (collapse proxy).
+- `sac_policy_drift`: mean absolute action change on a fixed probe set vs previous window.
+- `sac_critic_target_gap`: mean |Q - Q_target| on a fixed probe set.
+- `sac_gnn_weight_mean`, `sac_gnn_weight_std`, `sac_gnn_weight_norm`, `sac_gnn_weight_zero_frac`: GNN weight distribution snapshot.
+- `sac_actor_weight_mean`, `sac_actor_weight_std`, `sac_actor_weight_norm`, `sac_actor_weight_zero_frac`: actor weight distribution snapshot.
+- `sac_critic_weight_mean`, `sac_critic_weight_std`, `sac_critic_weight_norm`, `sac_critic_weight_zero_frac`: critic weight distribution snapshot.
+
 ### Distributions (Implemented)
 
 Stored in `AnalyticsData.distributions_data[generation]` and mirrored into `generations_data[generation]['distributions']`:
@@ -221,71 +286,26 @@ Additional distribution stats:
 - [ ] Evaluation seed-policy metadata: Record whether a generation used per-candidate seeds or common-random-numbers (CRN), and persist the exact seed set used.
 - [ ] Long-run storage strategy: Optional compression or chunked exports when `training_data.json` grows large.
 
-### RL Method Support (Planned)
+### Adaptive Reporting Controls (Planned)
 
-- [ ] RL action health metrics: Record continuous action statistics (turn/thrust magnitude + saturation + entropy) as first-class generation/interval keys.
-- [ ] RL embedding health metrics: Record state-embedding variance and similarity diagnostics so embedding collapse can be detected without manual inspection.
-- [ ] RL learner stability metrics: Record actor/critic losses, Q-value scale, alpha (temperature), and gradient norms so training instability is visible in reports.
-- [ ] RL replay health metrics: Record replay size, warmup/learn start progress, and episode-length/reward distribution snapshots so data quality can be diagnosed.
-- [ ] RL report sections: Add dedicated report sections (or append blocks) for action health, embedding health, and learner stability alongside existing fitness/generalization sections.
+These items describe ways the report configuration can become **adaptive** (data-aware and run-length-aware) without changing the underlying training algorithms.
 
-### RL Metrics (Planned: Concrete Keys)
+- [ ] Adaptive section gating: auto-disable sections when required keys are missing (while still allowing explicit overrides).
+- [ ] Adaptive window sizing: clamp each report window to `min(config_window, available_generations)` to avoid sparse/empty analysis blocks.
+- [ ] Adaptive phase detection (optional): replace fixed 25% slices with data-driven phase boundaries (change-point detection) while still rendering phase summaries.
+- [ ] Adaptive warning thresholds (optional): calibrate warning bands from early-run baselines (e.g., first N generations) to reduce false positives across reward scales.
+- [ ] Adaptive evaluation cost reporting: compute and report per-section time/cost so expensive sections can be auto-throttled on long runs.
 
-These keys are intended to be emitted by `train_gnn_sac.py` via `TrainingAnalytics.record_generation(...)` (or a periodic “interval” record) and exported in `training_data_sac.json`.
+### RL Diagnostics Extensions (Planned)
 
-- [ ] RL “generation” meaning: When reusing the GA/ES/NEAT `generations_data` schema, treat “generation” as a **reporting interval index** for RL (e.g., every N environment steps) rather than an evolutionary generation.
-- [ ] RL timebase keys: Record the absolute RL timebase alongside each interval so plots can be interpreted correctly.
-
-#### RL Action Health (Continuous-Control)
-
-- [ ] `turn_abs_mean`: Mean absolute `turn_value` over the logging window (detects “never turns” vs active control).
-- [ ] `turn_abs_p90`: 90th percentile absolute `turn_value` (detects whether high authority is ever used).
-- [ ] `turn_near_zero_rate`: Fraction of steps with `|turn_value| < eps` (detects turn collapse).
-- [ ] `turn_saturation_rate`: Fraction of steps with `|turn_value| > 0.95` (detects “always max turn” degeneracy).
-- [ ] `thrust_mean`: Mean `thrust_value` (detects always-on vs always-off thrust).
-- [ ] `thrust_zero_rate`: Fraction of steps with `thrust_value < eps` (detects “never thrust” collapse).
-- [ ] `thrust_saturation_rate`: Fraction of steps with `thrust_value > 0.95` (detects always-on thrust).
-- [ ] `shoot_prob_mean`: Mean shoot probability/logit-derived probability (detects shoot collapse).
-- [ ] `shoot_rate`: Fraction of steps where a shot is actually fired (environment-level realization).
-- [ ] `shoot_saturation_rate`: Fraction of steps with `shoot_prob < eps` or `shoot_prob > 1-eps` (detects probability collapse).
-- [ ] `policy_entropy_mean`: Mean policy entropy (continuous + shoot head) to detect exploration collapse.
-
-#### RL Timebase / Progress (Schema Compatibility)
-
-- [ ] `env_steps_total`: Total environment steps collected so far (monotonic).
-- [ ] `updates_total`: Total learner update steps performed so far (monotonic).
-- [ ] `episodes_total`: Total completed episodes so far (monotonic).
-
-#### RL Embedding Health (GNN Representation)
-
-- [ ] `state_emb_mean_norm`: Mean L2 norm of the state embedding batch (detects scale drift).
-- [ ] `state_emb_std_mean`: Mean per-dimension std of embeddings across batch/time (low values indicate collapse).
-- [ ] `state_emb_cosine_sim_mean`: Mean pairwise cosine similarity across a sampled embedding batch (high values indicate collapse).
-- [ ] `state_emb_cosine_sim_p90`: 90th percentile pairwise cosine similarity (detects partial collapse).
-
-#### RL Learner Stability (Optimization Diagnostics)
-
-- [ ] `critic_loss_mean`: Mean critic TD loss over the logging window.
-- [ ] `actor_loss_mean`: Mean actor loss over the logging window.
-- [ ] `alpha_value`: Current entropy temperature value (auto-tuning health).
-- [ ] `alpha_loss_mean`: Mean alpha loss over the logging window (auto-tuning stability).
-- [ ] `q1_mean`: Mean Q1 value on a sampled training batch (scale sanity).
-- [ ] `q2_mean`: Mean Q2 value on a sampled training batch (scale sanity).
-- [ ] `q_target_mean`: Mean target Q value on a sampled training batch (bootstrapping sanity).
-- [ ] `td_error_mean`: Mean TD error magnitude (learning progress proxy).
-- [ ] `td_error_std`: Stddev of TD error magnitude (instability proxy).
-- [ ] `actor_grad_norm`: Gradient norm of actor parameters (explosion/vanishing detection).
-- [ ] `critic_grad_norm`: Gradient norm of critic parameters (explosion/vanishing detection).
-- [ ] `grad_clip_hit_rate`: Fraction of updates where gradient clipping activated (too-hot learning detection).
+- [ ] Per-layer GNN diagnostics: record layer-wise activation stats and attention concentration (to detect oversmoothing or single-edge dominance).
+- [ ] Probe-set expansion: maintain multiple fixed probe sets (by seed / asteroid count) to separate policy drift from state-sampling noise.
+- [ ] Eval history table: persist a rolling history of eval returns per seed (not just latest snapshot).
+- [ ] Loss landscape proxy: store rolling windows of best-eval deltas and policy drift to approximate “local minima” detection beyond stagnation counters.
 
 #### RL Replay / Data Health (Off-Policy Data Quality)
 
-- [ ] `replay_size`: Current number of transitions in replay (warmup visibility).
 - [ ] `learn_start_progress`: Fraction of warmup completed (`steps / LEARN_START_STEPS`).
-- [ ] `episode_len_mean`: Mean episode length over completed episodes (survivability proxy).
-- [ ] `episode_len_p90`: 90th percentile episode length (tail survivability proxy).
-- [ ] `reward_mean`: Mean reward per step over collected transitions (scale sanity).
-- [ ] `reward_std`: Stddev reward per step over collected transitions (noise proxy).
 
 ### Reporting Correctness & Interpretability (Easy)
 
