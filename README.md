@@ -77,24 +77,20 @@ Each method interacts with the _same_ environment but may use different internal
 AsteroidsAI is structured around clean separation of concerns:
 
 - **Environment Core**
-
   - Physics, collision detection, spawning, and simulation stepping
   - Deterministic, seedable execution
 
 - **Agent Interface**
-
   - Standardised state → action boundary
   - Supports continuous and discrete control
   - Allows heterogeneous internal implementations
 
 - **State Encoders**
-
   - Fixed-size vector encodings
   - Variable-size graph encodings
   - Sensor-based or relative-coordinate representations
 
 - **Training Backends**
-
   - Evolutionary loops
   - Gradient-based RL loops
   - Hybrid or experimental optimisers
@@ -141,53 +137,53 @@ This architecture supports the project's goal of understanding how different opt
 
 ### 🧠 State Representation
 
-- [ ] Ship-centric coordinate transforms
-- [ ] Nearest-neighbour asteroid encoding
-- [ ] Temporal awareness (frame stacking)
-- [ ] Raycasting (lidar) sensors
-- [ ] Variable-cardinality representations
-- [ ] Sensor noise and partial observability experiments
-- [ ] Full graph-based state models
+- [x] Ship-centric coordinate transforms
+- [x] Nearest-neighbour asteroid encoding
+- [x] Temporal awareness (frame stacking)
+- [x] Raycasting (lidar) sensors
+- [x] Variable-cardinality representations
+- [x] Sensor noise and partial observability experiments
+- [x] Full graph-based state models
 
 ### 🧬 Neuroevolution
 
-- [ ] Topology and weight evolution
-- [ ] Speciation and diversity preservation
-- [ ] Network complexity control
-- [ ] Behavioural novelty metrics
-- [ ] Cross-generation analysis
+- [x] Topology and weight evolution
+- [x] Speciation and diversity preservation
+- [x] Network complexity control
+- [x] Behavioural novelty metrics
+- [x] Cross-generation analysis
 
 ### 🌱 Evolution Strategies
 
-- [ ] Fixed-topology policy optimisation
-- [ ] Population-based sampling
-- [ ] Adaptive noise and step-size strategies
-- [ ] Parallel rollout evaluation
-- [ ] Hybrid evolution / gradient experiments
+- [x] Fixed-topology policy optimisation
+- [x] Population-based sampling
+- [x] Adaptive noise and step-size strategies
+- [x] Parallel rollout evaluation
+- [x] Hybrid evolution / gradient experiments
 
 ### 🧪 Genetic Algorithms
 
-- [ ] Parameter-vector control policies
-- [ ] Mutation and crossover operators
-- [ ] Environment randomisation stress tests
-- [ ] Interpretability-focused analysis
-- [ ] Reflex vs strategy comparisons
+- [x] Parameter-vector control policies
+- [x] Mutation and crossover operators
+- [x] Environment randomisation stress tests
+- [x] Interpretability-focused analysis
+- [x] Reflex vs strategy comparisons
 
 ### 🌳 Genetic Programming
 
-- [ ] Tree-based symbolic controllers
-- [ ] Arithmetic and logic operators
-- [ ] Parsimony pressure and bloat control
-- [ ] Subtree crossover strategies
-- [ ] Decision-logic visualisation
+- [x] Tree-based symbolic controllers
+- [x] Arithmetic and logic operators
+- [x] Parsimony pressure and bloat control
+- [x] Subtree crossover strategies
+- [x] Decision-logic visualisation
 
 ### 🎯 Reinforcement Learning
 
-- [ ] Continuous action policies
-- [ ] Stochastic exploration mechanisms
-- [ ] Reward shaping experiments
-- [ ] Replay and off-policy analysis
-- [ ] Graph-based encoders for dynamic entities
+- [x] Continuous action policies
+- [x] Stochastic exploration mechanisms
+- [x] Reward shaping experiments
+- [x] Replay and off-policy analysis
+- [x] Graph-based encoders for dynamic entities
 
 ### 🖥️ Training Dashboard
 
