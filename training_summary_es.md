@@ -1,7 +1,7 @@
 # Training Summary Report
 
-**Generated:** 2026-01-16 18:29:50
-**Schema Version:** 2.1
+**Generated:** 2026-01-31 23:44:26
+**Schema Version:** 2.3
 
 ## Table of Contents
 
@@ -41,18 +41,18 @@
 ## Quick Trend Overview
 
 ```
-Best Fitness     175 -> 164  [ :*@=# --- .%.%+ ++ ]  stagnation (low confidence)
-Avg Fitness      -97 -> -97  [ -#***-=+*:-+ @%-=+-]  volatile (low confidence (noisy))
-Min Fitness      -246 -> -246  [.+@=*+:=*% :+.*+-*+=]  volatile (low confidence (noisy))
-Fitness Spread   89 -> 88  [. +**@-=-:.:#:## -* ]  stagnation (low confidence)
-Avg Kills        6.8 -> 7.2  [ =####=+*#=+#-%@++*=]  volatile (low confidence (noisy))
-Avg Accuracy     35% -> 35%  [ -#+**-=*#:=+=@#.=*-]  stagnation (low confidence)
-Avg Steps        717 -> 702  [ =@**+:=+*:-+ %%:-+-]  stagnation (low confidence)
-Action Entropy   1.11 -> 0.87  [@+-:::-.-..:..:    .]  stagnation (low confidence)
-Output Saturation 5% -> 12%  [  .-#+-+=@==+++*%**=]  stagnation (low confidence (noisy))
-Frontness Avg    50% -> 51%  [-. -=%##%%#*+#+=+@#*]  stagnation (low confidence)
-Danger Exposure  16% -> 16%  [.-**+@::+- **.#=-* =]  volatile (low confidence (noisy))
-Seed Fitness Std 119.7 -> 126.3  [ ++*@*-+=#=++-+%*+%=]  volatile (low confidence (noisy))
+Best Fitness     130 -> 213  [: +:+=.@]  breakout improvement (high confidence)
+Avg Fitness      -2 -> 76  [ ...=-.@]  breakout improvement (low confidence (noisy))
+Min Fitness      -80 -> -50  [ -..:*-@]  breakout improvement (moderate confidence)
+Fitness Spread   59 -> 74  [: =:@-.+]  slight regression (moderate confidence)
+Avg Kills        3.5 -> 7.3  [ :..+-:@]  breakout improvement (high confidence)
+Avg Accuracy     32% -> 36%  [ -  %-:@]  volatile (low confidence (noisy))
+Avg Steps        618 -> 737  [ =. =. @]  steady improvement (moderate confidence)
+Action Entropy   1.58 -> 1.33  [=%: @%: ]  volatile (low confidence (noisy))
+Output Saturation 0% -> 3%  [      .@]  stagnation (low confidence)
+Frontness Avg    48% -> 50%  [ **+@*%+]  stagnation (low confidence)
+Danger Exposure  16% -> 15%  [:@+ : .*]  stagnation (low confidence)
+Seed Fitness Std 66.1 -> 99.0  [ =-.+=:@]  sharp regression (high confidence)
 ```
 
 ### Quick Trend Glossary
@@ -75,13 +75,13 @@ Seed Fitness Std 119.7 -> 126.3  [ ++*@*-+=#=++-+%*+%=]  volatile (low confidenc
 
 - Quick Trend Overview: sparklines summarize phase-based metric direction and confidence.
 - Training Configuration: report includes a full hyperparameter snapshot for reproducibility.
-- Overall Summary: best fitness 364.01 at Gen 167.
-- Best Agent Deep Profile: Gen 167 with 21.333333333333332 kills.
+- Overall Summary: best fitness 281.52 at Gen 8.
+- Best Agent Deep Profile: Gen 8 with 15.333333333333334 kills.
 - Heatmaps: spatial patterns available for best agent and population.
 - Generation Highlights: top improvements/regressions and record runs flagged.
 - Milestone Timeline: milestones are run-relative (percent-of-peak thresholds).
 - Training Progress by Phase: 4 equal phases used for normalized comparisons.
-- Distribution Analysis: fitness spread trend is stagnation.
+- Distribution Analysis: fitness spread trend is slight regression.
 - Kill Efficiency: phase-level kill rates and shot efficiency tracked.
 - Learning Velocity: phase-based fitness deltas and acceleration reported.
 - Reward Component Evolution: per-component shifts tracked across 4 phases.
@@ -96,10 +96,11 @@ Seed Fitness Std 119.7 -> 126.3  [ ++*@*-+=#=++-+%*+%=]  volatile (low confidenc
 - Neural & Behavioral Complexity: saturation and entropy trends reported.
 - Risk Profile Analysis: proximity trends and archetypes reported.
 - Control Diagnostics: turn bias, frontness, danger, and movement diagnostics reported.
+- GNN-SAC Diagnosis: no SAC-specific diagnostics recorded.
 - Convergence Analysis: recent diversity and range trends summarized.
 - Behavioral Trends: action mix and intra-episode scoring patterns reported.
-- Recent Generations: last 30 gens tabulated.
-- Top Generations: best run is Gen 167.
+- Recent Generations: last 8 gens tabulated.
+- Top Generations: best run is Gen 8.
 - Trend Analysis: phase-based fitness trend table provided.
 - ASCII Chart: best vs avg fitness progression visualized.
 - Technical Appendix: runtime costs, operator stats, and ES optimizer diagnostics reported when available.
@@ -109,7 +110,7 @@ Seed Fitness Std 119.7 -> 126.3  [ ++*@*-+=#=++-+%*+%=]  volatile (low confidenc
 ```
 method: Evolution Strategies
 optimizer: cmaes
-population_size: 100
+population_size: 10
 num_generations: 500
 cmaes_sigma: 0.15
 cmaes_mu: auto
@@ -154,25 +155,24 @@ pareto_fitness_tiebreaker: True
 
 ## Overall Summary
 
-- **Total Generations:** 190
-- **Training Duration:** 15:06:31.674648
-- **All-Time Best Fitness:** 364.01
-- **Best Generation:** 167
-- **Final Best Fitness:** 113.46
-- **Final Average Fitness:** -114.97
-- **Avg Improvement (Phase 1->Phase 4):** -0.30
-- **Stagnation:** 23 generations since improvement
+- **Total Generations:** 8
+- **Training Duration:** 0:04:22.897112
+- **All-Time Best Fitness:** 281.52
+- **Best Generation:** 8
+- **Final Best Fitness:** 281.52
+- **Final Average Fitness:** 136.92
+- **Avg Improvement (Phase 1->Phase 4):** 78.30
+- **Stagnation:** 0 generations since improvement
 
 **Generalization (Fresh Game Performance):**
-- Avg Generalization Ratio: 2.37
-- Best Fresh Fitness: 498.70 (Gen 114)
-- Episode Completion Rate: 8.5%
+- Avg Generalization Ratio: 0.47
+- Best Fresh Fitness: 95.61 (Gen 6)
+- Episode Completion Rate: 0.0%
 
 ### Takeaways
 
-- Best fitness achieved: 364.01 (Gen 167).
-- Final avg fitness: -114.97.
-- Current stagnation: 23 generations without improvement.
+- Best fitness achieved: 281.52 (Gen 8).
+- Final avg fitness: 136.92.
 
 ### Glossary
 
@@ -185,15 +185,15 @@ pareto_fitness_tiebreaker: True
 
 ## Best Agent Deep Profile
 
-The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
+The most fit agent appeared in **Generation 8** with a fitness of **281.52**.
 
 ### Combat Efficiency
 
-- **Total Kills:** 21.333333333333332
-- **Survival Time:** 25.0 seconds (1500.0 steps)
-- **Accuracy:** 48.6%
-- **Shots per Kill:** 2.0
-- **Time per Kill:** 1.17 seconds
+- **Total Kills:** 15.333333333333334
+- **Survival Time:** 19.4 seconds (1161.0 steps)
+- **Accuracy:** 44.9%
+- **Shots per Kill:** 2.2
+- **Time per Kill:** 1.26 seconds
 
 ### Behavioral Signature
 
@@ -201,13 +201,13 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 
 | Action | Rate (per step) | Description |
 |--------|-----------------|-------------|
-| **Thrust** | 2.0% | Movement frequency |
+| **Thrust** | 6.0% | Movement frequency |
 | **Turn** | 100.0% | Rotation frequency |
-| **Shoot** | 97.2% | Trigger discipline |
+| **Shoot** | 81.4% | Trigger discipline |
 
 ### Takeaways
 
-- Best agent achieved 21.333333333333332 kills with 48.6% accuracy.
+- Best agent achieved 15.333333333333334 kills with 44.9% accuracy.
 - Behavioral classification: Sniper.
 
 ### Glossary
@@ -217,38 +217,38 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 - **Average steps:** Mean steps survived per episode across the population.
 - **Shots per kill:** Shots fired divided by kills (lower is more efficient).
 
-### Spatial Analytics (Best Agent - Generations 181-190)
+### Spatial Analytics (Best Agent - Generations 1-8)
 
 **Position Heatmap (Where does it fly?)**
 ```
 |                                                                                                                        |
+|                    .                                                                                                   |
+|                                                                                                                        |
+|                                   .                                                                                    |
 |                                                                                                                        |
 |                                                                                                                        |
+|                                             .                                                                          |
 |                                                                                                                        |
 |                                                                                                                        |
-|                                                                                                                        |
-|                                                                                                                        |
-|                                                                             .                                          |
-|                                                               . .   .    .                                             |
-|                                                                     .    . ..                                          |
-|                                                                           .                                            |
-|                                                       .    .: ..  .  .  .                                              |
-|                                                   . . .  ..  . ..                                                      |
-|                                                    :. .     .  .                                                       |
-|                                                .-:... -:=-+@-...-.                                                     |
-|                                               . .   :-.=---::.....         .                                           |
-|                                               ..  .   :::..                          .                                 |
-|                                                       :..:. . .  . .                      .                            |
-|                                                   . ....   .  .  .                                                     |
-|                                                      :      ...     .                                                  |
-|                                                           :...           .                                             |
-|                                                            .                                                           |
-|                                                                            .                                           |
-|                                                                   .                                                    |
-|                                                                                                                        |
-|                                                                                                                        |
-|                                                                      .                                                 |
-|                                                                                                                        |
+|                                                   .                                                                    |
+|                                                      ...  .                                                            |
+|                                     :       .  .     :        .                                                        |
+|                                            :  .   .      .  .  :                                                       |
+|                                                           . :   :          .                                           |
+|               .  .                                    . ..=@:.:  ..    .    .                                          |
+|                     .                .                 .:===- .   :::   .                                              |
+|                             . .                     .=:  -.   :::.  ..   ..                                            |
+|                           ..        .           .       .      :       ..             .                                |
+|                          . .           .:-: .      .   .    .  .        .    .                                         |
+|                     .      .                  .         .... .      ..                                                 |
+|                                       .                  .        ..      .                                            |
+|               .                                               .::..       .       .     .                              |
+|           .        .   .    :     .    .                    .         .                                                |
+|                      .                          .               .                                                      |
+|                        .           .                                         .     .                                   |
+|                           .             .                                         .                                    |
+|                                    :                 .                         .                                       |
+|                                                     .          .        .                                              |
 |                                                                                                                        |
 |                                                                                                                        |
 ```
@@ -256,110 +256,110 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 **Kill Zone Heatmap (Where does it kill?)**
 ```
 |                                                                                                                        |
+|                .                                                                                                       |
+|                       .                                                                                                |
 |                                                                                                                        |
 |                                                                                                                        |
 |                                                                                                                        |
 |                                                                                                                        |
+|                                                .                                                                       |
 |                                                                                                                        |
-|                                                                          .                                             |
-|                                                                            .                                           |
-|                                                                :   ..     .                                            |
-|                                                                    . .    ...                                          |
-|                                                                         .                                              |
-|                                                      .  .   .   .  ...                                                 |
-|                                                   .. .  ..: .  ..                                                      |
-|                                                    :.      .                                                           |
-|                                                .- :.:.:-=-+@. .:=.                                                     |
-|                                                     :-:-:--.:..::                                                      |
-|                                                . . .  :::..                                                            |
-|                                                       .. .   .                             .                           |
-|                                                   .. ...     .  . .                                                    |
-|                                                     .:       .                                                         |
-|                                                           :....        . .                                             |
-|                                                            .             .                                             |
-|                                                                            .                                           |
-|                                                                  ..                                                    |
+|                                                  .                                                                     |
+|                                         .             .                                                                |
+|                                                    . .      .                                                          |
+|                                                .   :    .      .                                                       |
+|                                                             =.  :                                                      |
+|                                                           +@:.:         .                                              |
+|                                                        .-+-=: ..  ::::                                                 |
+|                     .                                +:  =.   .-.     ... .                                            |
+|                                               . : .            ..       :.                                             |
+|                   .        .          ...=             .       .     .   .                                             |
+|                               .                 .       .: ..        .   .     .         .                             |
+|             .         .  .                              ..          .   .                                              |
+|                                 . .                            ..:.                                                    |
+|              .             .  .    .                            .      .                                               |
+|                      .   .            .  .                                                                             |
+|                                     .     .     .       .                   .                                          |
+|                                       .                                            .                                   |
+|                                    .                                          .                                        |
+|                                           .                                 .                                          |
 |                                                                                                                        |
-|                                                                                                                        |
-|                                                                                                                        |
-|                                                                                                                        |
-|                                                                                                                        |
-|                                                                                                                        |
+|                                             .                                                                          |
 ```
 
-### Spatial Analytics (Population Average - Generations 181-190)
+### Spatial Analytics (Population Average - Generations 1-8)
 
 **Position Heatmap (Where do they fly?)**
 ```
-|                                      .            .     .                                                              |
-|                                        .        .                     .      .                                         |
-|                                      .                                    .                                            |
-|                          .                                                                                             |
-|                                                          ..   .      . .                 .                             |
-|                                              .     .        .    .       .       .        .                            |
-|                                                    ..  .. .  ..              .  .   .                                  |
-|                                        .    . .     . . .  .  ..   .             .       .                             |
-|          .                  .            .            .  .   ..   . .         .                                        |
-|                                        .        . ..    .   ...... .   .     .                 .                       |
-|                                    .  .     .  ...... . .  ....  .   . .  . .                                          |
-|                                             .  . ... .........   ...     . .     .    .                 .              |
-|                .          ...       .  .  .    .:..:....::.......:.... ..   ..  ..                                     |
-| .                                . .    . . . ... ..:::::------:.........       .      .                               |
-|        .                    .    ..   .   :    ....::::-==+@+--::::. ... .. ..                                         |
-|        .              . .        .  . ..  . .  :....::--=+=+=--::::.   ...  . ..                                       |
-|                                     . . ...   ...:.::::--:.-::..:...  .                                                |
-|                         .   ..  .       ... ........ .:...:...:. ... ...   .                                           |
-|                         .            .... .       . .:.  ...  ...      ..        .                          .          |
-|                                                . ... .. .  ..  ..                .                                     |
-|                                      .   .       .    ..   .   .    .     .  .                                         |
-|                                                   . . .. .           .  ..                                             |
-|                                          .    .     .          .                        .                              |
-|                                                 .        ..  .     .                          .                        |
-|                                                   .  .     .                                                           |
-|                                    .                          .   ..                                                   |
-|                                                               .                                                        |
-|                                                                                                       .                |
-|                                  .     .                         .  .                                                  |
-|                                                         . .                                                            |
+|                                                                 .                                                      |
+|                               .                                                                                        |
+|                                                                                    .                                   |
+|                      .                      .                                                                          |
+|                                   .          .              . .                                                        |
+|                                                                     ...                      .                         |
+|                                             :.   .     .      .  .                        .                            |
+|                      .                    .   .                  .                                                     |
+|                                       .   .                . .         .                               .               |
+|                                           .   ..  .      ..   . .                                                      |
+|                                                .   .   .  ..   ..          .    .                                      |
+|                                     :       : :. :.  . :   .. . . ..   :    .   :.       .                             |
+|             .                              .:..   :. .: ::  . ::.. .    .  ..  .                .                      |
+|                                               . :..:.: ::.-.-: .:.:.... .. .                                           |
+|                       .                   . .     :. ::::-=@=:: .:          .                                          |
+|                                                   . .:-:-==+=:::. :.. . .             .                                |
+|                   .     .  .. .                .   .:-..:-.-:::-:   ..    .                                            |
+|                            . .      ..                  .::..:::   ..  :.: .          .  . .                           |
+|                      .     .           ..:.  ..    .    .   :.     :       .                                           |
+|                        .       .     .                 .. .. .      .. .                                               |
+|                         .                                          .      .            . .                             |
+|                                                                ..                 .      .                             |
+|            .                .                  .   .           .      .                                          .     |
+|                                                                ..                                                      |
+|                                                                             .     .      .                             |
+|                                                         .                                                              |
+|                     .              .  .                  .                     .                                       |
+|                                                                         .                                              |
+|                                              .                                                        .                |
+|                              .                           .                                                             |
 ```
 
 **Kill Zone Heatmap (Where do they kill?)**
 ```
-|                                                                                                                        |
-|                                                 .      .             .                                                 |
-|                                    .                   . .                .                                            |
-|                                         .                               .                                              |
-|                                          .               .                               .                             |
-|                                                 .  .             .         .  ..         .                             |
-|                                              .     .   . .   .                                                         |
-|                                                  ..   :..   . .        .     .   .                                     |
-|                                                    ...   ..   .                  .             .                       |
-|                                                      .  .   ...  .      ..  .                                    .     |
-|                                               ...  .. .. .. ...     .                                                  |
-|                       .               .            .  . :...:  .  . .  .           .                   .               |
-|                        .  .  .  .      .       ..:...:...:...:. :: ....:.   . .                                        |
-|                                   .      .     ......::::--:---:..::.....   ..                                         |
-|                                       .   : .   . .::::-===@+-=:::...    : .                                           |
-|   .                   ..            . .. .. .  ::.::::--=+=+=--- :  ... .. .                                           |
-|               .          .     .      . ..:   ..:...::::-::-:-::.....                                                  |
-|               .              .  .     .   : .  . ... .:::. ......    . .                                               |
-|                                          .           : . :.   ..     . .         .                                     |
-|                                                .    .   .   . .    .        .         .                                |
-|                                         .      .         ..:            .    .   .                                     |
-|                                           .   .    .     . .         .   :                                             |
-|                                   .             .   ..                                                                 |
-|                                                        .                                     .                         |
-|                                         .                  .                                                           |
-|                                                                                                                        |
-|                                                               .                                                        |
-|                                                                .                                                       |
-|                                                           .                                                            |
-|                                                               .                                                        |
+|              .                 .  .               .  .          . . .                                               .  |
+|            .   .     .       .         .                         .                   .              .                  |
+|                       .  .           .          .      .                      .      ..    .             .             |
+|           .  .                .            .          .                                           .     . ..           |
+|                                        .  .   . .   .        ...             .                       . .  .            |
+|            .              .      .               :   .           .. ...            .  .  .:             .              |
+|   .. .          .     .               .    . ..     ...    ...  .      .                      ..                       |
+|        .    .    .          .             .  ...         ..  .  .          . .  .  ..  .  .   .         .              |
+|    .                 .           .   ..   .   ..   .       ... ..   : ..          ..   .                           . . |
+|           .                            .    . .  .   .  .  .  ..      .           .     ..    ...   .    .  ...       .|
+|             .        .                  .       ..  . .    . .  ..  . ...  .    .     .    .  .                        |
+|                                              .  .... . : . .. ... .   .  .  .         ..                 . .           |
+|         .  . .   .                    .   . .. .. .: ...:.   ... ...   .                         ..    .  .            |
+|   ...  . .                  .        .       . . .: .:..:.:.-:..: .. . : .   .     .    .           .       .          |
+|              .   .                    .    .   .. . ....::=@=.:.... .   .            .   .  .          .               |
+|     ..     .       .   . .             .          .. :---==+=:::. .:.:. :     .     .    .         .              .    |
+|                    ..   . . . .    .   .       . . ..-...=.=:::-. . ..... .      . ..                 .                |
+|             .       .      ...       .    .   . : .     . .. --:.  . . .:. .   .       .  .                    .       |
+|                   .       ..          ...- . ::        ..  .....   . : . . .  .                        .               |
+|        .               .      .       ..       ..   . . .: ....  .   .  ..     .. .      .          .         .        |
+|.     .      .         . ..                            . ..     .    ..  .  . .      . .     .                          |
+|    .            .               . .               .       .    ..:..     .   .   ..  ....     .           ..      .    |
+|  .           .   .         .  .    .           .        .     . .   .  ..   . ..    .  . .  .               .          |
+|                  .   .   .            .  .   .     .   . ..   .        .       ..          .  .                        |
+|   ..  .          .. .              ..  .  .     ..  ..  . .          .   .  ..     .. .                          .   . |
+|                  .                  . .       .       .  .    .                    .                 .  ..             |
+|                           .   .    ..     .               .  ..  .            ..   .                                   |
+|                                      .    .              .  . .             .      .     .   .          .              |
+|               .         .                                     .                    .                                   |
+|            . .        .    .  .  .          .        .         ...                      .                              |
 ```
 
 ### Heatmap Takeaways
 
-- Heatmaps aggregate spatial samples over the last 10 generations.
+- Heatmaps aggregate spatial samples over the last 8 generations.
 - Best-agent and population heatmaps highlight spatial biases and kill zones.
 
 ### Heatmap Glossary
@@ -371,39 +371,39 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 
 ### Best Improvement
 
-**Generation 84**: Best fitness jumped +286.0 (+412.4%)
-- New best fitness: 355.3
+**Generation 8**: Best fitness jumped +137.1 (+95.0%)
+- New best fitness: 281.5
 
 ### Worst Regression
 
-**Generation 69**: Best fitness dropped -285.2 (-83.6%)
-- New best fitness: 55.9
+**Generation 7**: Best fitness dropped -58.9 (-29.0%)
+- New best fitness: 144.4
 - Note: this can be normal variation after a lucky outlier
 
 ### Most Accurate Generation
 
-**Generation 107**: Population accuracy reached 43.4%
+**Generation 8**: Population accuracy reached 39.8%
 
 ### Most Kills (Single Agent)
 
-**Generation 119**: An agent achieved 25 kills
+**Generation 5**: An agent achieved 16 kills
 
 ### First Viable Population
 
-**Generation 36**: Average fitness first became positive
+**Generation 2**: Average fitness first became positive
 
 ### Most Diverse Generation
 
-**Generation 107**: Diversity index 199.48
+**Generation 3**: Diversity index 15.90
 
 ### Most Converged Generation
 
-**Generation 189**: Diversity index 0.25
+**Generation 8**: Diversity index 0.63
 
 ### Takeaways
 
-- Best improvement at Gen 84 (+286.0).
-- Worst regression at Gen 69 (-285.2).
+- Best improvement at Gen 8 (+137.1).
+- Worst regression at Gen 7 (-58.9).
 
 ### Glossary
 
@@ -417,26 +417,26 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 
 | Generation | Category | Value | Description |
 |------------|----------|-------|-------------|
-| 1 | Fitness | 149 | Best fitness reached 25% of run peak |
-| 1 | Kills | 14 | Max kills reached 25% of run peak |
-| 1 | Kills | 14 | Max kills reached 50% of run peak |
-| 6 | Fitness | 190 | Best fitness reached 50% of run peak |
-| 17 | Fitness | 311 | Best fitness reached 75% of run peak |
-| 17 | Kills | 20 | Max kills reached 75% of run peak |
-| 36 | Avg Fitness | 35 | Avg fitness reached 25% of run peak |
-| 36 | Avg Fitness | 35 | Avg fitness reached 50% of run peak |
-| 36 | Avg Fitness | 35 | Avg fitness reached 75% of run peak |
-| 36 | Viability | 35 | Average fitness turned positive |
-| 49 | Kills | 23 | Max kills reached 90% of run peak |
-| 58 | Avg Fitness | 40 | Avg fitness reached 90% of run peak |
-| 68 | Fitness | 341 | Best fitness reached 90% of run peak |
-| 84 | Fitness | 355 | Best fitness reached 95% of run peak |
-| 167 | Fitness | 364 | Best fitness reached 98% of run peak |
+| 1 | Fitness | 152 | Best fitness reached 25% of run peak |
+| 1 | Fitness | 152 | Best fitness reached 50% of run peak |
+| 1 | Kills | 6 | Max kills reached 25% of run peak |
+| 2 | Kills | 12 | Max kills reached 50% of run peak |
+| 2 | Kills | 12 | Max kills reached 75% of run peak |
+| 2 | Viability | 14 | Average fitness turned positive |
+| 3 | Fitness | 212 | Best fitness reached 75% of run peak |
+| 5 | Avg Fitness | 65 | Avg fitness reached 25% of run peak |
+| 5 | Kills | 16 | Max kills reached 90% of run peak |
+| 8 | Fitness | 282 | Best fitness reached 90% of run peak |
+| 8 | Fitness | 282 | Best fitness reached 95% of run peak |
+| 8 | Fitness | 282 | Best fitness reached 98% of run peak |
+| 8 | Avg Fitness | 137 | Avg fitness reached 50% of run peak |
+| 8 | Avg Fitness | 137 | Avg fitness reached 75% of run peak |
+| 8 | Avg Fitness | 137 | Avg fitness reached 90% of run peak |
 
 ### Takeaways
 
 - Total milestones reached: 15.
-- Latest milestone at Gen 167 (Fitness).
+- Latest milestone at Gen 8 (Avg Fitness).
 
 ### Glossary
 
@@ -448,10 +448,10 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 
 | Phase | Gens | Best Fit | Avg Fit | Avg Kills | Avg Acc | Avg Steps | Diversity |
 |-------|------|----------|---------|-----------|---------|-----------|----------|
-| Phase 1 (0-25%) | 1-48 | 318 | -97 | 6.8 | 35% | 717 | 89 |
-| Phase 2 (25-51%) | 49-96 | 355 | -96 | 7.2 | 36% | 710 | 90 |
-| Phase 3 (51-75%) | 97-143 | 326 | -102 | 6.9 | 35% | 686 | 90 |
-| Phase 4 (75-100%) | 144-190 | 364 | -97 | 7.2 | 35% | 702 | 88 |
+| Phase 1 (0-25%) | 1-2 | 152 | -2 | 3.5 | 32% | 618 | 59 |
+| Phase 2 (25-50%) | 3-4 | 212 | 8 | 3.6 | 30% | 513 | 73 |
+| Phase 3 (50-75%) | 5-6 | 207 | 52 | 6.2 | 37% | 656 | 90 |
+| Phase 4 (75-100%) | 7-8 | 282 | 76 | 7.3 | 36% | 737 | 74 |
 
 ### Takeaways
 
@@ -468,7 +468,7 @@ The most fit agent appeared in **Generation 167** with a fitness of **364.01**.
 
 ## Distribution Analysis
 
-### Metric Distributions (Last 10 Generations)
+### Metric Distributions (Last 8 Generations)
 
 Visualizing population consistency: `|---O---|` represents Mean +/- 1 StdDev.
 - **Narrow bar**: Consistent population (convergence)
@@ -476,134 +476,121 @@ Visualizing population consistency: `|---O---|` represents Mean +/- 1 StdDev.
 
 **Accuracy Distribution**
 ```
-Gen 181:  |--------------O---------------|                   28.4% +/-  8.1%
-Gen 182:         |------------O------------|                 31.1% +/-  6.8%
-Gen 183:                     |-----------O-----------|       36.7% +/-  6.3%
-Gen 184:                    |-----------O-----------|        36.0% +/-  6.2%
-Gen 185:               |----------O----------|               32.9% +/-  5.9%
-Gen 186:                           |---------O--------|      38.7% +/-  5.1%
-Gen 187:             |------------O-------------|            33.1% +/-  7.1%
-Gen 188:                           |--------O---------|      38.6% +/-  5.0%
-Gen 189: |-----------O------------|                          26.3% +/-  6.7%
-Gen 190:                              |---------O---------|  40.6% +/-  5.3%
+Gen   1:     |-----------------O----------------|            30.1% +/- 11.3%
+Gen   2:          |-----------------O------------------|     33.6% +/- 11.8%
+Gen   3: |---------------------O----------------------|      30.5% +/- 14.7%
+Gen   4:        |--------------O-------------|               29.9% +/-  9.2%
+Gen   5:                        |------------O------------|  39.2% +/-  8.6%
+Gen   6:                 |-----------O-----------|           33.9% +/-  7.7%
+Gen   7:               |-----------O-----------|             32.8% +/-  7.9%
+Gen   8:                             |--------O--------|     39.8% +/-  5.7%
 ```
 
 **Survival Steps Distribution**
 ```
-Gen 181:           |-----O------|                            404.5 +/- 161.6
-Gen 182:                   |--------O-------|                652.9 +/- 204.2
-Gen 183:                       |-------O--------|            737.3 +/- 200.6
-Gen 184:                    |---------O---------|            712.1 +/- 233.0
-Gen 185:                       |-------O-------|             734.6 +/- 187.6
-Gen 186:                          |------O-------|           784.3 +/- 177.3
-Gen 187:                   |------O------|                   615.1 +/- 167.4
-Gen 188:                             |-------O--------|      884.2 +/- 208.1
-Gen 189:            |----O----|                              389.9 +/- 120.8
-Gen 190:                       |-----O-----|                 684.2 +/- 139.4
+Gen   1:            |--------O--------|                      505.0 +/- 221.9
+Gen   2:                  |-----------O-----------|          731.7 +/- 292.6
+Gen   3:               |-------O-------|                     551.5 +/- 193.4
+Gen   4:            |-------O------|                         475.0 +/- 181.2
+Gen   5:                |-------------O-------------|        732.0 +/- 339.6
+Gen   6:                 |------O------|                     579.9 +/- 174.7
+Gen   7:              |------O------|                        512.9 +/- 170.0
+Gen   8:                                 |-----O------|      961.3 +/- 161.1
 ```
 
 **Kills Distribution**
 ```
-Gen 181:  |--------O--------|                                  2.8 +/-   2.5
-Gen 182:              |----------O-----------|                 6.7 +/-   3.2
-Gen 183:                 |-----------O----------|              7.7 +/-   3.1
-Gen 184:               |------------O------------|             7.5 +/-   3.5
-Gen 185:                   |---------O---------|               7.7 +/-   2.8
-Gen 186:                   |-----------O-----------|           8.3 +/-   3.2
-Gen 187:          |----------O---------|                       5.5 +/-   2.9
-Gen 188:                       |-----------O----------|        9.4 +/-   3.1
-Gen 189:     |-------O------|                                  3.4 +/-   2.0
-Gen 190:              |---------O--------|                     6.4 +/-   2.6
+Gen   1: |--------O--------|                                   2.4 +/-   2.8
+Gen   2:         |-------O-------|                             4.6 +/-   2.5
+Gen   3:   |----------O----------|                             3.8 +/-   3.4
+Gen   4:    |--------O--------|                                3.4 +/-   2.8
+Gen   5:           |------------O-------------|                6.9 +/-   4.2
+Gen   6:          |---------O---------|                        5.4 +/-   3.0
+Gen   7:        |--------O-------|                             4.5 +/-   2.7
+Gen   8:                       |----------O-----------|       10.0 +/-   3.6
 ```
 
 **Fitness Distribution**
 ```
-Gen 181: |---------O----------|                             -207.3 +/-  74.2
-Gen 182:            |------------O-------------|            -108.3 +/-  92.6
-Gen 183:                |------------O------------|          -82.7 +/-  89.8
-Gen 184:              |--------------O-------------|         -86.4 +/- 100.7
-Gen 185:                 |-----------O-----------|           -86.2 +/-  83.6
-Gen 186:                   |------------O------------|       -62.4 +/-  90.8
-Gen 187:        |-----------O-----------|                   -144.1 +/-  82.4
-Gen 188:                      |-------------O-------------|  -34.2 +/-  94.4
-Gen 189:   |-------O------|                                 -211.5 +/-  53.5
-Gen 190:              |---------O----------|                -115.0 +/-  75.7
+Gen   1: |---------O---------|                               -18.6 +/-  66.3
+Gen   2:        |-------O-------|                             14.3 +/-  52.6
+Gen   3:  |-----------O-----------|                            5.0 +/-  80.1
+Gen   4:     |---------O---------|                            10.0 +/-  66.8
+Gen   5:       |---------------O---------------|              65.0 +/- 104.2
+Gen   6:        |----------O-----------|                      38.6 +/-  74.8
+Gen   7:      |---------O--------|                            15.4 +/-  62.6
+Gen   8:                     |------------O------------|     136.9 +/-  85.6
 ```
 
 **Aim Frontness Distribution**
 ```
-Gen 181:  |-----------------------O-----------------------|  51.6% +/-  7.8%
-Gen 182:        |-------------------O-------------------|    52.2% +/-  6.4%
-Gen 183:   |--------------------O-------------------|        50.8% +/-  6.6%
-Gen 184:      |-----------------O-----------------|          50.9% +/-  5.7%
-Gen 185:         |---------------O---------------|           51.1% +/-  5.1%
-Gen 186:     |-----------------O------------------|          50.6% +/-  5.9%
-Gen 187:  |-------------------O------------------|           50.2% +/-  6.3%
-Gen 188:       |------------------O-----------------|        51.4% +/-  6.1%
-Gen 189: |---------------------O---------------------|       50.4% +/-  7.1%
-Gen 190:         |---------------O---------------|           51.3% +/-  5.1%
+Gen   1: |-------------O--------------|                      46.1% +/-  6.4%
+Gen   2:             |---------O----------|                  49.7% +/-  4.6%
+Gen   3:               |-------O-------|                     49.5% +/-  3.5%
+Gen   4:             |---------O---------|                   49.3% +/-  4.4%
+Gen   5:  |-----------------------O-----------------------|  50.9% +/- 10.4%
+Gen   6:                 |------O-----|                      49.8% +/-  2.9%
+Gen   7:               |----------O----------|               50.9% +/-  4.8%
+Gen   8:        |-------------O--------------|               49.2% +/-  6.2%
 ```
 
 **Danger Exposure Distribution**
 ```
-Gen 181:     |---------O---------|                           13.8% +/-  3.0%
-Gen 182:     |------------O------------|                     14.7% +/-  3.7%
-Gen 183:                |----------------O----------------|  19.2% +/-  5.0%
-Gen 184:                    |-------------O-------------|    19.3% +/-  4.2%
-Gen 185:          |------------O-------------|               16.2% +/-  3.8%
-Gen 186:                |-------------O--------------|       18.3% +/-  4.3%
-Gen 187: |---------------O---------------|                   14.4% +/-  4.8%
-Gen 188:                 |-----------O-----------|           17.9% +/-  3.5%
-Gen 189:   |---------O----------|                            13.3% +/-  3.1%
-Gen 190:     |----------------O---------------|              15.7% +/-  4.7%
+Gen   1:        |----------O-----------|                     14.2% +/-  4.0%
+Gen   2:              |-----------------O-----------------|  18.6% +/-  6.3%
+Gen   3:              |-----------O-----------|              16.5% +/-  4.3%
+Gen   4: |------------O------------|                         12.3% +/-  4.6%
+Gen   5:      |------------O------------|                    14.0% +/-  4.5%
+Gen   6:    |---------O----------|                           12.4% +/-  3.7%
+Gen   7:         |--------O-------|                          13.6% +/-  2.8%
+Gen   8:              |------------O------------|            16.8% +/-  4.5%
 ```
 
 **Turn Deadzone Distribution**
 ```
-Gen 181: O                                                    0.0% +/-  0.0%
-Gen 182: O                                                    0.0% +/-  0.0%
-Gen 183: O                                                    0.0% +/-  0.0%
-Gen 184: O                                                    0.0% +/-  0.0%
-Gen 185: O                                                    0.0% +/-  0.0%
-Gen 186: O                                                    0.0% +/-  0.0%
-Gen 187: O                                                    0.0% +/-  0.0%
-Gen 188: O                                                    0.0% +/-  0.0%
-Gen 189: O                                                    0.0% +/-  0.0%
-Gen 190: O                                                    0.0% +/-  0.0%
+Gen   1: O                                                    0.0% +/-  0.0%
+Gen   2: O                                                    0.0% +/-  0.0%
+Gen   3: O                                                    0.0% +/-  0.0%
+Gen   4: O                                                    0.0% +/-  0.0%
+Gen   5: O                                                    0.0% +/-  0.0%
+Gen   6: O                                                    0.0% +/-  0.0%
+Gen   7: O                                                    0.0% +/-  0.0%
+Gen   8: O                                                    0.0% +/-  0.0%
 ```
 
 **Coverage Ratio Distribution**
 ```
-Gen 181: |---------------------O----------------------|      15.1% +/- 12.0%
-Gen 182:    |--------------------O--------------------|      16.1% +/- 10.9%
-Gen 183:         |-----------------O-----------------|       17.1% +/-  9.3%
-Gen 184:   |-----------------------O----------------------|  16.9% +/- 12.4%
-Gen 185:    |------------------O-------------------|         15.2% +/- 10.4%
-Gen 186:     |--------------O---------------|                13.4% +/-  8.1%
-Gen 187: |-------------------O-------------------|           13.7% +/- 10.4%
-Gen 188:     |---------------O----------------|              14.0% +/-  8.7%
-Gen 189:  |------------O------------|                        10.9% +/-  6.8%
-Gen 190:     |-----------O-----------|                       11.9% +/-  6.4%
+Gen   1:                       |-------O--------|            38.9% +/-  8.9%
+Gen   2:              |-----------------O-----------------|  40.0% +/- 19.6%
+Gen   3:   |------------O------------|                       22.5% +/- 14.2%
+Gen   4: |----------O-----------|                            18.1% +/- 12.6%
+Gen   5:             |---------------O--------------|        35.8% +/- 16.6%
+Gen   6:          |-------------O------------|               30.6% +/- 14.7%
+Gen   7:    |-----O-----|                                    15.8% +/-  6.4%
+Gen   8:   |---------O----------|                            19.4% +/- 11.3%
 ```
 
 **Seed Fitness Std Distribution**
 ```
-Gen 181:  |-------------O-------------|                       73.0 +/-  67.0
-Gen 182:             |---------------O----------------|      137.7 +/-  78.2
-Gen 183:        |---------------O---------------|            112.1 +/-  77.4
-Gen 184:            |---------------O---------------|        130.9 +/-  78.2
-Gen 185:             |---------------O---------------|       136.2 +/-  75.8
-Gen 186:              |---------------O---------------|      140.7 +/-  77.0
-Gen 187:       |---------------O--------------|              105.9 +/-  72.8
-Gen 188:             |--------------O-------------|          130.3 +/-  70.5
-Gen 189:    |----------O---------|                            67.4 +/-  52.0
-Gen 190:      |----------------O----------------|            109.1 +/-  80.7
+Gen   1:      |-------O------|                                49.5 +/-  29.0
+Gen   2:           |----------O-----------|                   82.7 +/-  41.9
+Gen   3:      |-------------O-------------|                   74.3 +/-  51.9
+Gen   4:         |--------O-------|                           64.6 +/-  32.7
+Gen   5:              |----------O-----------|                93.8 +/-  44.3
+Gen   6:           |-------------O------------|               90.5 +/-  50.9
+Gen   7:          |---------O---------|                       74.1 +/-  36.8
+Gen   8:                     |-----------O------------|      123.9 +/-  47.3
 ```
 
 ### Takeaways
 
-- Fitness spread trend: stagnation (low confidence).
-- Seed variance trend: volatile (low confidence (noisy)).
+- Fitness spread trend: slight regression (moderate confidence).
+- Seed variance trend: sharp regression (high confidence).
+
+### Warnings
+
+- Fitness spread is widening or volatile; convergence is weak.
+- Seed-to-seed variance is rising; evaluation noise may mask true improvements.
 
 ### Glossary
 
@@ -630,24 +617,24 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ### Current Performance (Final Phase)
 
-- **Kills per 100 Steps:** 1.03 (Phase 1: 0.95)
-- **Shots per Kill:** 6.05 (Phase 1: 6.09)
-- **Kill Conversion Rate:** 16.5% (Phase 1: 16.4%)
-- **Average Kills per Episode:** 7.2
+- **Kills per 100 Steps:** 0.99 (Phase 1: 0.57)
+- **Shots per Kill:** 6.01 (Phase 1: 6.74)
+- **Kill Conversion Rate:** 16.6% (Phase 1: 14.8%)
+- **Average Kills per Episode:** 7.3
 
 ### Efficiency Trend (Phase Averages)
 
 | Phase | Kills/100 Steps | Shots/Kill | Conversion Rate |
 |-------|-----------------|------------|----------------|
-| Phase 1 (0-25%) | 0.95 | 6.09 | 16.4% |
-| Phase 2 (25-51%) | 1.01 | 6.14 | 16.3% |
-| Phase 3 (51-75%) | 1.01 | 6.19 | 16.1% |
-| Phase 4 (75-100%) | 1.03 | 6.05 | 16.5% |
+| Phase 1 (0-25%) | 0.57 | 6.74 | 14.8% |
+| Phase 2 (25-50%) | 0.70 | 7.25 | 13.8% |
+| Phase 3 (50-75%) | 0.94 | 6.08 | 16.5% |
+| Phase 4 (75-100%) | 0.99 | 6.01 | 16.6% |
 
 ### Takeaways
 
-- Kill rate changed from 0.95 to 1.03 kills/100 steps.
-- Shots per kill moved from 6.09 to 6.05.
+- Kill rate changed from 0.57 to 0.99 kills/100 steps.
+- Shots per kill moved from 6.74 to 6.01.
 
 ### Glossary
 
@@ -659,53 +646,21 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ## Learning Velocity
 
-### Velocity by Phase
-
-| Phase | Fitness Delta | Delta/Gen | Velocity Band |
-|-------|---------------|-----------|---------------|
-| Phase 1 (0-25%) | +52 | +1.1 | Slow |
-| Phase 2 (25-51%) | +65 | +1.4 | Fast |
-| Phase 3 (51-75%) | +142 | +3.0 | Fast |
-| Phase 4 (75-100%) | -100 | -2.1 | Slow |
-
-### Current Velocity
-
-- **Recent Improvement Rate:** -2.1 fitness/generation
-- **Acceleration:** -0.8 (positive = speeding up)
-
-### Takeaways
-
-- Velocity mean +0.8 with std 1.9 across phases.
-
-### Warnings
-
-- Recent learning velocity is in the slowest quartile of the run.
-
-### Glossary
-
-- **Best fitness:** Highest per-generation fitness across the population (max average reward).
+Not enough data for velocity analysis (need at least 10 generations).
 
 ## Reward Component Evolution
 
 | Component | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Trend | Status |
 |-----------|---------|---------|---------|---------|-------|--------|
-| DeathPenalty | -216.0 | -218.8 | -221.6 | -218.5 | ~ -1% | Worsening penalty |
-| DistanceBasedKillReward | +122.0 | +128.9 | +124.3 | +130.4 | ~ +7% | Stable |
-| ConservingAmmoBonus | -17.3 | -17.4 | -17.6 | -18.0 | ~ -4% | Worsening penalty |
-| ExplorationBonus | +10.9 | +9.4 | +10.2 | +8.2 | - -24% | Neutral |
-| VelocitySurvivalBonus | +5.8 | +3.6 | +4.3 | +2.6 | - -55% | Neutral |
-
-**Exploration Efficiency (Final Phase):** 0.0124 score/step
-- *A higher rate indicates faster map traversal, independent of survival time.*
+| DistanceBasedKillReward | +52.5 | +53.8 | +92.2 | +109.0 | ++ +108% | Learned |
+| DeathPenalty | -76.1 | -82.1 | -74.8 | -71.3 | ~ +6% | Improving penalty |
+| ConservingAmmoBonus | +11.5 | +12.6 | +24.7 | +25.6 | +++ +123% | Learned |
+| TargetLockReward | +14.5 | +13.5 | +16.4 | +20.9 | + +44% | Learned |
 
 ### Takeaways
 
-- Reward component shifts are modest or mixed across phases.
-
-### Warnings
-
-- DeathPenalty penalty deepened (more negative over time).
-- ConservingAmmoBonus penalty deepened (more negative over time).
+- DistanceBasedKillReward shifted up by +108% from Phase 1 to Phase 4.
+- ConservingAmmoBonus shifted up by +123% from Phase 1 to Phase 4.
 
 ### Glossary
 
@@ -715,9 +670,9 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ### Balance Metrics (Latest Generation)
 
-- Reward dominance index (HHI): 0.87
-- Reward entropy (normalized): 0.27
-- Max component share: 92.9%
+- Reward dominance index (HHI): 0.53
+- Reward entropy (normalized): 0.75
+- Max component share: 69.8%
 - Positive component count: 3
 
 ### Takeaways
@@ -726,11 +681,8 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ### Warnings
 
-- Max component share is high (92.9%).
-- VelocitySurvivalBonus is volatile across the run (high variance vs mean).
-- ConservingAmmoBonus remains negative on average (behavior may be over-penalized).
+- Max component share is high (69.8%).
 - DeathPenalty remains negative on average (behavior may be over-penalized).
-- Penalty ratio is high (1.91), negative rewards dominate.
 
 ### Glossary
 
@@ -742,25 +694,25 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ## Population Health Dashboard
 
-### Current Status: Watch
+### Current Status: Warning
 
 | Metric | Value | Trend (Recent) |
 |--------|-------|----------------|
-| Diversity Index | 0.91 | Decreasing |
-| Elite Gap | 2.69 | Stable |
-| Min Fitness Trend | -0.3 | Down |
-| Max Fitness Trend | -11.5 | Down |
-| IQR (p75-p25) | 122 | Narrowing |
+| Diversity Index | 0.97 | Increasing |
+| Elite Gap | 1.80 | Stable |
+| Min Fitness Trend | +29.9 | Up |
+| Max Fitness Trend | +83.4 | Up |
+| IQR (p75-p25) | 112 | Widening |
 
 ### Takeaways
 
-- Health status is Watch.
-- Diversity index at 0.91 with decreasing spread.
-- Fitness floor trend -0.3, ceiling trend -11.5.
+- Health status is Warning.
+- Diversity index at 0.97 with increasing spread.
+- Fitness floor trend +29.9, ceiling trend +83.4.
 
 ### Warnings
 
-- Fitness floor trending down (weakest agents worsening)
+- Diversity compressed vs run baseline (risk of premature convergence)
 
 ### Glossary
 
@@ -773,19 +725,15 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ## Stagnation Analysis
 
-- **Current Stagnation:** 23 generations
-- **Average Stagnation Period:** 20.0 generations
-- **Longest Stagnation:** 82 generations
-- **Number of Stagnation Periods:** 9
+- **Current Stagnation:** 0 generations
+- **Average Stagnation Period:** 2.5 generations
+- **Longest Stagnation:** 4 generations
+- **Number of Stagnation Periods:** 2
 
 ### Takeaways
 
-- Stagnation periods average 20.0 generations.
-- Longest plateau reached 82 generations.
-
-### Warnings
-
-- Current stagnation is above typical plateaus.
+- Stagnation periods average 2.5 generations.
+- Longest plateau reached 4 generations.
 
 ### Glossary
 
@@ -797,48 +745,39 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 | Gen | Training Fit | Fresh Fit | Accuracy | Ratio | Grade | Cause of Death |
 |-----|--------------|-----------|----------|-------|-------|----------------|
-| 180 | 302 | -233 | 25.6% | -2.20 | F | asteroid_collision |
-| 181 | 90 | -153 | 36.7% | 0.00 | F | asteroid_collision |
-| 182 | 113 | -191 | 29.3% | 0.00 | F | asteroid_collision |
-| 183 | 183 | 27 | 42.2% | 0.20 | F | asteroid_collision |
-| 184 | 165 | 338 | 51.1% | 3.28 | A | completed_episode |
-| 185 | 138 | -236 | 34.1% | -3.44 | F | asteroid_collision |
-| 186 | 167 | -293 | 13.3% | 0.00 | F | asteroid_collision |
-| 187 | 162 | -92 | 37.1% | -0.73 | F | asteroid_collision |
-| 188 | 247 | -27 | 31.0% | -0.17 | F | asteroid_collision |
-| 189 | 6 | -170 | 38.7% | 0.00 | F | asteroid_collision |
+| 1 | 152 | -81 | 0.0% | 0.00 | F | asteroid_collision |
+| 2 | 107 | -57 | 21.1% | -1.04 | F | asteroid_collision |
+| 3 | 212 | -18 | 22.5% | 0.00 | F | asteroid_collision |
+| 4 | 161 | -40 | 20.0% | -72.27 | F | asteroid_collision |
+| 5 | 207 | -10 | 35.5% | -0.09 | F | asteroid_collision |
+| 6 | 203 | 96 | 33.9% | 0.47 | D | asteroid_collision |
+| 7 | 144 | -66 | 26.7% | -1.62 | F | asteroid_collision |
+| 8 | 282 | -83 | 11.1% | -0.29 | F | asteroid_collision |
 
 ### Generalization Summary
 
-- **Average Fitness Ratio:** 2.37
-- **Best Ratio:** 9.27
-- **Worst Ratio:** 0.00
+- **Average Fitness Ratio:** 0.47
+- **Best Ratio:** 0.47
+- **Worst Ratio:** 0.47
 
-**Grade Distribution:** A:17 B:1 D:2 F:169 
+**Grade Distribution:** D:1 F:7 
 
 ### Reward Transfer Gap (Fresh vs Training)
 
 | Gen | Share Shift | Largest Share Deltas |
 |-----|-------------|----------------------|
-| 180 |    4.6% | ExplorationBonus +5%, VelocitySurvivalBonus -3%, DistanceBasedKillReward -2% |
-| 181 |   15.5% | DistanceBasedKillReward +15%, ExplorationBonus -10%, VelocitySurvivalBonus -6% |
-| 182 |    4.3% | DistanceBasedKillReward +4%, VelocitySurvivalBonus -3%, ExplorationBonus -1% |
-| 183 |    5.5% | DistanceBasedKillReward +6%, VelocitySurvivalBonus -3%, ExplorationBonus -3% |
-| 184 |    7.0% | DistanceBasedKillReward +6%, ExplorationBonus -4%, VelocitySurvivalBonus -3% |
-| 185 |   15.6% | ExplorationBonus +16%, DistanceBasedKillReward -13%, VelocitySurvivalBonus -2% |
-| 186 |   94.9% | ExplorationBonus +95%, DistanceBasedKillReward -94%, VelocitySurvivalBonus -1% |
-| 187 |    5.8% | DistanceBasedKillReward +6%, ExplorationBonus -5%, VelocitySurvivalBonus -1% |
-| 188 |    3.7% | DistanceBasedKillReward +4%, ExplorationBonus -2%, VelocitySurvivalBonus -1% |
-| 189 |    6.1% | DistanceBasedKillReward +6%, ExplorationBonus -4%, VelocitySurvivalBonus -2% |
+| 1 |   78.3% | TargetLockReward +78%, DistanceBasedKillReward -60%, ConservingAmmoBonus -18% |
+| 2 |   28.3% | TargetLockReward +28%, DistanceBasedKillReward -16%, ConservingAmmoBonus -12% |
+| 3 |   18.7% | ConservingAmmoBonus -19%, TargetLockReward +15%, DistanceBasedKillReward +4% |
+| 4 |   13.7% | DistanceBasedKillReward +14%, ConservingAmmoBonus -12%, TargetLockReward -1% |
+| 5 |    9.2% | TargetLockReward +9%, DistanceBasedKillReward -7%, ConservingAmmoBonus -3% |
+| 6 |   20.9% | TargetLockReward +21%, DistanceBasedKillReward -17%, ConservingAmmoBonus -4% |
+| 7 |   24.1% | TargetLockReward +24%, DistanceBasedKillReward -13%, ConservingAmmoBonus -11% |
+| 8 |   17.1% | ConservingAmmoBonus -17%, DistanceBasedKillReward +12%, TargetLockReward +5% |
 
 ### Takeaways
 
-- Average fitness ratio 2.37 (range 0.00 to 9.27).
-
-### Warnings
-
-- Generalization ratios are low relative to peak training performance.
-- Some generations show severe generalization drop-off.
+- Average fitness ratio 0.47 (range 0.47 to 0.47).
 
 ### Glossary
 
@@ -848,49 +787,28 @@ Gen 190:      |----------------O----------------|            109.1 +/-  80.7
 
 ## Correlation Analysis
 
-### Fitness Correlations
+Not enough data for correlation analysis.
 
-| Metric | Correlation | Strength |
-|--------|-------------|----------|
-| Kills | +0.99 | Strong |
-| Steps Survived | +0.97 | Strong |
-| Accuracy | +0.90 | Strong |
-
-### Interpretation
-
-Fitness is most strongly predicted by kills (r=0.99).
-
-### Takeaways
-
-- Strongest fitness driver: kills (r=0.99).
-
-### Glossary
-
-- **Average fitness:** Mean fitness across the population for a generation.
-- **Average kills:** Mean kills per episode across the population.
-- **Average steps:** Mean steps survived per episode across the population.
-- **Accuracy:** Hits divided by shots fired (0 to 1).
-
-## Survival Distribution - Still in Early Phases
+## Survival Distribution
 
 ### Survival Statistics (Final Phase)
 
-- **Mean Survival:** 702 steps (46.8% of max)
-- **Max Survival:** 1500 steps
+- **Mean Survival:** 737 steps (49.1% of max)
+- **Max Survival:** 1166 steps
 
 ### Survival Progression (Phase Averages)
 
 | Phase | Mean Steps | Change vs Prior |
 |-------|------------|-----------------|
-| Phase 1 (0-25%) | 717 |  |
-| Phase 2 (25-51%) | 710 | -8 |
-| Phase 3 (51-75%) | 686 | -24 |
-| Phase 4 (75-100%) | 702 | +16 |
+| Phase 1 (0-25%) | 618 |  |
+| Phase 2 (25-50%) | 513 | -105 |
+| Phase 3 (50-75%) | 656 | +143 |
+| Phase 4 (75-100%) | 737 | +81 |
 
 ### Takeaways
 
-- Final-phase survival averages 702 steps.
-- Best survival reached 1500 steps.
+- Final-phase survival averages 737 steps.
+- Best survival reached 1166 steps.
 
 ### Warnings
 
@@ -903,16 +821,16 @@ Fitness is most strongly predicted by kills (r=0.99).
 
 ## Behavioral Summary (Last 10 Generations)
 
-- **Avg Kills per Agent:** 6.55
-- **Avg Steps Survived:** 660
-- **Avg Accuracy:** 34.2%
-- **Max Kills (Any Agent Ever):** 24.666666666666668
-- **Max Steps (Any Agent Ever):** 1500.0
+- **Avg Kills per Agent:** 5.12
+- **Avg Steps Survived:** 631
+- **Avg Accuracy:** 33.7%
+- **Max Kills (Any Agent Ever):** 15.666666666666666
+- **Max Steps (Any Agent Ever):** 1215.6666666666667
 
 ### Takeaways
 
-- Recent average kills: 6.55.
-- Recent average accuracy: 34.2%.
+- Recent average kills: 5.12.
+- Recent average accuracy: 33.7%.
 
 ### Glossary
 
@@ -924,15 +842,15 @@ Fitness is most strongly predicted by kills (r=0.99).
 
 | Phase | Gens | Avg Best | Avg Mean | Avg Min |
 |-------|------|----------|----------|---------|
-| Phase 1 (0-25%) | 1-48 | 175.2 | -96.5 | -245.6 |
-| Phase 2 (25-51%) | 49-96 | 167.9 | -95.9 | -245.5 |
-| Phase 3 (51-75%) | 97-143 | 166.2 | -102.3 | -252.3 |
-| Phase 4 (75-100%) | 144-190 | 163.7 | -96.8 | -246.0 |
+| Phase 1 (0-25%) | 1-2 | 129.6 | -2.1 | -80.1 |
+| Phase 2 (25-50%) | 3-4 | 186.6 | 7.5 | -81.9 |
+| Phase 3 (50-75%) | 5-6 | 205.0 | 51.8 | -61.4 |
+| Phase 4 (75-100%) | 7-8 | 213.0 | 76.2 | -50.3 |
 
 ### Takeaways
 
-- Best fitness trend: stagnation (low confidence).
-- Average fitness trend: volatile (low confidence (noisy)).
+- Best fitness trend: breakout improvement (high confidence).
+- Average fitness trend: breakout improvement (low confidence (noisy)).
 
 ### Glossary
 
@@ -944,41 +862,23 @@ Fitness is most strongly predicted by kills (r=0.99).
 
 | Gen | Saturation | Entropy | Control Style |
 |-----|------------|---------|---------------|
-| 161 |   8.4% |  0.75 | Balanced / Repetitive |
-| 162 |   6.1% |  0.96 | Balanced |
-| 163 |   5.5% |  1.10 | Analog-leaning / Exploratory |
-| 164 |   8.2% |  0.95 | Balanced |
-| 165 |  10.5% |  0.85 | Balanced / Repetitive |
-| 166 |  12.2% |  0.79 | Balanced / Repetitive |
-| 167 |  13.0% |  0.88 | Binary-leaning |
-| 168 |  15.4% |  0.85 | Binary-leaning / Repetitive |
-| 169 |  21.1% |  0.75 | Binary-leaning / Repetitive |
-| 170 |  18.3% |  0.73 | Binary-leaning / Repetitive |
-| 171 |  13.9% |  0.84 | Binary-leaning / Repetitive |
-| 172 |  15.4% |  0.84 | Binary-leaning / Repetitive |
-| 173 |  14.2% |  0.83 | Binary-leaning / Repetitive |
-| 174 |  15.8% |  0.77 | Binary-leaning / Repetitive |
-| 175 |  10.7% |  0.94 | Balanced |
-| 176 |  12.6% |  0.82 | Binary-leaning / Repetitive |
-| 177 |  11.2% |  0.78 | Balanced / Repetitive |
-| 178 |  12.5% |  0.70 | Binary-leaning / Repetitive |
-| 179 |  14.6% |  0.76 | Binary-leaning / Repetitive |
-| 180 |   4.5% |  1.16 | Analog-leaning / Exploratory |
-| 181 |   6.9% |  0.93 | Balanced |
-| 182 |   6.9% |  0.94 | Balanced |
-| 183 |   7.9% |  0.93 | Balanced |
-| 184 |   7.2% |  0.87 | Balanced |
-| 185 |   7.8% |  0.87 | Balanced |
-| 186 |   7.4% |  0.96 | Balanced |
-| 187 |   9.1% |  0.91 | Balanced |
-| 188 |   7.3% |  0.97 | Balanced |
-| 189 |  11.1% |  0.83 | Balanced / Repetitive |
-| 190 |   8.1% |  0.82 | Balanced / Repetitive |
+| 1 |   0.0% |  1.50 | Analog-leaning |
+| 2 |   0.0% |  1.66 | Analog-leaning / Exploratory |
+| 3 |   0.0% |  1.36 | Balanced / Repetitive |
+| 4 |   0.0% |  1.26 | Analog-leaning / Repetitive |
+| 5 |   0.0% |  1.70 | Balanced / Exploratory |
+| 6 |   0.3% |  1.68 | Binary-leaning / Exploratory |
+| 7 |   0.7% |  1.37 | Binary-leaning |
+| 8 |   5.2% |  1.30 | Binary-leaning / Repetitive |
 
 ### Takeaways
 
-- Output saturation trend: stagnation (low confidence (noisy)).
-- Action entropy trend: stagnation (low confidence).
+- Output saturation trend: stagnation (low confidence).
+- Action entropy trend: volatile (low confidence (noisy)).
+
+### Warnings
+
+- High saturation with low entropy suggests rigid, repetitive control.
 
 ### Glossary
 
@@ -991,41 +891,19 @@ Analysis of how close agents let asteroids get before reacting or killing them.
 
 | Gen | Avg Min Dist | Fitness | Kills | Archetype |
 |-----|--------------|---------|-------|-----------|
-| 161 |   13.9px | -178.8 |  4.3 | Overexposed |
-| 162 |   14.7px |  -73.2 |  8.4 | Balanced |
-| 163 |   15.6px |  -88.5 |  7.0 | Balanced |
-| 164 |   14.7px | -127.6 |  6.3 | Overexposed |
-| 165 |   15.0px |  -31.5 | 10.0 | Balanced |
-| 166 |   17.0px | -109.2 |  6.9 | Balanced |
-| 167 |   14.3px |  -63.0 |  8.6 | Daredevil |
-| 168 |   18.7px |  -62.7 |  8.5 | Sniper |
-| 169 |   15.1px | -186.6 |  4.4 | Balanced |
-| 170 |   14.5px | -233.5 |  2.3 | Overexposed |
-| 171 |   17.3px |  -68.8 |  8.3 | Balanced |
-| 172 |   14.1px | -111.7 |  6.6 | Balanced |
-| 173 |   14.6px | -170.9 |  4.6 | Overexposed |
-| 174 |   14.9px | -126.9 |  6.2 | Balanced |
-| 175 |   18.0px |  -14.2 | 10.1 | Sniper |
-| 176 |   15.3px |  -66.3 |  8.2 | Balanced |
-| 177 |   17.9px |  -56.8 |  8.8 | Sniper |
-| 178 |   15.2px | -109.1 |  6.7 | Balanced |
-| 179 |   15.9px | -115.8 |  6.6 | Balanced |
-| 180 |   16.1px |  -34.0 |  8.8 | Balanced |
-| 181 |   15.8px | -207.3 |  2.8 | Balanced |
-| 182 |   14.9px | -108.3 |  6.7 | Balanced |
-| 183 |   15.9px |  -82.7 |  7.7 | Balanced |
-| 184 |   15.0px |  -86.4 |  7.5 | Balanced |
-| 185 |   14.4px |  -86.2 |  7.7 | Balanced |
-| 186 |   16.1px |  -62.4 |  8.3 | Balanced |
-| 187 |   17.0px | -144.1 |  5.5 | Cautious Underperformer |
-| 188 |   16.1px |  -34.2 |  9.4 | Sniper |
-| 189 |   16.5px | -211.5 |  3.4 | Cautious Underperformer |
-| 190 |   15.3px | -115.0 |  6.4 | Balanced |
+| 1 |   16.7px |  -18.6 |  2.4 | Cautious Underperformer |
+| 2 |   15.8px |   14.3 |  4.6 | Balanced |
+| 3 |   16.2px |    5.0 |  3.8 | Cautious Underperformer |
+| 4 |   13.3px |   10.0 |  3.4 | Overexposed |
+| 5 |   16.7px |   65.0 |  6.9 | Sniper |
+| 6 |   14.6px |   38.6 |  5.4 | Daredevil |
+| 7 |   14.0px |   15.4 |  4.5 | Balanced |
+| 8 |   15.8px |  136.9 | 10.0 | Balanced |
 
 ### Takeaways
 
-- Min-distance trend: stagnation (low confidence).
-- Danger exposure trend: volatile (low confidence (noisy)).
+- Min-distance trend: volatile (low confidence (noisy)).
+- Danger exposure trend: stagnation (low confidence).
 
 ### Glossary
 
@@ -1041,53 +919,47 @@ Analysis of how close agents let asteroids get before reacting or killing them.
 | Category | Metric | Value |
 |----------|--------|-------|
 | Turn | Deadzone Rate | 0.0% |
-| Turn | Turn Balance (R-L) | -0.05 |
-| Turn | Switch Rate | 26.0% |
-| Turn | Avg Streak | 30.5f |
-| Turn | Max Streak | 158f |
-| Aim | Frontness Avg | 51.3% |
-| Aim | Frontness at Shot | 51.2% |
-| Aim | Frontness at Hit | 56.5% |
-| Aim | Shot Distance | 166.7px |
-| Aim | Hit Distance | 125.8px |
-| Danger | Exposure Rate | 15.7% |
-| Danger | Entries | 2.8 |
+| Turn | Turn Balance (R-L) | +0.39 |
+| Turn | Switch Rate | 35.3% |
+| Turn | Avg Streak | 18.3f |
+| Turn | Max Streak | 108f |
+| Aim | Frontness Avg | 49.2% |
+| Aim | Frontness at Shot | 48.3% |
+| Aim | Frontness at Hit | 55.0% |
+| Aim | Shot Distance | 134.2px |
+| Aim | Hit Distance | 112.5px |
+| Danger | Exposure Rate | 16.8% |
+| Danger | Entries | 3.8 |
 | Danger | Reaction Time | 0.0f |
 | Danger | Wraps in Danger | 0.0 |
-| Movement | Distance Traveled | 64.6px |
-| Movement | Avg Speed | 0.08 |
-| Movement | Speed Std | 0.08 |
-| Movement | Coverage Ratio | 11.9% |
-| Shooting | Shots per Kill | 7.40 |
-| Shooting | Shots per Hit | 2.39 |
-| Shooting | Cooldown Usage | 89.0% |
-| Shooting | Cooldown Ready | 1.5% |
-| Stability | Fitness Std (Seeds) | 109.1 |
+| Movement | Distance Traveled | 312.0px |
+| Movement | Avg Speed | 0.34 |
+| Movement | Speed Std | 0.22 |
+| Movement | Coverage Ratio | 19.4% |
+| Shooting | Shots per Kill | 6.34 |
+| Shooting | Shots per Hit | 2.50 |
+| Shooting | Cooldown Usage | 68.7% |
+| Shooting | Cooldown Ready | 8.7% |
+| Stability | Fitness Std (Seeds) | 123.9 |
 
-### Recent Control Trends (Last 10)
+### Recent Control Trends (Last 8)
 
 | Gen | Deadzone | Turn Bias | Switch | Frontness | Danger | Coverage |
 |-----|----------|-----------|--------|-----------|--------|----------|
-| 181 |    0.0% |  -0.22 |   28.4% |   51.6% |   13.8% |   15.1% |
-| 182 |    0.0% |  -0.08 |   30.7% |   52.2% |   14.7% |   16.1% |
-| 183 |    0.0% |  -0.18 |   28.5% |   50.8% |   19.2% |   17.1% |
-| 184 |    0.0% |  -0.26 |   26.4% |   50.9% |   19.3% |   16.9% |
-| 185 |    0.0% |  -0.04 |   28.2% |   51.1% |   16.2% |   15.2% |
-| 186 |    0.0% |  +0.02 |   28.8% |   50.6% |   18.3% |   13.4% |
-| 187 |    0.0% |  -0.02 |   29.1% |   50.2% |   14.4% |   13.7% |
-| 188 |    0.0% |  +0.15 |   32.2% |   51.4% |   17.9% |   14.0% |
-| 189 |    0.0% |  +0.02 |   32.3% |   50.4% |   13.3% |   10.9% |
-| 190 |    0.0% |  -0.05 |   26.0% |   51.3% |   15.7% |   11.9% |
-
-
-
-
+| 1 |    0.0% |  -0.03 |   23.9% |   46.1% |   14.2% |   38.9% |
+| 2 |    0.0% |  -0.02 |   34.3% |   49.7% |   18.6% |   40.0% |
+| 3 |    0.0% |  +0.30 |   28.6% |   49.5% |   16.5% |   22.5% |
+| 4 |    0.0% |  +0.49 |   17.1% |   49.3% |   12.3% |   18.1% |
+| 5 |    0.0% |  +0.19 |   36.6% |   50.9% |   14.0% |   35.8% |
+| 6 |    0.0% |  +0.19 |   34.6% |   49.8% |   12.4% |   30.6% |
+| 7 |    0.0% |  +0.51 |   35.5% |   50.9% |   13.6% |   15.8% |
+| 8 |    0.0% |  +0.39 |   35.3% |   49.2% |   16.8% |   19.4% |
 
 ### Takeaways
 
-- Turn balance trend: stagnation (low confidence).
+- Turn balance trend: sharp regression (low confidence (noisy)).
 - Aim alignment trend: stagnation (low confidence).
-- Danger exposure trend: volatile (low confidence (noisy)).
+- Danger exposure trend: stagnation (low confidence).
 
 ### Glossary
 
@@ -1117,15 +989,15 @@ Analysis of how close agents let asteroids get before reacting or killing them.
 
 **Recent 20 Generations Analysis:**
 
-- Average Standard Deviation: 88.51
-- Average Range (Best-Min): 412.66
-- Diversity Change: -1.4%
+- Average Standard Deviation: 74.13
+- Average Range (Best-Min): 251.97
+- Diversity Change: +24.5%
 - **Status:** Population has balanced diversity
 
 ### Takeaways
 
 - Convergence status: balanced.
-- Diversity change: -1.4%.
+- Diversity change: +24.5%.
 
 ### Glossary
 
@@ -1139,10 +1011,10 @@ Analysis of how close agents let asteroids get before reacting or killing them.
 
 | Period | Avg Kills | Avg Steps | Avg Accuracy | Safe Dist | Max Kills |
 |--------|-----------|-----------|--------------|-----------|----------|
-| Q1 | 6.74 | 715 | 34.8% | 158.1px | 21.666666666666668 |
-| Q2 | 7.13 | 708 | 35.7% | 163.1px | 24.333333333333332 |
-| Q3 | 6.86 | 683 | 35.3% | 164.6px | 24.666666666666668 |
-| Q4 | 7.34 | 709 | 35.1% | 162.4px | 23.333333333333332 |
+| Q1 | 3.50 | 618 | 31.8% | 163.1px | 12.0 |
+| Q2 | 3.58 | 513 | 30.2% | 189.8px | 11.333333333333334 |
+| Q3 | 6.15 | 656 | 36.5% | 175.9px | 15.666666666666666 |
+| Q4 | 7.27 | 737 | 36.3% | 157.7px | 15.333333333333334 |
 
 ### Action Distribution & Strategy Evolution
 
@@ -1150,24 +1022,24 @@ Analysis of how the population's physical behavior has changed over time.
 
 | Period | Thrust % | Turn % | Shoot % | Dominant Strategy |
 |--------|----------|--------|---------|-------------------|
-| Q1 | 6.1% | 100.0% | 78.6% | **Skirmisher** |
-| Q2 | 3.2% | 100.0% | 90.4% | **Balanced** |
-| Q3 | 3.9% | 100.0% | 94.5% | **Balanced** |
-| Q4 | 2.2% | 100.0% | 94.5% | **Balanced** |
+| Q1 | 33.7% | 100.0% | 41.3% | **Skirmisher** |
+| Q2 | 8.1% | 100.0% | 55.0% | **Balanced** |
+| Q3 | 15.4% | 100.0% | 75.2% | **Balanced** |
+| Q4 | 5.8% | 100.0% | 82.1% | **Sniper** |
 
 ### Input Control Style
 
 | Period | Thrust Dur | Turn Dur | Shoot Dur | Idle Rate | Wraps |
 |--------|------------|----------|-----------|-----------|-------|
-| Q1 | 3.4f | 715.0f | 140.7f | 0.0% | 0.2 |
-| Q2 | 0.8f | 707.9f | 185.7f | 0.0% | 0.1 |
-| Q3 | 1.0f | 682.9f | 275.0f | 0.0% | 0.2 |
-| Q4 | 0.6f | 709.0f | 271.7f | 0.0% | 0.1 |
+| Q1 | 9.4f | 618.3f | 41.8f | 0.0% | 1.3 |
+| Q2 | 1.0f | 513.3f | 23.2f | 0.0% | 0.3 |
+| Q3 | 2.4f | 656.0f | 28.6f | 0.0% | 0.5 |
+| Q4 | 1.0f | 737.1f | 112.9f | 0.0% | 0.2 |
 
 ### Takeaways
 
-- Kills trend: volatile.
-- Accuracy trend: stagnation.
+- Kills trend: breakout improvement.
+- Accuracy trend: volatile.
 - Idle rate trend: stagnation.
 
 ### Glossary
@@ -1191,14 +1063,14 @@ Analysis of when agents earn their reward during an episode (Early vs Late game)
 
 | Quarter | Avg Score | Share of Total | Play Style |
 |---------|-----------|----------------|------------|
-| Start (0-25%) | 5.2 | -4.6% | Balanced |
-| Mid-Game (25-50%) | 19.3 | -17.1% | Balanced |
-| Late-Game (50-75%) | 35.9 | -31.9% | Balanced |
-| End-Game (75-100%) | -173.3 | 153.6% | Back-loaded |
+| Start (0-25%) | 30.5 | 19.6% | Balanced |
+| Mid-Game (25-50%) | 56.7 | 36.5% | Balanced |
+| Late-Game (50-75%) | 62.0 | 39.9% | Mid-loaded |
+| End-Game (75-100%) | 6.1 | 4.0% | Balanced |
 
 ### Intra-Episode Takeaways
 
-- Highest scoring quarter: Late-Game (50-75%) (-31.9% of episode reward).
+- Highest scoring quarter: Late-Game (50-75%) (39.9% of episode reward).
 
 ### Intra-Episode Glossary
 
@@ -1211,43 +1083,21 @@ Analysis of when agents earn their reward during an episode (Early vs Late game)
 
 | Gen   | Best   | Avg    | StdDev | Kills  | Steps  | Acc%   | Stag   |
 |-------|--------|--------|--------|--------|--------|--------|--------|
-| 161   | 16     | -179   | 79     | 4.3    | 496    | 27     | 77     |
-| 162   | 201    | -73    | 94     | 8.4    | 748    | 35     | 78     |
-| 163   | 175    | -88    | 100    | 7.0    | 701    | 38     | 79     |
-| 164   | 140    | -128   | 89     | 6.3    | 577    | 33     | 80     |
-| 165   | 333    | -32    | 94     | 10.0   | 890    | 37     | 81     |
-| 166   | 85     | -109   | 78     | 6.9    | 665    | 33     | 82     |
-| 167   | 364    | -63    | 102    | 8.6    | 776    | 36     | 0      |
-| 168   | 122    | -63    | 80     | 8.5    | 792    | 41     | 1      |
-| 169   | 98     | -187   | 67     | 4.4    | 466    | 31     | 2      |
-| 170   | 8      | -233   | 72     | 2.3    | 322    | 20     | 3      |
-| 171   | 271    | -69    | 97     | 8.3    | 803    | 40     | 4      |
-| 172   | 223    | -112   | 117    | 6.6    | 652    | 35     | 5      |
-| 173   | 5      | -171   | 61     | 4.6    | 497    | 32     | 6      |
-| 174   | 226    | -127   | 90     | 6.2    | 589    | 34     | 7      |
-| 175   | 200    | -14    | 86     | 10.1   | 937    | 43     | 8      |
-| 176   | 165    | -66    | 99     | 8.2    | 791    | 37     | 9      |
-| 177   | 214    | -57    | 88     | 8.8    | 817    | 39     | 10     |
-| 178   | 132    | -109   | 91     | 6.7    | 657    | 36     | 11     |
-| 179   | 188    | -116   | 84     | 6.6    | 637    | 32     | 12     |
-| 180   | 302    | -34    | 118    | 8.8    | 840    | 41     | 13     |
-| 181   | 90     | -207   | 74     | 2.8    | 405    | 28     | 14     |
-| 182   | 113    | -108   | 93     | 6.7    | 653    | 31     | 15     |
-| 183   | 183    | -83    | 90     | 7.7    | 737    | 37     | 16     |
-| 184   | 165    | -86    | 101    | 7.5    | 712    | 36     | 17     |
-| 185   | 138    | -86    | 84     | 7.7    | 735    | 33     | 18     |
-| 186   | 167    | -62    | 91     | 8.3    | 784    | 39     | 19     |
-| 187   | 162    | -144   | 82     | 5.5    | 615    | 33     | 20     |
-| 188   | 247    | -34    | 94     | 9.4    | 884    | 39     | 21     |
-| 189   | 6      | -212   | 54     | 3.4    | 390    | 26     | 22     |
-| 190   | 113    | -115   | 76     | 6.4    | 684    | 41     | 23     |
+| 1     | 152    | -19    | 66     | 2.4    | 505    | 30     | 0      |
+| 2     | 107    | 14     | 53     | 4.6    | 732    | 34     | 1      |
+| 3     | 212    | 5      | 80     | 3.8    | 552    | 30     | 0      |
+| 4     | 161    | 10     | 67     | 3.4    | 475    | 30     | 1      |
+| 5     | 207    | 65     | 104    | 6.9    | 732    | 39     | 2      |
+| 6     | 203    | 39     | 75     | 5.4    | 580    | 34     | 3      |
+| 7     | 144    | 15     | 63     | 4.5    | 513    | 33     | 4      |
+| 8     | 282    | 137    | 86     | 10.0   | 961    | 40     | 0      |
 
 </details>
 
 ### Recent Table Takeaways
 
-- Recent table covers 30 generations ending at Gen 190.
-- Latest best fitness: 113.5.
+- Recent table covers 8 generations ending at Gen 8.
+- Latest best fitness: 281.5.
 
 ### Recent Table Glossary
 
@@ -1270,22 +1120,20 @@ Analysis of when agents earn their reward during an episode (Early vs Late game)
 
 | Rank | Gen   | Best   | Avg    | Kills  | Steps  | Accuracy |
 |------|-------|--------|--------|--------|--------|----------|
-| 1    | 167   | 364    | -63    | 21.3   | 1500   | 48.6     |
-| 2    | 84    | 355    | -49    | 24.3   | 1500   | 53.2     |
-| 3    | 68    | 341    | -87    | 22.0   | 1279   | 55.4     |
-| 4    | 165   | 333    | -32    | 23.3   | 1352   | 54.0     |
-| 5    | 107   | 326    | -1     | 21.0   | 1390   | 51.4     |
-| 6    | 34    | 318    | -58    | 20.3   | 1218   | 49.8     |
-| 7    | 142   | 313    | 17     | 17.7   | 1500   | 46.1     |
-| 8    | 17    | 311    | -23    | 20.0   | 1311   | 52.2     |
-| 9    | 119   | 305    | -42    | 24.7   | 1485   | 55.2     |
-| 10   | 180   | 302    | -34    | 18.3   | 1187   | 50.8     |
+| 1    | 8     | 282    | 137    | 15.3   | 1161   | 44.9     |
+| 2    | 3     | 212    | 5      | 11.3   | 885    | 43.7     |
+| 3    | 5     | 207    | 65     | 15.7   | 1216   | 48.1     |
+| 4    | 6     | 203    | 39     | 10.7   | 758    | 47.6     |
+| 5    | 4     | 161    | 10     | 7.3    | 649    | 34.8     |
+| 6    | 1     | 152    | -19    | 5.7    | 624    | 41.0     |
+| 7    | 7     | 144    | 15     | 8.7    | 697    | 42.9     |
+| 8    | 2     | 107    | 14     | 12.0   | 1021   | 27.4     |
 
 </details>
 
 ### Top Generations Takeaways
 
-- Top generation is Gen 167 with best fitness 364.0.
+- Top generation is Gen 8 with best fitness 281.5.
 
 ### Top Generations Glossary
 
@@ -1297,24 +1145,7 @@ Analysis of when agents earn their reward during an episode (Early vs Late game)
 
 ## Trend Analysis
 
-| Phase | Avg Best | Avg Mean | Avg Min | Improvement |
-|-------|----------|----------|---------|-------------|
-| Phase 1 (0-25%) | 175.2 | -96.5 | -245.6 |  |
-| Phase 2 (25-51%) | 167.9 | -95.9 | -245.5 | -7.3 |
-| Phase 3 (51-75%) | 166.2 | -102.3 | -252.3 | -1.7 |
-| Phase 4 (75-100%) | 163.7 | -96.8 | -246.0 | -2.5 |
-
-### Takeaways
-
-- Best fitness: stagnation (low confidence).
-- Average fitness: volatile (low confidence (noisy)).
-- Minimum fitness: volatile (low confidence (noisy)).
-
-### Glossary
-
-- **Best fitness:** Highest per-generation fitness across the population (max average reward).
-- **Average fitness:** Mean fitness across the population for a generation.
-- **Minimum fitness:** Lowest fitness in the population for a generation.
+Not enough data for trend analysis.
 
 
 ## Fitness Progression (ASCII Chart)
@@ -1322,30 +1153,30 @@ Analysis of when agents earn their reward during an episode (Early vs Late game)
 ```
 Best Fitness (*) vs Avg Fitness (o) Over Generations
 
-     318 |           *                                                    
-     283 |                                               *                
-     248 |                   *                      *  *  *  *            
-     213 |        **  *   *          *          * *                *      
-     178 |     **          *       *       *                        *     
-     143 |* *    *  *    *        *                     *  **  **      ** 
-     108 |             *    * * **  *  *     * * * *  *              *   *
-      73 | * **         *             *  *    *      *        *  **   *   
-      38 |                   o *        * * *                             
-       3 |                                               o                
-     -32 |                                             o    oo      o     
-     -67 |         o oo  ooo     o o o                    oo              
-    -102 |     o  o     o       o     o    o    ooo     o       o      o  
-    -137 |o o   oo          o  o    o  o     ooo    o o       o  o o o   o
-    -172 | o oo     o  o      o   o     ooo        o                    o 
-    -207 |                                  o        o         o  o   o   
-         ----------------------------------------------------------------
-         Gen 1                                                 Gen 190
+     282 |       *
+     262 |        
+     242 |        
+     222 |        
+     201 |  * **  
+     181 |        
+     161 |        
+     141 |*  *  * 
+     121 |       o
+     101 | *      
+      81 |        
+      61 |    o   
+      41 |        
+      21 |     o  
+       1 | ooo  o 
+     -19 |o       
+         --------
+         Gen 1Gen 8
 ```
 
 ### Takeaways
 
-- Best fitness trend: stagnation (low confidence).
-- Average fitness trend: volatile (low confidence (noisy)).
+- Best fitness trend: breakout improvement (high confidence).
+- Average fitness trend: breakout improvement (low confidence (noisy)).
 
 ### Glossary
 
@@ -1360,15 +1191,15 @@ Best Fitness (*) vs Avg Fitness (o) Over Generations
 ## System Performance
 
 **Average Duration (Last 10 Generations):** 0.00s
-- **Evaluation (Simulation):** 3275.37s (0.0%)
-- **Evolution (GA Operators):** 0.0000s (0.0%)
+- **Evaluation (Simulation):** 21.21s (0.0%)
+- **Evolution (Operators):** 0.0000s (0.0%)
 
 | Phase | Gen Range | Avg Eval Time | Avg Evol Time | Total Time |
 |-------|-----------|---------------|---------------|------------|
-| Phase 1 (0-25%) | 1-48 | 111.86s | 0.0000s | 0.00s |
-| Phase 2 (25-51%) | 49-96 | 106.95s | 0.0000s | 0.00s |
-| Phase 3 (51-75%) | 97-143 | 102.58s | 0.0000s | 0.00s |
-| Phase 4 (75-100%) | 144-190 | 780.37s | 0.0000s | 0.00s |
+| Phase 1 (0-25%) | 1-2 | 19.40s | 0.0000s | 0.00s |
+| Phase 2 (25-50%) | 3-4 | 17.46s | 0.0000s | 0.00s |
+| Phase 3 (50-75%) | 5-6 | 22.85s | 0.0000s | 0.00s |
+| Phase 4 (75-100%) | 7-8 | 25.14s | 0.0000s | 0.00s |
 
 ### Takeaways
 
@@ -1384,13 +1215,13 @@ Best Fitness (*) vs Avg Fitness (o) Over Generations
 ## ES Optimizer Diagnostics
 
 **Recent Averages (Last 10 Generations):**
-- **Sigma:** 0.14635
-- **Cov diag mean:** 0.99980
+- **Sigma:** 0.13093
+- **Cov diag mean:** 0.87392
 - **Cov diag std:** 0.000571
-- **Cov diag mean abs dev:** 0.000481
-- **Cov diag max abs dev:** 0.002407
-- **Cov lr scale:** 541.95
-- **Cov lr effective rate:** 0.001000
+- **Cov diag mean abs dev:** 0.000902
+- **Cov diag max abs dev:** 0.003348
+- **Cov lr scale:** 8750.00
+- **Cov lr effective rate:** 0.000680
 
 ### Optimizer Takeaways
 

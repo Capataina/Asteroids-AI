@@ -19,7 +19,7 @@ class ESConfig:
     # Number of perturbations sampled per generation.
     # Higher values give better gradient estimates but cost more compute.
     # With antithetic sampling, this is split into N/2 pairs of +ε/-ε.
-    POPULATION_SIZE = 100
+    POPULATION_SIZE = 10
 
     # Total number of generations to train for.
     # Each generation: sample → evaluate → update mean.
